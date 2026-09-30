@@ -19,7 +19,7 @@ const SHIPPING: Record<ShippingMethod, { label: string; cost: number; needsBranc
 
 export function Checkout() {
   const router = useRouter()
-  const { cart, total, clearCart } = useCart()
+  const { cart, total, clearCart, hydrated } = useCart()
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -57,6 +57,9 @@ export function Checkout() {
     setCoupon("")
     setCouponError("")
   }
+
+  // Wait for the saved cart so a returning shopper doesn't see "empty" flash by.
+  if (!hydrated) return <div className="min-h-[60vh]" aria-busy="true" />
 
   // Empty cart guard
   if (cart.length === 0) {

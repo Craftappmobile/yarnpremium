@@ -10,7 +10,7 @@ import { useCart } from "./cart-context"
 import { CartDrawer } from "./cart-drawer"
 
 export function WishlistView() {
-  const { wishlist, removeFromWishlist } = useWishlist()
+  const { wishlist, removeFromWishlist, hydrated } = useWishlist()
   const { addToCart } = useCart()
   const [isCartOpen, setIsCartOpen] = useState(false)
 
@@ -27,7 +27,7 @@ export function WishlistView() {
 
         <h1 className="mt-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Список бажань</h1>
 
-        {wishlist.length === 0 ? (
+        {!hydrated ? null : wishlist.length === 0 ? (
           <div className="mt-16 flex flex-col items-center justify-center text-center">
             <Heart className="w-10 h-10 text-zinc-300 dark:text-zinc-700" />
             <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">Ваш список бажань порожній</p>

@@ -92,6 +92,11 @@ export function sortProducts<T extends Product>(items: T[], sort: SortOption): T
   }
 }
 
+/** Current catalog entry for a product id (used to restore a saved cart/wishlist). */
+export function getProductById(id: string): Product | undefined {
+  return products.find((p) => p.id === id)
+}
+
 /**
  * Slider bounds that cover every product: price rounded out to whole hryvnias,
  * length rounded out to the 10 m slider step.
