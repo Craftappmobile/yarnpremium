@@ -1,4 +1,4 @@
-import { WishlistView } from "@/components/kokonutui/wishlist-view"
+import { WishlistView } from "@/components/shop/wishlist-view"
 
 export const metadata = {
   title: "Список бажань — SINSERITA",
