@@ -53,13 +53,11 @@ export function TopBar({
       } border-b border-zinc-200 dark:border-zinc-800`}
     >
       <div className="flex items-center justify-between px-3 h-12">
-      <Link
-          href="https://kokonutui.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-zinc-800 dark:text-zinc-200 shrink-0"
+        <Link
+          href="/"
+          className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 shrink-0"
         >
-          Shop
+          SINSERITA
         </Link>
         <div className="flex-1 min-w-0 px-4 flex items-center justify-center gap-2 overflow-x-auto scrollbar-none">
           <button
@@ -105,7 +103,8 @@ export function TopBar({
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search products..."
+              placeholder="Пошук товарів…"
+              aria-label="Пошук товарів"
               className={`w-48 sm:w-56 bg-zinc-100 dark:bg-zinc-800 rounded-md text-sm px-3 py-1.5 
                                 text-zinc-800 dark:text-zinc-200
                                 focus:outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700
@@ -120,6 +119,7 @@ export function TopBar({
                   setIsSearchOpen(false)
                   onSearch("")
                 }}
+                aria-label="Закрити пошук"
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-zinc-200 
                                     dark:hover:bg-zinc-700 rounded-full text-zinc-600 dark:text-zinc-400"
               >
@@ -130,6 +130,7 @@ export function TopBar({
           <button
             type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
+            aria-label="Пошук"
             className={`p-1.5 rounded-md transition-colors text-zinc-700 dark:text-zinc-300 ${
               isSearchOpen ? "bg-zinc-100 dark:bg-zinc-800" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
             }`}
@@ -155,6 +156,7 @@ export function TopBar({
           <button
             type="button"
             onClick={onCartClick}
+            aria-label="Кошик"
             className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md relative text-zinc-700 dark:text-zinc-300"
           >
             <ShoppingBag className="w-4 h-4" />

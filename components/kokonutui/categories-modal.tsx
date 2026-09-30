@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react"
 import { motion } from "motion/react"
 import { X, Search } from "lucide-react"
 import { type Product, categoryList } from "./data"
+import { pluralUk } from "@/lib/utils"
 
 interface CategoriesModalProps {
   allProducts: Product[]
@@ -55,7 +56,7 @@ export function CategoriesModal({
       {/* Backdrop */}
       <button
         type="button"
-        aria-label="Close categories"
+        aria-label="Закрити категорії"
         onClick={onClose}
         className="absolute inset-0 bg-zinc-950/40 backdrop-blur-sm"
       />
@@ -63,7 +64,7 @@ export function CategoriesModal({
       <motion.div
         role="dialog"
         aria-modal="true"
-        aria-label="All categories"
+        aria-label="Всі категорії"
         className="relative z-10 mt-8 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
         initial={{ opacity: 0, y: 12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -78,7 +79,7 @@ export function CategoriesModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="Закрити"
             className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
           >
             <X className="h-4 w-4" />
@@ -96,13 +97,13 @@ export function CategoriesModal({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Пошук категорії…"
-              aria-label="Search categories"
+              aria-label="Пошук категорії"
               className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:focus:ring-zinc-600"
             />
           </div>
           <div className="mt-2 flex items-center justify-between">
             <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-              {matches.length} {matches.length === 1 ? "категорія" : "категорій"}
+              {matches.length} {pluralUk(matches.length, ["категорія", "категорії", "категорій"])}
             </span>
             {selectedCategories.length > 0 && (
               <button

@@ -2,16 +2,17 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Check, X, Heart, Minus, Plus, ShoppingBag } from "lucide-react"
 import { type Product, formatPrice } from "./data"
 import { useCart } from "./cart-context"
 import { useWishlist } from "./wishlist-context"
+import { CartDrawer } from "./cart-drawer"
 
 export function ProductDetail({ product }: { product: Product }) {
-  const router = useRouter()
   const inStock = product.stock > 0
   const [quantity, setQuantity] = useState(1)
+  const [isCartOpen, setIsCartOpen] = useState(false)
   const { addToCart } = useCart()
   const { isWishlisted, toggleWishlist } = useWishlist()
   const wished = isWishlisted(product.id)
@@ -100,7 +101,7 @@ export function ProductDetail({ product }: { product: Product }) {
                   type="button"
                   onClick={() => {
                     addToCart(product, quantity)
-                    router.push("/checkout")
+                    setIsCartOpen(true)
                   }}
                   className="w-full inline-flex items-center justify-center gap-2 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
                 >
@@ -134,6 +135,8 @@ export function ProductDetail({ product }: { product: Product }) {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>{isCartOpen && <CartDrawer onClose={() => setIsCartOpen(false)} />}</AnimatePresence>
     </main>
   )
 }
