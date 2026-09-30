@@ -47,6 +47,8 @@ export type SitePage = {
   sections: ContentSection[]
 }
 
+import { COD_PREPAYMENT, PICKUP_POINT } from "@/lib/order"
+
 const BRAND = "SINSERITA"
 
 const contacts: ContactInfo = {
@@ -100,6 +102,13 @@ export const sitePages: SitePage[] = [
         heading: "Наші контакти",
         card: true,
         contacts,
+      },
+      {
+        heading: "Самовивіз",
+        blocks: [
+          { type: "paragraph", text: PICKUP_POINT.address },
+          { type: "paragraph", text: PICKUP_POINT.hours },
+        ],
       },
     ],
   },
@@ -158,7 +167,11 @@ export const sitePages: SitePage[] = [
         blocks: [
           {
             type: "paragraph",
-            text: "Товари, придбані на Сайті, доставляються перевізниками Укрпошта та Нова Пошта. Відправка замовлень здійснюється протягом 1–4 робочих днів після підтвердження замовлення.",
+            text: "Товари, придбані на Сайті, доставляються Новою Поштою (у відділення, поштомат або кур'єром на адресу) та Укрпоштою. Відправка замовлень здійснюється протягом 1–4 робочих днів після підтвердження замовлення.",
+          },
+          {
+            type: "paragraph",
+            text: `Також можна забрати замовлення самостійно: ${PICKUP_POINT.address} (${PICKUP_POINT.hours}).`,
           },
           {
             type: "paragraph",
@@ -190,7 +203,11 @@ export const sitePages: SitePage[] = [
         blocks: [
           {
             type: "paragraph",
-            text: "Оплата замовлень здійснюється безготівково — за допомогою банківських карток або інших електронних платіжних систем, доступних на сайті.",
+            text: "Оплатити замовлення можна повністю банківською карткою онлайн або накладеним платежем при отриманні.",
+          },
+          {
+            type: "paragraph",
+            text: `Для накладеного платежу потрібна передоплата ${COD_PREPAYMENT} ₴, решту суми ви сплачуєте у відділенні перевізника (перевізник стягує власну комісію за переказ коштів). При самовивозі оплата можлива на місці.`,
           },
         ],
       },
