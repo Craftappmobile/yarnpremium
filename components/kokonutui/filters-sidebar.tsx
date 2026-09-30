@@ -114,14 +114,14 @@ export function FiltersSidebar({
   return (
     <aside className="w-full space-y-10">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Filters</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Фільтри</h2>
         {isFiltered && (
           <button
             type="button"
             onClick={onReset}
             className="text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
           >
-            Clear all
+            Скинути все
           </button>
         )}
       </div>
@@ -144,7 +144,7 @@ export function FiltersSidebar({
             max={maxBound}
             value={minPrice}
             onChange={(e) => setMin(Number(e.target.value))}
-            aria-label="Minimum price"
+            aria-label="Мінімальна ціна"
             className="range-thumb absolute inset-x-0 w-full appearance-none bg-transparent pointer-events-none"
           />
           <input
@@ -153,7 +153,7 @@ export function FiltersSidebar({
             max={maxBound}
             value={maxPrice}
             onChange={(e) => setMax(Number(e.target.value))}
-            aria-label="Maximum price"
+            aria-label="Максимальна ціна"
             className="range-thumb absolute inset-x-0 w-full appearance-none bg-transparent pointer-events-none"
           />
         </div>
@@ -253,14 +253,14 @@ export function FiltersSidebar({
             value={categoryQuery}
             onChange={(e) => setCategoryQuery(e.target.value)}
             placeholder="Пошук категорії…"
-            aria-label="Search categories"
+            aria-label="Пошук категорії"
             className="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-1.5 pl-8 pr-7 text-xs text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600"
           />
           {categoryQuery && (
             <button
               type="button"
               onClick={() => setCategoryQuery("")}
-              aria-label="Clear category search"
+              aria-label="Очистити пошук категорії"
               className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
             >
               <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">

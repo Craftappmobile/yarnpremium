@@ -1,14 +1,18 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
+import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Heart, X, ShoppingBag } from "lucide-react"
 import { formatPrice } from "./data"
 import { useWishlist } from "./wishlist-context"
 import { useCart } from "./cart-context"
+import { CartDrawer } from "./cart-drawer"
 
 export function WishlistView() {
   const { wishlist, removeFromWishlist } = useWishlist()
   const { addToCart } = useCart()
+  const [isCartOpen, setIsCartOpen] = useState(false)
 
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -73,7 +77,10 @@ export function WishlistView() {
                       <button
                         type="button"
                         disabled={!inStock}
-                        onClick={() => addToCart(product, 1)}
+                        onClick={() => {
+                          addToCart(product, 1)
+                          setIsCartOpen(true)
+                        }}
                         className="inline-flex items-center gap-2 py-2 px-4 text-sm font-medium rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 disabled:cursor-not-allowed"
                       >
                         <ShoppingBag className="w-4 h-4" />
@@ -87,6 +94,8 @@ export function WishlistView() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>{isCartOpen && <CartDrawer onClose={() => setIsCartOpen(false)} />}</AnimatePresence>
     </main>
   )
 }

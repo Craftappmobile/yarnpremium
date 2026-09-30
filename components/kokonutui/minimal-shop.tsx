@@ -9,8 +9,9 @@ import { TopBar } from "./top-bar"
 import { FiltersSidebar, type Filters } from "./filters-sidebar"
 import { CategoriesModal } from "./categories-modal"
 import { Footer } from "./footer"
-import { type Product, products, type SortOption, sortOptions, sortProducts } from "./data"
+import { type Product, products, type SortOption, sortOptions, sortProducts, getFilterBounds } from "./data"
 import { useCart } from "./cart-context"
+import { pluralUk } from "@/lib/utils"
 
 export default function MinimalShop() {
   const { cart, itemCount, addToCart } = useCart()
@@ -20,9 +21,7 @@ export default function MinimalShop() {
   const [searchQuery, setSearchQuery] = useState("")
   const [sort, setSort] = useState<SortOption>("default")
 
-  const priceBounds = useMemo<[number, number]>(() => [0, 272], [])
-
-  const lengthBounds = useMemo<[number, number]>(() => [100, 10000], [])
+  const { price: priceBounds, length: lengthBounds } = useMemo(() => getFilterBounds(products), [])
 
   const [filters, setFilters] = useState<Filters>({
     priceRange: priceBounds,
@@ -93,7 +92,7 @@ export default function MinimalShop() {
           <div className="flex-1 min-w-0">
             <div className="mb-4 flex items-center justify-between gap-4">
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                {sortedProducts.length} {sortedProducts.length === 1 ? "товар" : "товарів"}
+                {sortedProducts.length} {pluralUk(sortedProducts.length, ["товар", "товари", "товарів"])}
               </p>
               <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <span className="hidden sm:inline">Сортувати:</span>
@@ -114,13 +113,13 @@ export default function MinimalShop() {
               <ProductGrid products={sortedProducts} onProductSelect={setSelectedProduct} />
             ) : (
               <div className="flex flex-col items-center justify-center py-24 text-center">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">No products match your filters.</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Немає товарів за вибраними фільтрами.</p>
                 <button
                   type="button"
                   onClick={resetFilters}
                   className="mt-3 text-xs font-medium text-zinc-900 dark:text-zinc-100 underline underline-offset-4"
                 >
-                  Clear all filters
+                  Скинути фільтри
                 </button>
               </div>
             )}
