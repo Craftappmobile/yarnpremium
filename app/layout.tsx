@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import type React from "react"
-import { CartProvider } from "@/components/kokonutui/cart-context"
-import { WishlistProvider } from "@/components/kokonutui/wishlist-context"
+import { CartProvider } from "@/components/shop/cart-context"
+import { WishlistProvider } from "@/components/shop/wishlist-context"
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] })
 

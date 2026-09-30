@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
-import { products } from "@/components/kokonutui/data"
-import { ProductDetail } from "@/components/kokonutui/product-detail"
+import { products } from "@/components/shop/data"
+import { ProductDetail } from "@/components/shop/product-detail"
 
 // Only known SKUs render; unknown ones 404.
 export const dynamicParams = false

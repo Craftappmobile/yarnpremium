@@ -1,6 +1,6 @@
 "use client"
 
-import MinimalShop from "@/components/kokonutui/minimal-shop"
+import MinimalShop from "@/components/shop/minimal-shop"
 
 export default function Home() {
   return (

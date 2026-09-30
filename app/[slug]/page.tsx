@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Mail, Phone, MapPin } from "lucide-react"
-import { sitePages, getSitePage, type ContentSection } from "@/components/kokonutui/site-content"
+import { sitePages, getSitePage, type ContentSection } from "@/components/shop/site-content"
 
 // Лише відомі сторінки з site-content.ts, інші URL → 404
 export const dynamicParams = false

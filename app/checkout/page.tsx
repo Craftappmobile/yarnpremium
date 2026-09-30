@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Checkout } from "@/components/kokonutui/checkout"
+import { Checkout } from "@/components/shop/checkout"
 
 export const metadata: Metadata = {
   title: "Оформлення замовлення | SINSERITA",
