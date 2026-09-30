@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
       .slice(0, 50)
       .map((w: any) => ({ ref: w.Ref as string, description: w.Description as string }))
     return NextResponse.json({ configured: true, warehouses })
-  } catch {
+  } catch (err) {
+    console.error("[nova-poshta] getWarehouses failed:", err instanceof Error ? err.message : err)
     return NextResponse.json(
       { configured: true, warehouses: [], error: "Помилка запиту до Нової Пошти" },
       { status: 502 },

@@ -21,7 +21,8 @@ export async function POST(req: NextRequest) {
         name: a.Present as string,
       }))
     return NextResponse.json({ configured: true, cities })
-  } catch {
+  } catch (err) {
+    console.error("[nova-poshta] searchSettlements failed:", err instanceof Error ? err.message : err)
     return NextResponse.json({ configured: true, cities: [], error: "Помилка запиту до Нової Пошти" }, { status: 502 })
   }
 }

@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
     const addresses: any[] = data[0]?.Addresses ?? []
     const streets = addresses.map((a) => ({ ref: a.SettlementStreetRef as string, name: a.Present as string }))
     return NextResponse.json({ configured: true, streets })
-  } catch {
+  } catch (err) {
+    console.error("[nova-poshta] searchSettlementStreets failed:", err instanceof Error ? err.message : err)
     return NextResponse.json({ configured: true, streets: [], error: "Помилка запиту до Нової Пошти" }, { status: 502 })
   }
 }
