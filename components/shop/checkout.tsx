@@ -7,6 +7,7 @@ import { ArrowLeft, MapPin, Clock } from "lucide-react"
 import { useCart } from "./cart-context"
 import { formatPrice, applyCoupon, type Coupon } from "./data"
 import { NovaPoshtaFields } from "./nova-poshta-fields"
+import { UkrposhtaFields } from "./ukrposhta-fields"
 import {
   COD_PREPAYMENT,
   DELIVERY_METHODS,
@@ -283,32 +284,7 @@ export function Checkout() {
             )}
 
             {delivery.method === "ukrposhta" && (
-              <>
-                <div>
-                  <label className="mb-1.5 block text-sm">
-                    Населений пункт <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    value={delivery.city?.name ?? ""}
-                    onChange={(e) => patchDelivery({ city: { name: e.target.value } })}
-                    placeholder="Наприклад: Хмельницький"
-                    className={`${inputBase} ${errCls("city")}`}
-                  />
-                  {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm">
-                    Відділення Укрпошти <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    value={delivery.point?.name ?? ""}
-                    onChange={(e) => patchDelivery({ point: { name: e.target.value } })}
-                    placeholder="Індекс або номер відділення"
-                    className={`${inputBase} ${errCls("point")}`}
-                  />
-                  {errors.point && <p className="mt-1 text-xs text-red-500">{errors.point}</p>}
-                </div>
-              </>
+              <UkrposhtaFields delivery={delivery} onChange={patchDelivery} errors={errors} inputClass={inputBase} />
             )}
 
             {delivery.method === "pickup" && (
