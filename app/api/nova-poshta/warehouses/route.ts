@@ -1,39 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { npCall, npConfigured, cleanQuery } from "@/lib/nova-poshta"
 
-const NP_URL = "https://api.novaposhta.ua/v2.0/json/"
-
-// Returns Nova Poshta warehouses (відділення/поштомати) for a given settlement ref.
+// Returns Nova Poshta branches or postomats for a city (DeliveryCity ref).
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.NOVA_POSHTA_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ configured: false, warehouses: [] })
-  }
+  if (!npConfigured()) return NextResponse.json({ configured: false, warehouses: [] })
 
-  const { cityRef, query } = await req.json()
-  if (!cityRef || typeof cityRef !== "string") {
-    return NextResponse.json({ configured: true, warehouses: [] })
-  }
+  const { cityRef, query, kind } = await req.json().catch(() => ({}))
+  const ref = cleanQuery(cityRef, 64)
+  if (!ref) return NextResponse.json({ configured: true, warehouses: [] })
+  const wantPostomat = kind === "postomat"
 
   try {
-    const res = await fetch(NP_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        apiKey,
-        modelName: "AddressGeneral",
-        calledMethod: "getWarehouses",
-        methodProperties: {
-          SettlementRef: cityRef,
-          FindByString: typeof query === "string" ? query : "",
-          Limit: "50",
-        },
-      }),
+    const data = await npCall("AddressGeneral", "getWarehouses", {
+      CityRef: ref,
+      FindByString: cleanQuery(query),
+      Limit: "500",
+      Page: "1",
     })
-    const data = await res.json()
-    const warehouses = (data?.data ?? []).map((w: any) => ({
-      ref: w.Ref as string,
-      description: w.Description as string,
-    }))
+    const warehouses = data
+      .filter((w: any) => (w.CategoryOfWarehouse === "Postomat") === wantPostomat)
+      .slice(0, 50)
+      .map((w: any) => ({ ref: w.Ref as string, description: w.Description as string }))
     return NextResponse.json({ configured: true, warehouses })
   } catch {
     return NextResponse.json(
