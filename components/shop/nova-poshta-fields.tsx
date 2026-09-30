@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { AutocompleteField } from "./autocomplete-field"
+import { useLookup } from "./use-lookup"
 import type { OrderDelivery } from "@/lib/order"
 
 export type NpMode = "np_warehouse" | "np_postomat" | "np_courier"
@@ -12,43 +13,6 @@ interface NovaPoshtaFieldsProps {
   onChange: (patch: Partial<OrderDelivery>) => void
   errors: Record<string, string>
   inputClass: string
-}
-
-/**
- * Debounced POST lookup against one of our /api/nova-poshta routes.
- * `body` = null disables the request and clears the results.
- */
-function useLookup<T>(url: string, body: Record<string, string> | null, field: string) {
-  const [items, setItems] = useState<T[]>([])
-  const [loading, setLoading] = useState(false)
-  const key = body ? JSON.stringify(body) : null
-
-  useEffect(() => {
-    if (!key) {
-      setItems([])
-      setLoading(false)
-      return
-    }
-    let active = true
-    setLoading(true)
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: key })
-        const data = await res.json()
-        if (active) setItems(data[field] ?? [])
-      } catch {
-        if (active) setItems([])
-      } finally {
-        if (active) setLoading(false)
-      }
-    }, 300)
-    return () => {
-      active = false
-      clearTimeout(t)
-    }
-  }, [url, key, field])
-
-  return { items, loading }
 }
 
 export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass }: NovaPoshtaFieldsProps) {

@@ -43,10 +43,27 @@ export function paymentSplit(method: PaymentMethod, total: number): { now: numbe
 
 export interface OrderDelivery {
   method: DeliveryMethod
-  /** Settlement. `ref` = Nova Poshta city ref, `settlementRef` = NP settlement ref (for street search). */
-  city?: { name: string; ref?: string; settlementRef?: string }
-  /** Nova Poshta branch/postomat or Ukrposhta office. `ref` = carrier id when picked from the API. */
-  point?: { name: string; ref?: string }
+  /**
+   * Settlement; `name` is the label shown to the customer.
+   * Nova Poshta: `ref` = city ref, `settlementRef` = settlement ref (for street search).
+   * Ukrposhta: `ref` = address-classifier CITY_ID; `title` = bare settlement name,
+   * `region`/`district` (+ classifier ids) identify it for the shipment in KeyCRM.
+   */
+  city?: {
+    name: string
+    ref?: string
+    settlementRef?: string
+    title?: string
+    region?: string
+    regionId?: string
+    district?: string
+    districtId?: string
+  }
+  /**
+   * Nova Poshta branch/postomat or Ukrposhta office. `ref` = carrier id when picked from the API.
+   * Ukrposhta: `ref` = classifier office ID, `postcode` = office index (the recipient postcode).
+   */
+  point?: { name: string; ref?: string; postcode?: string }
   /** Courier delivery address. */
   address?: { street: string; streetRef?: string; house: string; flat?: string }
 }
