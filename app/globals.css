@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 24, 24, 27;
+}
+
+/*
+ * The site uses Tailwind's class-based dark mode (darkMode: 'class') and is
+ * currently rendered in light mode, so the body text color must NOT follow the
+ * OS `prefers-color-scheme`. Otherwise a dark-OS forces white text onto the
+ * light zinc-50 backgrounds and everything becomes invisible.
+ */
+body {
+  color: rgb(var(--foreground-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Dual-range price slider thumbs */
+.range-thumb {
+  height: 0;
+}
+
+.range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid #18181b;
+  cursor: pointer;
+  margin-top: 0;
+}
+
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid #18181b;
+  cursor: pointer;
+}
+
+
+

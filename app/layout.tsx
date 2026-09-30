@@ -1,0 +1,31 @@
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import type React from "react" // Import React
+import { CartProvider } from "@/components/kokonutui/cart-context"
+import { WishlistProvider } from "@/components/kokonutui/wishlist-context"
+
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata: Metadata = {
+  title: "SINSERITA — магазин пряжі",
+  description: "Стокова пряжа для в'язання: широкий вибір кольорів та метражу. Меринос, кашемір, альпака, шовк.",
+  generator: "v0.app",
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="uk" className="bg-zinc-50 dark:bg-zinc-950">
+      <body className={inter.className}>
+        <CartProvider>
+          <WishlistProvider>{children}</WishlistProvider>
+        </CartProvider>
+      </body>
+    </html>
+  )
+}
+
