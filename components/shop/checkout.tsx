@@ -36,7 +36,8 @@ export function Checkout() {
   const [coupon, setCoupon] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState<{ coupon: Coupon; discount: number } | null>(null)
   const [couponError, setCouponError] = useState("")
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  // Errors appear after the first submit attempt and then update live as fields are fixed.
+  const [showErrors, setShowErrors] = useState(false)
 
   // Recompute the discount against the live subtotal so it stays valid if the
   // cart changes after a coupon was applied.
@@ -74,7 +75,6 @@ export function Checkout() {
       return { method, city: sameCarrier ? prev.city : undefined }
     })
     if (!paymentMethodsFor(method).includes(payment)) setPayment(paymentMethodsFor(method)[0])
-    setErrors({})
   }
 
   const patchDelivery = (patch: Partial<OrderDelivery>) => setDelivery((prev) => ({ ...prev, ...patch }))
@@ -100,7 +100,7 @@ export function Checkout() {
     )
   }
 
-  const validate = () => {
+  const getErrors = () => {
     const e: Record<string, string> = {}
     if (!firstName.trim()) e.firstName = "Вкажіть імʼя"
     if (!lastName.trim()) e.lastName = "Вкажіть прізвище"
@@ -116,13 +116,14 @@ export function Checkout() {
         e.point = delivery.method === "np_postomat" ? "Оберіть поштомат" : "Оберіть відділення"
       }
     }
-    setErrors(e)
-    return Object.keys(e).length === 0
+    return e
   }
+  const errors = showErrors ? getErrors() : {}
 
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
-    if (!validate()) return
+    setShowErrors(true)
+    if (Object.keys(getErrors()).length > 0) return
 
     const order: Order = {
       customer: { firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim(), email: email.trim() },
