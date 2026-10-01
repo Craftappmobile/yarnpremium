@@ -5,7 +5,7 @@ import { useReturnFocus } from "./use-return-focus"
 import { m } from "motion/react"
 import { X, Minus, Plus } from "lucide-react"
 import Link from "next/link"
-import { formatPrice, formatQuantity, quantityRules, stepQuantity } from "./data"
+import { TAIL_DISCOUNT, formatPrice, formatQuantity, lineTotal, quantityRules, stepQuantity, tailGrams } from "./data"
 import { useCart } from "./cart-context"
 import { ProductImage } from "./product-image"
 
@@ -116,13 +116,15 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <p className="text-base font-medium tabular-nums">{formatPrice(item.price * item.quantity)}</p>
+                        <p className="text-base font-medium tabular-nums">{formatPrice(lineTotal(item, item.quantity))}</p>
                       </div>
 
                       <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1.5">
-                        {atMax
-                          ? `Максимум на складі: ${formatQuantity(item.stock, item.priceUnit)}`
-                          : `${formatQuantity(item.stock, item.priceUnit)} в наявності`}
+                        {tailGrams(item, item.quantity) > 0
+                          ? `Увесь залишок: на ${formatQuantity(tailGrams(item, item.quantity), item.priceUnit)} знижка ${TAIL_DISCOUNT * 100}%`
+                          : atMax
+                            ? `Максимум на складі: ${formatQuantity(item.stock, item.priceUnit)}`
+                            : `${formatQuantity(item.stock, item.priceUnit)} в наявності`}
                       </p>
                     </div>
                   </div>

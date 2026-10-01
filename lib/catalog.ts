@@ -14,7 +14,7 @@
 //   catalog:meta       JSON  report of the last sync
 //   catalog:lock       lock  held while a sync runs
 
-import type { Product } from "@/components/shop/data"
+import { MIN_SELLABLE_GRAMS, type Product } from "@/components/shop/data"
 import type { YarnColor } from "@/lib/image-color"
 import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
@@ -38,17 +38,18 @@ const MULTI_NAME = /мульти|секційн|принт|омбре|граді
 /** KeyCRM categories that are not sold on the site (compared case-insensitively). */
 const EXCLUDED_CATEGORIES = ["стікери", "палітри", "подарунковий сертифікат", "спиці", "засоби для прання"]
 const SALE_CATEGORY = "акційний товар"
-/** Grams: the minimum is 100 g (50 g for cashmere), then ±10 g. */
+/** Grams: the minimum is 100 g (50 g for cashmere), then ±50 g. */
 const GRAM_MIN = 100
 const CASHMERE_GRAM_MIN = 50
-const GRAM_STEP = 10
+const GRAM_STEP = 50
 const DESCRIPTION_MAX = 1000
 
 /** Cashmere is sold from 50 g: its category says so, or for sale items its name starts with it. */
 function isCashmere(name: string, category: string): boolean {
   const cat = category.toLowerCase()
   if (cat.includes("кашемір")) return true
-  return cat === SALE_CATEGORY && name.trim().toLowerCase().startsWith("кашемір")
+  const n = name.trim().toLowerCase()
+  return cat === SALE_CATEGORY && (n.startsWith("кашемір") || n.includes("кашемір шовк"))
 }
 
 /** KeyCRM sometimes serves images through a "/remote?url=" proxy; use the original URL. */
@@ -265,8 +266,10 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
   }
 }
 
+/** Live stock, with crumbs of yarn by weight (under MIN_SELLABLE_GRAMS, e.g. 1 g after reserves) treated as sold out. */
 function withLiveStock(p: Product, stock: string | null | undefined): Product {
-  return stock === null || stock === undefined ? p : { ...p, stock: Number(stock) }
+  const live = stock === null || stock === undefined ? p.stock : Number(stock)
+  return { ...p, stock: p.priceUnit === "г" && live < MIN_SELLABLE_GRAMS ? 0 : live }
 }
 
 /** Every non-archived product, sold-out ones included, newest first. Empty until the first sync. */

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Check, X, Heart, ShoppingBag } from "lucide-react"
-import { type Product, clampQuantity, formatPrice, formatQuantity } from "./data"
+import { type Product, clampQuantity, formatPrice, formatQuantity, lineTotal } from "./data"
 import { QuantityPicker } from "./quantity-picker"
 import { useCart } from "./cart-context"
 import { useWishlist } from "./wishlist-context"
@@ -238,7 +238,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-base font-bold tabular-nums leading-tight">
-                  {formatPrice(product.price * quantity)}
+                  {formatPrice(lineTotal(product, quantity))}
                 </p>
                 <p className="text-xs text-zinc-500 tabular-nums">{formatQuantity(quantity, product.priceUnit)}</p>
               </div>

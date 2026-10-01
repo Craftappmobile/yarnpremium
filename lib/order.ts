@@ -72,8 +72,11 @@ export interface Order {
   /** KeyCRM order id, shown to the customer as the order number. */
   number?: number
   customer: { firstName: string; lastName: string; phone: string; email: string }
-  /** `quantity` is in `unit` (grams for yarn sold by weight); `price` is per unit. */
-  items: { id: string; sku: string; name: string; price: number; quantity: number; unit: string }[]
+  /**
+   * `quantity` is in `unit` (grams for yarn sold by weight); `price` is per unit.
+   * `tail`: grams of it at TAIL_DISCOUNT (end of a spool taken whole); `total` is the line price.
+   */
+  items: { id: string; sku: string; name: string; price: number; quantity: number; unit: string; tail?: number; total?: number }[]
   subtotal: number
   total: number
   delivery: OrderDelivery

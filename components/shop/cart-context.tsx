@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
-import { type Product, type CartItem, clampQuantity } from "./data"
+import { type Product, type CartItem, clampQuantity, lineTotal } from "./data"
 import { isProductLike, lookupProducts } from "./catalog-client"
 import { readStorage, writeStorage, parseStorageEvent } from "@/lib/storage"
 
@@ -111,7 +111,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const itemCount = cart.length
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const total = cart.reduce((sum, item) => sum + lineTotal(item, item.quantity), 0)
 
   return (
     <CartContext.Provider

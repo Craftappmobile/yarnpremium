@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, MapPin, Clock } from "lucide-react"
 import { useCart } from "./cart-context"
-import { formatPrice, formatQuantity } from "./data"
+import { formatPrice, formatQuantity, TAIL_DISCOUNT, lineTotal, tailGrams } from "./data"
 import { NovaPoshtaFields } from "./nova-poshta-fields"
 import { UkrposhtaFields } from "./ukrposhta-fields"
 import {
@@ -299,8 +299,13 @@ export function Checkout() {
                 <li key={item.id} className="flex justify-between gap-3 py-3 text-sm">
                   <span className="text-zinc-600 dark:text-zinc-300">
                     {item.name} <span className="whitespace-nowrap text-zinc-500">× {formatQuantity(item.quantity, item.priceUnit)}</span>
+                    {tailGrams(item, item.quantity) > 0 && (
+                      <span className="block text-xs text-emerald-700">
+                        Увесь залишок: на {formatQuantity(tailGrams(item, item.quantity), item.priceUnit)} знижка {TAIL_DISCOUNT * 100}%
+                      </span>
+                    )}
                   </span>
-                  <span className="whitespace-nowrap tabular-nums">{formatPrice(item.price * item.quantity)}</span>
+                  <span className="whitespace-nowrap tabular-nums">{formatPrice(lineTotal(item, item.quantity))}</span>
                 </li>
               ))}
             </ul>

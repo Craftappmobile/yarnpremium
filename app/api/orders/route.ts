@@ -5,7 +5,7 @@ import { createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { SHOP_PHONE } from "@/lib/site"
-import { isValidQuantity } from "@/components/shop/data"
+import { isValidQuantity, lineTotal, tailGrams } from "@/components/shop/data"
 import {
   effectivePaymentMethod,
   normalizePhone,
@@ -96,9 +96,19 @@ export async function POST(req: NextRequest) {
 
     const orderItems = lines.map((l) => {
       const p = products.get(l.sku)!
-      return { id: p.id, sku: p.sku, name: p.name, price: p.price, quantity: l.quantity, unit: p.priceUnit }
+      const tail = tailGrams(p, l.quantity)
+      return {
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        price: p.price,
+        quantity: l.quantity,
+        unit: p.priceUnit,
+        ...(tail > 0 ? { tail } : {}),
+        total: lineTotal(p, l.quantity),
+      }
     })
-    const subtotal = money(orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0))
+    const subtotal = money(orderItems.reduce((sum, i) => sum + i.total, 0))
     const method = effectivePaymentMethod(body.payment, delivery.method, subtotal)
     const split = paymentSplit(method, subtotal)
     const order: Order = {
