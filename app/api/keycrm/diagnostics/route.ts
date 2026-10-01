@@ -99,7 +99,7 @@ export async function GET() {
       if (/кашемір|cashmere/i.test(`${p.name} ${cat}`)) cashmere++
     }
 
-    return NextResponse.json({
+    const report = {
       tookSeconds: Math.round((Date.now() - started) / 1000),
       products: {
         total: products.length,
@@ -130,9 +130,15 @@ export async function GET() {
         statuses: (statuses as any).data,
         deliveryServices: (deliveryServices as any).data,
         paymentMethods: (paymentMethods as any).data,
-        customFields: (Array.isArray(customFields) ? customFields : (customFields as any).data ?? customFields),
+        customFields: Array.isArray(customFields) ? customFields : ((customFields as any).data ?? customFields),
       },
-    })
+    }
+    // Also written to the runtime log (in chunks, log lines are size-limited) so it
+    // can be read from Vercel without opening the protected preview.
+    const text = JSON.stringify(report)
+    const parts = Math.ceil(text.length / 3000)
+    for (let i = 0; i < parts; i++) console.log(`[keycrm-diagnostics ${i + 1}/${parts}] ${text.slice(i * 3000, (i + 1) * 3000)}`)
+    return NextResponse.json(report)
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 502 })
   }
