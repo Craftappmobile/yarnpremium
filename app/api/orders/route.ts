@@ -4,6 +4,7 @@ import { readProducts, reserveStock } from "@/lib/catalog"
 import { createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
+import { SHOP_PHONE } from "@/lib/site"
 import { isValidQuantity } from "@/components/shop/data"
 import {
   effectivePaymentMethod,
@@ -29,18 +30,18 @@ const money = (n: number) => Math.round(n * 100) / 100
 
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as OrderRequest | null
-  if (!body || typeof body !== "object") return NextResponse.json({ error: "Некоректний запит" }, { status: 400 })
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
   // Bots fill every field; people never see this one.
-  if (body.website) return NextResponse.json({ error: "Некоректний запит" }, { status: 400 })
+  if (body.website) return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
 
   const id = text(body.id, 64)
   const items = Array.isArray(body.items) ? body.items : []
   if (!/^[\w-]{8,64}$/.test(id) || items.length === 0 || items.length > 50) {
-    return NextResponse.json({ error: "Некоректний запит" }, { status: 400 })
+    return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
   }
   const lines = items.map((i) => ({ sku: text(i?.sku, 64), quantity: Number(i?.quantity) }))
   if (lines.some((l) => !l.sku || !Number.isFinite(l.quantity) || l.quantity <= 0)) {
-    return NextResponse.json({ error: "Некоректний запит" }, { status: 400 })
+    return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
   }
 
   const customer = {
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Перевірте дані замовлення", fields }, { status: 400 })
   }
   if (!keycrmConfigured() || !redisConfigured()) {
-    return NextResponse.json({ error: "Оформлення тимчасово недоступне. Зателефонуйте нам, будь ласка." }, { status: 503 })
+    return NextResponse.json({ error: `Оформлення тимчасово недоступне. Зателефонуйте нам: ${SHOP_PHONE}, і ми приймемо замовлення.` }, { status: 503 })
   }
 
   const r = await redis()
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
   if (attempts === 1) await r.expire(`ratelimit:orders:${ip}`, RATE_WINDOW)
   if (attempts > RATE_LIMIT) {
     return NextResponse.json(
-      { error: "Забагато спроб оформлення. Спробуйте через 10 хвилин або зателефонуйте нам." },
+      { error: `Забагато спроб оформлення. Спробуйте через 10 хвилин або зателефонуйте нам: ${SHOP_PHONE}.` },
       { status: 429 },
     )
   }
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
     await r.del(ORDER_KEY(id)).catch(() => {})
     console.error("[orders] failed:", (e as Error).message, (e as { body?: string }).body ?? "")
     return NextResponse.json(
-      { error: "Не вдалося оформити замовлення. Спробуйте ще раз або зателефонуйте нам." },
+      { error: `Не вдалося оформити замовлення. Спробуйте ще раз або зателефонуйте нам: ${SHOP_PHONE}.` },
       { status: 502 },
     )
   }

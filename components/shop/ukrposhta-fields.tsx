@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { AutocompleteField } from "./autocomplete-field"
-import { useLookup } from "./use-lookup"
+import { LOOKUP_FAILED, useLookup } from "./use-lookup"
 import type { OrderDelivery } from "@/lib/order"
 
 interface UkrposhtaFieldsProps {
@@ -113,7 +113,7 @@ export function UkrposhtaFields({ delivery, onChange, errors, inputClass }: Ukrp
           onChange({ city: picked, point: undefined })
         }}
         loading={cities.loading}
-        emptyText="Нічого не знайдено"
+        emptyText={cities.failed ? LOOKUP_FAILED : "Нічого не знайдено"}
         error={errors.city}
         inputClass={inputClass}
       />
@@ -135,7 +135,7 @@ export function UkrposhtaFields({ delivery, onChange, errors, inputClass }: Ukrp
         }}
         loading={offices.loading}
         disabled={!city}
-        emptyText="Відділень не знайдено"
+        emptyText={offices.failed ? LOOKUP_FAILED : "Відділень не знайдено"}
         error={errors.point}
         inputClass={inputClass}
       />

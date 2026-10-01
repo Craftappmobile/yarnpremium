@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { AutocompleteField } from "./autocomplete-field"
-import { useLookup } from "./use-lookup"
+import { LOOKUP_FAILED, useLookup } from "./use-lookup"
 import type { OrderDelivery } from "@/lib/order"
 
 export type NpMode = "np_warehouse" | "np_postomat" | "np_courier"
@@ -178,7 +178,7 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
           onChange({ city: picked, point: undefined, address: undefined })
         }}
         loading={cities.loading}
-        emptyText="Нічого не знайдено"
+        emptyText={cities.failed ? LOOKUP_FAILED : "Нічого не знайдено"}
         error={errors.city}
         inputClass={inputClass}
       />
@@ -200,7 +200,7 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
             }}
             loading={streets.loading}
             disabled={!city}
-            emptyText="Вулицю не знайдено"
+            emptyText={streets.failed ? LOOKUP_FAILED : "Вулицю не знайдено"}
             error={errors.street}
             inputClass={inputClass}
           />
@@ -222,7 +222,7 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
           }}
           loading={points.loading}
           disabled={!city}
-          emptyText={mode === "np_postomat" ? "Поштоматів не знайдено" : "Відділень не знайдено"}
+          emptyText={points.failed ? LOOKUP_FAILED : mode === "np_postomat" ? "Поштоматів не знайдено" : "Відділень не знайдено"}
           error={errors.point}
           inputClass={inputClass}
         />
