@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { OrderConfirmation } from "@/components/shop/order-confirmation"
 
 export const metadata: Metadata = {
-  title: "Замовлення прийнято | SINSERITA",
+  title: "Замовлення прийнято",
   description: "Дякуємо за замовлення",
   robots: { index: false },
 }

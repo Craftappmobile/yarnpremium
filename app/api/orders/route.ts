@@ -21,6 +21,9 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 const ORDER_KEY = (id: string) => `order:${id}`
+/** Order attempts allowed per visitor IP in RATE_WINDOW seconds. */
+const RATE_LIMIT = 10
+const RATE_WINDOW = 600
 const text = (v: unknown, max = 200) => (typeof v === "string" ? v.trim().slice(0, max) : "")
 const money = (n: number) => Math.round(n * 100) / 100
 
@@ -56,6 +59,17 @@ export async function POST(req: NextRequest) {
   }
 
   const r = await redis()
+  // Keeps bots from flooding KeyCRM with orders.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+  const attempts = await r.incr(`ratelimit:orders:${ip}`)
+  if (attempts === 1) await r.expire(`ratelimit:orders:${ip}`, RATE_WINDOW)
+  if (attempts > RATE_LIMIT) {
+    return NextResponse.json(
+      { error: "Забагато спроб оформлення. Спробуйте через 10 хвилин або зателефонуйте нам." },
+      { status: 429 },
+    )
+  }
+
   // A repeated submit (double click, retry after a lost response) returns the order already placed.
   const previous = await r.get(ORDER_KEY(id))
   if (previous && previous !== "pending") return NextResponse.json({ order: JSON.parse(previous) })
