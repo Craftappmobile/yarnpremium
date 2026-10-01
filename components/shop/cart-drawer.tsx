@@ -7,6 +7,7 @@ import { X, Minus, Plus } from "lucide-react"
 import Link from "next/link"
 import { formatPrice, formatQuantity, quantityRules, stepQuantity } from "./data"
 import { useCart } from "./cart-context"
+import { ProductImage } from "./product-image"
 
 interface CartDrawerProps {
   onClose: () => void
@@ -70,9 +71,12 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                 const atMax = item.quantity >= max
                 return (
                   <div key={item.id} className="flex gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
-                    <img
-                      src={item.image || "/placeholder.svg"}
+                    <ProductImage
+                      src={item.image}
                       alt={item.name}
+                      width={96}
+                      height={96}
+                      sizes="96px"
                       className="w-24 h-24 object-cover rounded-md"
                     />
                     <div className="flex-1 min-w-0">

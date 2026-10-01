@@ -9,6 +9,7 @@ import Link from "next/link"
 import { type Product, clampQuantity, formatPrice, formatQuantity } from "./data"
 import { QuantityPicker } from "./quantity-picker"
 import { useWishlist } from "./wishlist-context"
+import { ProductImage } from "./product-image"
 
 interface ProductModalProps {
   product: Product
@@ -47,9 +48,12 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
       >
         <div className="h-full flex flex-col md:flex-row max-h-[88dvh] md:max-h-[560px]">
           <div className="relative md:w-2/5 shrink-0">
-            <img
-              src={product.image || "/placeholder.svg"}
+            <ProductImage
+              src={product.image}
               alt={product.name}
+              width={480}
+              height={600}
+              sizes="(min-width: 768px) 310px, 100vw"
               className="w-full h-[200px] md:h-full object-cover"
             />
             <Dialog.Close asChild>

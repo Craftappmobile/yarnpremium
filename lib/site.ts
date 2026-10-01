@@ -2,9 +2,6 @@
 
 export const BRAND = "SINCERITA"
 
-/** Where KeyCRM serves product photos from; the browser connects to it early. */
-export const IMAGE_ORIGIN = "https://sincerita.api.keycrm.app"
-
 /** Shop phone, shown wherever we ask people to call. */
 export const SHOP_PHONE = "+38 068 992 9059"
 export const SHOP_PHONE_HREF = "+380689929059"

@@ -3,6 +3,7 @@
 import { Heart } from "lucide-react"
 import { type Product, formatPrice } from "./data"
 import { useWishlist } from "./wishlist-context"
+import { ProductImage } from "./product-image"
 
 interface ProductGridProps {
   products: Product[]
@@ -27,14 +28,14 @@ export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
               className="block w-full text-left rounded-md"
             >
               <div className="relative aspect-[4/5] bg-white dark:bg-zinc-900 rounded-md overflow-hidden">
-                <img
-                  src={product.image || "/placeholder.svg"}
+                <ProductImage
+                  src={product.image}
                   alt={product.name}
                   width={400}
                   height={500}
+                  sizes="(min-width: 1280px) 200px, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
                   loading={i < 6 ? "eager" : "lazy"}
                   fetchPriority={i < 2 ? "high" : undefined}
-                  decoding="async"
                   className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                 />
                 {product.stock === 0 && (

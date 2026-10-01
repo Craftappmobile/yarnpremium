@@ -2,12 +2,11 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import type React from "react"
-import { preconnect } from "react-dom"
 import { CartProvider } from "@/components/shop/cart-context"
 import { WishlistProvider } from "@/components/shop/wishlist-context"
 import { UtmCapture } from "@/components/shop/utm-capture"
 import { MotionProvider } from "@/components/shop/motion-provider"
-import { BRAND, IMAGE_ORIGIN, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
+import { BRAND, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] })
 
@@ -35,8 +34,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Product photos come from KeyCRM: open that connection while the page loads.
-  preconnect(IMAGE_ORIGIN)
   return (
     <html lang="uk" className="bg-zinc-50 dark:bg-zinc-950">
       <body className={`${inter.className} antialiased`}>

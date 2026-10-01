@@ -8,6 +8,7 @@ import { formatPrice, formatQuantity } from "./data"
 import { useWishlist } from "./wishlist-context"
 import { useCart } from "./cart-context"
 import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
+import { ProductImage } from "./product-image"
 
 export function WishlistView() {
   const { wishlist, removeFromWishlist, hydrated } = useWishlist()
@@ -48,10 +49,12 @@ export function WishlistView() {
                   key={product.id}
                   className="flex gap-4 p-3 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800"
                 >
-                  <img
-                    src={product.image || "/placeholder.svg"}
+                  <ProductImage
+                    src={product.image}
                     alt={product.name}
-                    loading="lazy"
+                    width={96}
+                    height={96}
+                    sizes="96px"
                     className="w-24 h-24 object-cover rounded-md shrink-0"
                   />
                   <div className="flex-1 min-w-0 flex flex-col">
