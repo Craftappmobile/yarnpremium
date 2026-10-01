@@ -42,20 +42,23 @@ export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
                 />
                 {product.stock === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/60">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-200">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-200">
                       Немає в наявності
                     </span>
                   </div>
                 )}
               </div>
               <div className="mt-1.5 space-y-0.5">
-                <h3 className="text-xs leading-4 font-medium line-clamp-2 min-h-8">{product.name}</h3>
-                <div className="flex justify-between items-center gap-1">
-                  <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                <h3 className="text-sm leading-5 font-medium line-clamp-2 min-h-10">{product.name}</h3>
+                <div className="flex justify-between items-baseline gap-2">
+                  <p className="shrink-0 text-sm tabular-nums text-zinc-700 dark:text-zinc-300">
                     {formatPrice(product.price)}
                     {product.priceUnit === "г" && <span className="text-zinc-500"> / г</span>}
                   </p>
-                  <p className="text-[10px] text-zinc-500 dark:text-zinc-500 truncate">{product.category}</p>
+                  {/* The colour tells skeins of one yarn apart; long names can hide it. */}
+                  <p className="min-w-0 text-right text-xs text-zinc-500 dark:text-zinc-500 truncate">
+                    {product.color || product.category}
+                  </p>
                 </div>
               </div>
             </button>

@@ -10,7 +10,7 @@ export const metadata = {
 
 function DraftBadge() {
   return (
-    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">Чернетка</span>
+    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Чернетка</span>
   )
 }
 

@@ -93,14 +93,14 @@ export function CategoriesModal({
             />
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-500">
+            <span className="text-xs text-zinc-500 dark:text-zinc-500">
               {matches.length} {pluralUk(matches.length, ["категорія", "категорії", "категорій"])}
             </span>
             {selectedCategories.length > 0 && (
               <button
                 type="button"
                 onClick={onClearCategories}
-                className="text-[11px] font-medium text-zinc-500 underline underline-offset-4 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                className="text-xs font-medium text-zinc-500 underline underline-offset-4 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
               >
                 Скинути ({selectedCategories.length})
               </button>
