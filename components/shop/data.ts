@@ -37,8 +37,6 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number
-  /** Grams of `quantity` taken through a leftover offer, at TAIL_DISCOUNT. */
-  tail?: number
 }
 
 /** Formats a price in UAH with Ukrainian comma decimals, e.g. 2.08 -> "2,08 ₴". */
@@ -93,85 +91,77 @@ export function getFilterBounds(items: Product[]): { price: [number, number]; le
 
 type QuantityProduct = Pick<Product, "stock" | "minQty" | "step" | "priceUnit">
 
-/** Discount on the leftover of a spool a buyer agrees to take, so none is left behind. */
+/** Share of the price taken off the end of a spool that comes with a purchase so none is left behind. */
 export const TAIL_DISCOUNT = 0.1
-/** Yarn by weight with less than this left isn't offered at all (e.g. 1 g after reserves). */
-export const MIN_SELLABLE_GRAMS = 20
 
 const byWeight = (p: Pick<Product, "priceUnit">) => p.priceUnit === "г"
 
 /**
- * Quantities on offer. Yarn by weight: from the minimum (100 g, cashmere 50 g)
- * in steps (50 g) up to the whole spool; with less than the minimum in stock,
- * only all of it.
+ * Quantities that can be bought. Yarn by weight: from the minimum (100 g,
+ * cashmere 50 g) in steps (50 g), and a purchase may not leave less than the
+ * minimum behind — then only the whole spool can be taken. A spool already
+ * under the minimum isn't sold at all (the catalog shows it as sold out).
  */
 export function quantityRules(p: QuantityProduct): { min: number; max: number; step: number } {
   if (p.stock < p.minQty) return { min: p.stock, max: p.stock, step: p.stock }
-  return { min: p.minQty, max: p.stock, step: p.step }
+  // Smallest amount that leaves enough behind; if none does, the whole spool.
+  const min = byWeight(p) && p.stock - p.minQty < p.minQty ? p.stock : p.minQty
+  return { min, max: p.stock, step: p.step }
 }
 
-/**
- * Grams that would stay on the spool, too few to sell on their own, if the
- * buyer took `quantity`: the site offers them at TAIL_DISCOUNT instead
- * (160 g in stock, 100 g wanted → 60 g). 0 when nothing like that is left.
- */
-export function leftoverOffer(p: QuantityProduct, quantity: number): number {
-  if (!byWeight(p)) return 0
-  const left = p.stock - quantity
-  return left > 0 && left < p.minQty ? left : 0
-}
-
-/**
- * Whether `quantity` can be bought, `tail` grams of it being an accepted
- * leftover offer: a step of the grid that leaves at least the minimum behind,
- * or the whole spool — as is, or as a step plus its discounted leftover.
- */
-export function isValidQuantity(p: QuantityProduct, quantity: number, tail = 0): boolean {
-  if (tail > 0) return quantity === p.stock && leftoverOffer(p, quantity - tail) === tail && isOnGrid(p, quantity - tail)
+/** Whether `quantity` may be bought: the whole stock, or a step that leaves at least the minimum behind. */
+export function isValidQuantity(p: QuantityProduct, quantity: number): boolean {
+  if (byWeight(p) && p.stock < p.minQty) return false
   if (quantity === p.stock) return quantity > 0
-  return isOnGrid(p, quantity) && quantity < p.stock && leftoverOffer(p, quantity) === 0
+  if (quantity < p.minQty || quantity > p.stock || !Number.isInteger((quantity - p.minQty) / p.step)) return false
+  return !byWeight(p) || p.stock - quantity >= p.minQty
 }
 
-function isOnGrid(p: QuantityProduct, q: number): boolean {
-  return q >= p.minQty && q <= p.stock && Number.isInteger((q - p.minQty) / p.step)
+/** Largest valid amount short of the whole stock, or null when only all of it can be taken. */
+function largestPartial(p: QuantityProduct): number | null {
+  const limit = byWeight(p) ? p.stock - p.minQty : p.stock - 1
+  if (limit < p.minQty) return null
+  return p.minQty + Math.floor((limit - p.minQty) / p.step) * p.step
 }
 
-/** Nearest amount the picker can show: on the grid (leftover offers included) or the whole spool. */
 export function clampQuantity(p: QuantityProduct, quantity: number): number {
   const { min, max } = quantityRules(p)
   const q = Math.min(max, Math.max(min, quantity))
-  if (q === max || isOnGrid(p, q)) return q
+  if (isValidQuantity(p, q)) return q
+  const partial = largestPartial(p)
+  // Past the last amount that leaves enough behind: the whole spool.
+  if (partial === null || q > partial) return max
   return p.minQty + Math.floor((q - p.minQty) / p.step) * p.step
 }
 
-/** Nearest amount that can go into the cart without an offer: drops amounts that would leave a leftover. */
-export function clampToBuyable(p: QuantityProduct, quantity: number): number {
-  let q = clampQuantity(p, quantity)
-  while (q < p.stock && leftoverOffer(p, q) > 0 && q - p.step >= p.minQty) q -= p.step
-  return leftoverOffer(p, q) > 0 ? p.stock : q
-}
-
-/** The next amount up or down: grid steps, then the whole spool. */
-export function stepQuantity(p: QuantityProduct, quantity: number, direction: 1 | -1, buyableOnly = false): number {
-  const { min, max, step } = quantityRules(p)
-  let q = quantity
-  for (;;) {
-    if (direction > 0) {
-      const next = q >= max ? max : Math.min(max, min + (Math.floor((q - min) / step) + 1) * step)
-      if (next === q) return q
-      q = next
-    } else {
-      const prev = q >= max && !isOnGrid(p, max) ? min + Math.floor((max - min) / step) * step : min + (Math.ceil((q - min) / step) - 1) * step
-      if (prev < min) return quantity
-      q = prev
-    }
-    if (!buyableOnly || leftoverOffer(p, q) === 0) return q
+/** The next amount up or down from `quantity`; stepping past the last partial amount takes the whole spool. */
+export function stepQuantity(p: QuantityProduct, quantity: number, direction: 1 | -1): number {
+  const partial = largestPartial(p)
+  if (direction > 0) {
+    if (partial === null || quantity >= partial) return p.stock
+    return clampQuantity(p, p.minQty + (Math.floor((quantity - p.minQty) / p.step) + 1) * p.step)
   }
+  if (quantity >= p.stock) return partial ?? p.stock
+  return clampQuantity(p, p.minQty + (Math.ceil((quantity - p.minQty) / p.step) - 1) * p.step)
 }
 
-/** Price of `quantity`, `tail` grams of it at the leftover discount, rounded to kopecks. */
-export function lineTotal(p: Pick<Product, "price">, quantity: number, tail = 0): number {
-  return Math.round((p.price * quantity - p.price * tail * TAIL_DISCOUNT) * 100) / 100
+/**
+ * Grams sold at TAIL_DISCOUNT when the whole spool is taken: what would have
+ * been left behind, too little to sell, had the buyer stopped at the first
+ * amount that leaves less than the minimum (160 g in stock: 100 g → 60 g;
+ * 366 g: 300 g → 66 g). The same whether the buyer picked that amount or
+ * «Взяти все», so the whole spool costs the same either way.
+ */
+export function tailGrams(p: QuantityProduct, quantity: number): number {
+  if (!byWeight(p) || quantity !== p.stock || p.stock < p.minQty) return 0
+  const firstShort = p.minQty + Math.max(0, Math.ceil((p.stock - 2 * p.minQty + 1) / p.step)) * p.step
+  return Math.max(0, p.stock - firstShort)
+}
+
+/** Price of `quantity` with the tail discount, rounded to kopecks. */
+export function lineTotal(p: QuantityProduct & Pick<Product, "price">, quantity: number): number {
+  const total = p.price * quantity - p.price * tailGrams(p, quantity) * TAIL_DISCOUNT
+  return Math.round(total * 100) / 100
 }
 
 /** "350 г" / "3 шт". */

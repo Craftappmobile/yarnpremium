@@ -14,7 +14,7 @@
 //   catalog:meta       JSON  report of the last sync
 //   catalog:lock       lock  held while a sync runs
 
-import { MIN_SELLABLE_GRAMS, type Product } from "@/components/shop/data"
+import type { Product } from "@/components/shop/data"
 import type { YarnColor } from "@/lib/image-color"
 import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
@@ -270,15 +270,15 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
   }
 }
 
-/** Live stock, with crumbs of yarn by weight (under MIN_SELLABLE_GRAMS, e.g. 1 g after reserves) treated as sold out. */
+/**
+ * Live stock. Yarn by weight with less than its minimum left (a mistake in the
+ * warehouse, or crumbs after reserves) isn't sold: it counts as sold out.
+ */
 function withLiveStock(p: Product, stock: string | null | undefined): Product {
   const live = stock === null || stock === undefined ? p.stock : Number(stock)
-  return {
-    ...p,
-    // Recomputed on read, so a change to the rules applies at once, not after the next sync.
-    ...quantityLimits(p.name, p.category, p.priceUnit),
-    stock: p.priceUnit === "г" && live < MIN_SELLABLE_GRAMS ? 0 : live,
-  }
+  // Recomputed on read, so a change to the rules applies at once, not after the next sync.
+  const limits = quantityLimits(p.name, p.category, p.priceUnit)
+  return { ...p, ...limits, stock: p.priceUnit === "г" && live < limits.minQty ? 0 : live }
 }
 
 /** Every non-archived product, sold-out ones included, newest first. Empty until the first sync. */
