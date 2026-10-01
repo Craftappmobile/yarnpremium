@@ -3,31 +3,34 @@
 import { Search, ShoppingBag, X, SlidersHorizontal, Heart } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useWishlist } from "./wishlist-context"
 
 interface TopBarProps {
   cartItemCount: number
-  /** Quick-access category pills. */
-  popularCategories: string[]
   onCartClick: () => void
-  onSearch: (query: string) => void
-  selectedCategories: string[]
-  onToggleCategory: (category: string) => void
-  onClearCategories: () => void
-  onShowAllCategories: () => void
+  /**
+   * The catalog filters the list as people type (`searchQuery` + `onSearch`).
+   * Other pages leave these out: Enter opens the catalog with the search.
+   */
+  searchQuery?: string
+  onSearch?: (query: string) => void
+  /** Quick-access category pills; other pages show no pills. */
+  categories?: {
+    popular: string[]
+    selected: string[]
+    onToggle: (category: string) => void
+    onClear: () => void
+    onShowAll: () => void
+  }
 }
 
-export function TopBar({
-  cartItemCount,
-  popularCategories,
-  onCartClick,
-  onSearch,
-  selectedCategories,
-  onToggleCategory,
-  onClearCategories,
-  onShowAllCategories,
-}: TopBarProps) {
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
+export function TopBar({ cartItemCount, onCartClick, searchQuery, onSearch, categories }: TopBarProps) {
+  const router = useRouter()
+  const [isSearchOpen, setIsSearchOpen] = useState(Boolean(searchQuery))
+  const [draft, setDraft] = useState("")
+  const query = onSearch ? (searchQuery ?? "") : draft
+  const setQuery = onSearch ?? setDraft
   const [isScrolled, setIsScrolled] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { count: wishlistCount } = useWishlist()
@@ -40,7 +43,15 @@ export function TopBar({
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  // A search arriving from the URL (?q=) opens the search field.
+  useEffect(() => {
+    if (searchQuery) setIsSearchOpen(true)
+  }, [searchQuery])
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !onSearch && draft.trim()) {
+      router.push(`/?q=${encodeURIComponent(draft.trim())}`)
+    }
     if (e.key === "Escape") {
       setIsSearchOpen(false)
       searchInputRef.current?.blur()
@@ -60,47 +71,50 @@ export function TopBar({
         >
           SINCERITA
         </Link>
-        <div className="flex-1 min-w-0 px-4 flex items-center [justify-content:safe_center] gap-2 overflow-x-auto overscroll-x-contain scrollbar-none [mask-image:linear-gradient(to_right,transparent,#000_16px,#000_calc(100%-32px),transparent)]">
-          <button
-            type="button"
-            onClick={onClearCategories}
-            aria-pressed={selectedCategories.length === 0}
-            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm transition-colors ${
-              selectedCategories.length === 0
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-medium"
-                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            }`}
-          >
-            Всі
-          </button>
-          {popularCategories.map((category) => {
-            const active = selectedCategories.includes(category)
-            return (
-              <button
-                type="button"
-                key={category}
-                onClick={() => onToggleCategory(category)}
-                aria-pressed={active}
-                className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm transition-colors ${
-                  active
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-medium"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                }`}
-              >
-                {category}
-              </button>
-            )
-          })}
-          <button
-            type="button"
-            onClick={onShowAllCategories}
-            className="shrink-0 whitespace-nowrap flex items-center gap-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 px-3 py-1 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            Всі категорії
-          </button>
-        </div>
-
+        {categories ? (
+          <div className="flex-1 min-w-0 px-4 flex items-center [justify-content:safe_center] gap-2 overflow-x-auto overscroll-x-contain scrollbar-none [mask-image:linear-gradient(to_right,transparent,#000_16px,#000_calc(100%-32px),transparent)]">
+            <button
+              type="button"
+              onClick={categories.onClear}
+              aria-pressed={categories.selected.length === 0}
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm transition-colors ${
+                categories.selected.length === 0
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-medium"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              Всі
+            </button>
+            {categories.popular.map((category) => {
+              const active = categories.selected.includes(category)
+              return (
+                <button
+                  type="button"
+                  key={category}
+                  onClick={() => categories.onToggle(category)}
+                  aria-pressed={active}
+                  className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm transition-colors ${
+                    active
+                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-medium"
+                      : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  {category}
+                </button>
+              )
+            })}
+            <button
+              type="button"
+              onClick={categories.onShowAll}
+              className="shrink-0 whitespace-nowrap flex items-center gap-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 px-3 py-1 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Всі категорії
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
         <div className="flex items-center gap-0.5 shrink-0">
           {isSearchOpen && (
             <div className="relative animate-in fade-in slide-in-from-right-2 duration-150 ease-out motion-reduce:animate-none">
@@ -114,14 +128,15 @@ export function TopBar({
                 placeholder="Назва, колір, артикул…"
                 aria-label="Пошук товарів"
                 className="w-40 sm:w-56 bg-zinc-100 dark:bg-zinc-800 rounded-md text-sm pl-3 pr-8 py-1.5 text-zinc-800 dark:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
-                onChange={(e) => onSearch(e.target.value)}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyPress}
               />
               <button
                 type="button"
                 onClick={() => {
                   setIsSearchOpen(false)
-                  onSearch("")
+                  setQuery("")
                 }}
                 aria-label="Закрити пошук"
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full text-zinc-600 dark:text-zinc-400"
@@ -147,9 +162,7 @@ export function TopBar({
           >
             <Heart className="w-4 h-4" />
             {wishlistCount > 0 && (
-              <span
-                className="animate-in zoom-in-50 duration-200 motion-reduce:animate-none absolute top-0.5 right-0.5 bg-rose-600 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full"
-              >
+              <span className="animate-in zoom-in-50 duration-200 motion-reduce:animate-none absolute top-0.5 right-0.5 bg-rose-600 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full">
                 {wishlistCount}
               </span>
             )}
@@ -176,4 +189,3 @@ export function TopBar({
     </div>
   )
 }
-

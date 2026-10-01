@@ -3,7 +3,7 @@
 import { AnimatePresence } from "motion/react"
 import { SlidersHorizontal } from "lucide-react"
 import { useReturnFocus } from "./use-return-focus"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ProductGrid } from "./product-grid"
 import { CartDrawer, CategoriesModal, MobileFiltersPanel, ProductModal, usePreloadDialogs } from "./lazy-dialogs"
 import { TopBar } from "./top-bar"
@@ -62,6 +62,18 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
     setFilters((prev) => ({ ...prev, categories: [] }))
   }
 
+  // Other pages link here with ?q= (header search) or ?category= (breadcrumbs).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const q = params.get("q")?.trim()
+    const category = params.get("category")
+    if (q) setSearchQuery(q)
+    if (category && products.some((p) => p.category === category)) {
+      setFilters((prev) => ({ ...prev, categories: [category] }))
+    }
+    if (q || category) window.history.replaceState(null, "", window.location.pathname)
+  }, [products])
+
   const showAllCategories = () => {
     setIsCategoriesOpen(true)
   }
@@ -103,13 +115,16 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <TopBar
         cartItemCount={itemCount}
-        popularCategories={popularCategories}
         onCartClick={() => setIsCartOpen(true)}
+        searchQuery={searchQuery}
         onSearch={setSearchQuery}
-        selectedCategories={filters.categories}
-        onToggleCategory={toggleCategory}
-        onClearCategories={clearCategories}
-        onShowAllCategories={showAllCategories}
+        categories={{
+          popular: popularCategories,
+          selected: filters.categories,
+          onToggle: toggleCategory,
+          onClear: clearCategories,
+          onShowAll: showAllCategories,
+        }}
       />
 
       <div className="mx-auto max-w-[1400px] px-4 pt-6 lg:pt-12 pb-16">
