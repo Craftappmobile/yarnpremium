@@ -102,7 +102,7 @@ export function TopBar({
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           {isSearchOpen && (
             <motion.div
               className="relative"
@@ -119,7 +119,7 @@ export function TopBar({
                 enterKeyHint="search"
                 placeholder="Назва, колір, артикул…"
                 aria-label="Пошук товарів"
-                className="w-40 sm:w-56 bg-zinc-100 dark:bg-zinc-800 rounded-md text-sm pl-3 pr-8 py-1.5 text-zinc-800 dark:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                className="w-40 sm:w-56 bg-zinc-100 dark:bg-zinc-800 rounded-md text-sm pl-3 pr-8 py-1.5 text-zinc-800 dark:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
                 onChange={(e) => onSearch(e.target.value)}
                 onKeyDown={handleKeyPress}
               />
@@ -130,7 +130,7 @@ export function TopBar({
                   onSearch("")
                 }}
                 aria-label="Закрити пошук"
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full text-zinc-600 dark:text-zinc-400"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full text-zinc-600 dark:text-zinc-400"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -140,7 +140,7 @@ export function TopBar({
             type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
             aria-label="Пошук"
-            className={`p-1.5 rounded-md transition-colors text-zinc-700 dark:text-zinc-300 ${
+            className={`p-2.5 rounded-md transition-colors text-zinc-700 dark:text-zinc-300 ${
               isSearchOpen ? "bg-zinc-100 dark:bg-zinc-800" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
             }`}
           >
@@ -149,14 +149,14 @@ export function TopBar({
           <Link
             href="/wishlist"
             aria-label={wishlistCount > 0 ? `Список бажань: ${wishlistCount}` : "Список бажань"}
-            className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md relative text-zinc-700 dark:text-zinc-300"
+            className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md relative text-zinc-700 dark:text-zinc-300"
           >
             <Heart className="w-4 h-4" />
             {wishlistCount > 0 && (
               <motion.span
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full"
+                className="absolute top-0.5 right-0.5 bg-rose-500 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full"
               >
                 {wishlistCount}
               </motion.span>
@@ -166,14 +166,14 @@ export function TopBar({
             type="button"
             onClick={onCartClick}
             aria-label={cartItemCount > 0 ? `Кошик: ${cartItemCount}` : "Кошик"}
-            className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md relative text-zinc-700 dark:text-zinc-300"
+            className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md relative text-zinc-700 dark:text-zinc-300"
           >
             <ShoppingBag className="w-4 h-4" />
             {cartItemCount > 0 && (
               <motion.span
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 bg-zinc-900 dark:bg-white 
+                className="absolute top-0.5 right-0.5 bg-zinc-900 dark:bg-white 
                                     text-white dark:text-zinc-900 text-xs font-medium tabular-nums w-4 h-4 
                                     flex items-center justify-center rounded-full"
               >

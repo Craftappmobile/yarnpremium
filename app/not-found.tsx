@@ -8,8 +8,8 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-zinc-50 px-4 text-center">
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-400">404</p>
+    <main id="content" className="flex min-h-dvh flex-col items-center justify-center bg-zinc-50 px-4 text-center">
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">404</p>
       <h1 className="mt-3 text-2xl font-semibold text-balance text-zinc-900">Сторінку не знайдено</h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-pretty text-zinc-500">
         Можливо, цю пряжу вже розпродано і прибрано з каталогу, або посилання застаріло.

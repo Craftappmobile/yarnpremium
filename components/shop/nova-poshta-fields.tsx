@@ -80,7 +80,7 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
     <div className="grid grid-cols-2 gap-4">
       <div>
         <label htmlFor="np-house" className="mb-1.5 block text-sm">
-          Будинок <span className="text-red-500">*</span>
+          Будинок <span className="text-red-600">*</span>
         </label>
         <input
           id="np-house"
@@ -89,7 +89,7 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
           onChange={(e) => onChange({ address: { ...address, house: e.target.value } })}
           className={plainInput(errors.house)}
         />
-        {errors.house && <p className="mt-1 text-xs text-red-500">{errors.house}</p>}
+        {errors.house && <p className="mt-1 text-xs text-red-600">{errors.house}</p>}
       </div>
       <div>
         <label htmlFor="np-flat" className="mb-1.5 block text-sm">Квартира</label>
@@ -109,7 +109,7 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
       <>
         <div>
           <label htmlFor="np-city" className="mb-1.5 block text-sm">
-            Населений пункт <span className="text-red-500">*</span>
+            Населений пункт <span className="text-red-600">*</span>
           </label>
           <input
             id="np-city"
@@ -119,13 +119,13 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
             placeholder="Наприклад: Київ"
             className={plainInput(errors.city)}
           />
-          {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}
+          {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
         </div>
         {mode === "np_courier" ? (
           <>
             <div>
               <label htmlFor="np-street" className="mb-1.5 block text-sm">
-                Вулиця <span className="text-red-500">*</span>
+                Вулиця <span className="text-red-600">*</span>
               </label>
               <input
                 id="np-street"
@@ -134,14 +134,14 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
                 onChange={(e) => onChange({ address: { ...address, street: e.target.value } })}
                 className={plainInput(errors.street)}
               />
-              {errors.street && <p className="mt-1 text-xs text-red-500">{errors.street}</p>}
+              {errors.street && <p className="mt-1 text-xs text-red-600">{errors.street}</p>}
             </div>
             {houseFields}
           </>
         ) : (
           <div>
             <label htmlFor="np-point" className="mb-1.5 block text-sm">
-              {pointLabel} <span className="text-red-500">*</span>
+              {pointLabel} <span className="text-red-600">*</span>
             </label>
             <input
               id="np-point"
@@ -151,7 +151,7 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
               placeholder={mode === "np_postomat" ? "Номер поштомата" : "Наприклад: Відділення №1"}
               className={plainInput(errors.point)}
             />
-            {errors.point && <p className="mt-1 text-xs text-red-500">{errors.point}</p>}
+            {errors.point && <p className="mt-1 text-xs text-red-600">{errors.point}</p>}
           </div>
         )}
       </>

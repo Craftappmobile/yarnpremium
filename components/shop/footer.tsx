@@ -31,7 +31,7 @@ export function Footer() {
             </ul>
           </nav>
 
-          <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          <p className="text-xs text-zinc-500 dark:text-zinc-500">
             {"© "}
             {new Date().getFullYear()} SINCERITA. Усі права захищено.
           </p>

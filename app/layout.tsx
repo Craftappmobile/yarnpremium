@@ -37,6 +37,12 @@ export default function RootLayout({
   return (
     <html lang="uk" className="bg-zinc-50 dark:bg-zinc-950">
       <body className={inter.className}>
+        <a
+          href="#content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-zinc-900 focus:px-4 focus:py-2.5 focus:text-sm focus:font-medium focus:text-white"
+        >
+          Перейти до вмісту
+        </a>
         <UtmCapture />
         <MotionProvider>
           <CartProvider>

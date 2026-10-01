@@ -159,7 +159,7 @@ export function Checkout() {
   }
 
   const inputBase =
-    "w-full rounded-md border bg-white dark:bg-zinc-900 px-3 py-2.5 text-sm outline-none transition-colors focus:border-zinc-900 dark:focus:border-zinc-100"
+    "w-full rounded-md border bg-white dark:bg-zinc-900 px-3 py-2.5 text-sm outline-none transition-colors focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 dark:focus:border-zinc-100 dark:focus:ring-zinc-100"
   const errCls = (k: string) => (errors[k] ? "border-red-500" : "border-zinc-300 dark:border-zinc-700")
 
   return (
@@ -180,14 +180,14 @@ export function Checkout() {
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="firstName" className="mb-1.5 block text-sm">
-                Імʼя <span className="text-red-500">*</span>
+                Імʼя <span className="text-red-600">*</span>
               </label>
               <input id="firstName" name="firstName" maxLength={100} value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" {...fieldA11y("firstName")} className={`${inputBase} ${errCls("firstName")}`} />
               <FieldError id="firstName" error={errors.firstName} />
             </div>
             <div>
               <label htmlFor="lastName" className="mb-1.5 block text-sm">
-                Прізвище <span className="text-red-500">*</span>
+                Прізвище <span className="text-red-600">*</span>
               </label>
               <input id="lastName" name="lastName" maxLength={100} value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" {...fieldA11y("lastName")} className={`${inputBase} ${errCls("lastName")}`} />
               <FieldError id="lastName" error={errors.lastName} />
@@ -196,7 +196,7 @@ export function Checkout() {
 
           <div className="mt-4">
             <label htmlFor="phone" className="mb-1.5 block text-sm">
-              Телефон <span className="text-red-500">*</span>
+              Телефон <span className="text-red-600">*</span>
             </label>
             <input id="phone" name="phone" maxLength={40} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="+380 67 123 45 67" {...fieldA11y("phone")} className={`${inputBase} ${errCls("phone")}`} />
             <FieldError id="phone" error={errors.phone} />
@@ -204,7 +204,7 @@ export function Checkout() {
 
           <div className="mt-4">
             <label htmlFor="email" className="mb-1.5 block text-sm">
-              E-mail адреса <span className="text-red-500">*</span>
+              E-mail адреса <span className="text-red-600">*</span>
             </label>
             <input id="email" name="email" maxLength={200} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" spellCheck={false} placeholder="name@example.com" {...fieldA11y("email")} className={`${inputBase} ${errCls("email")}`} />
             <FieldError id="email" error={errors.email} />
@@ -257,11 +257,11 @@ export function Checkout() {
             {delivery.method === "pickup" && (
               <div className="space-y-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">
                 <p className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
                   {PICKUP_POINT.address}
                 </p>
                 <p className="flex items-start gap-2">
-                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
                   {PICKUP_POINT.hours}
                 </p>
                 <p className="text-xs text-zinc-500">Ми зателефонуємо, коли замовлення буде готове до видачі.</p>
@@ -298,7 +298,7 @@ export function Checkout() {
               {cart.map((item) => (
                 <li key={item.id} className="flex justify-between gap-3 py-3 text-sm">
                   <span className="text-zinc-600 dark:text-zinc-300">
-                    {item.name} <span className="text-zinc-400">× {formatQuantity(item.quantity, item.priceUnit)}</span>
+                    {item.name} <span className="text-zinc-500">× {formatQuantity(item.quantity, item.priceUnit)}</span>
                   </span>
                   <span className="whitespace-nowrap tabular-nums">{formatPrice(item.price * item.quantity)}</span>
                 </li>
@@ -330,7 +330,7 @@ export function Checkout() {
                 return (
                   <label
                     key={method}
-                    className={`flex items-start gap-2 text-sm font-medium ${disabled ? "cursor-not-allowed text-zinc-400" : "cursor-pointer"}`}
+                    className={`flex items-start gap-2 text-sm font-medium ${disabled ? "cursor-not-allowed text-zinc-500" : "cursor-pointer"}`}
                   >
                     <input
                       type="radio"
@@ -429,7 +429,7 @@ export function Checkout() {
 function FieldError({ id, error }: { id: string; error?: string }) {
   if (!error) return null
   return (
-    <p id={`${id}-error`} className="mt-1 text-xs text-red-500">
+    <p id={`${id}-error`} className="mt-1 text-xs text-red-600">
       {error}
     </p>
   )

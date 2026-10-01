@@ -56,7 +56,7 @@ function Section({ section }: { section: ContentSection }) {
         <ul className="space-y-3 text-zinc-600 dark:text-zinc-400">
           {section.contacts.address && (
             <li className="flex items-start gap-3">
-              <MapPin aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
+              <MapPin aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-500" />
               <span className="leading-relaxed">
                 {section.contacts.address.map((line, i) => (
                   <span key={line}>
@@ -69,7 +69,7 @@ function Section({ section }: { section: ContentSection }) {
           )}
           {section.contacts.email && (
             <li className="flex items-center gap-3">
-              <Mail aria-hidden className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
+              <Mail aria-hidden className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-500" />
               <a
                 href={`mailto:${section.contacts.email}`}
                 className="transition-colors hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -80,7 +80,7 @@ function Section({ section }: { section: ContentSection }) {
           )}
           {section.contacts.phone && (
             <li className="flex items-center gap-3">
-              <Phone aria-hidden className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
+              <Phone aria-hidden className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-500" />
               <a
                 href={`tel:${section.contacts.phoneHref ?? section.contacts.phone}`}
                 className="transition-colors hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -106,7 +106,7 @@ export default async function InfoPage({ params }: { params: Promise<{ slug: str
   if (!page) notFound()
 
   return (
-    <main className="min-h-screen bg-white dark:bg-zinc-950">
+    <main id="content" className="min-h-screen bg-white dark:bg-zinc-950">
       <div className="mx-auto max-w-3xl px-4 py-12 md:py-16">
         <Link
           href="/"
@@ -117,7 +117,7 @@ export default async function InfoPage({ params }: { params: Promise<{ slug: str
         </Link>
 
         <header className="mt-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">
             SINCERITA
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-900 text-balance dark:text-zinc-50 md:text-4xl">

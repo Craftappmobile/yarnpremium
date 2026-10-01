@@ -10,7 +10,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error])
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-zinc-50 px-4 text-center">
+    <main id="content" className="flex min-h-dvh flex-col items-center justify-center bg-zinc-50 px-4 text-center">
       <h1 className="text-2xl font-semibold text-balance text-zinc-900">Не вдалося завантажити сторінку</h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-pretty text-zinc-500">
         Спробуйте ще раз за мить. Якщо не допоможе — напишіть або зателефонуйте нам, і ми оформимо замовлення вручну.

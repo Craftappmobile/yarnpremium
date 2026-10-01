@@ -86,7 +86,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-0.5">
                         {formatPrice(item.price)} / {item.priceUnit}
                       </p>
 
@@ -115,7 +115,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                         <p className="text-base font-medium tabular-nums">{formatPrice(item.price * item.quantity)}</p>
                       </div>
 
-                      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1.5">
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-500 mt-1.5">
                         {atMax
                           ? `Максимум на складі: ${formatQuantity(item.stock, item.priceUnit)}`
                           : `${formatQuantity(item.stock, item.priceUnit)} в наявності`}

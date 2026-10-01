@@ -67,7 +67,7 @@ export function AutocompleteField({
   return (
     <div ref={boxRef} className="relative">
       <label htmlFor={id} className="mb-1.5 block text-sm">
-        {label} <span className="text-red-500">*</span>
+        {label} <span className="text-red-600">*</span>
       </label>
       <div className="relative">
         <input
@@ -107,7 +107,7 @@ export function AutocompleteField({
         />
         {loading && (
           <Loader2
-            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin motion-reduce:animate-none text-zinc-400"
+            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin motion-reduce:animate-none text-zinc-500"
           />
         )}
       </div>
@@ -134,11 +134,11 @@ export function AutocompleteField({
           ))}
         </ul>
       )}
-      <p aria-live="polite" className="mt-1 text-xs text-zinc-400">
+      <p aria-live="polite" className="mt-1 text-xs text-zinc-500">
         {showEmpty ? emptyText : ""}
       </p>
       {error && (
-        <p id={errorId} className="text-xs text-red-500">
+        <p id={errorId} className="text-xs text-red-600">
           {error}
         </p>
       )}

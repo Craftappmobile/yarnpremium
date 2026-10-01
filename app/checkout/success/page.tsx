@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function CheckoutSuccessPage() {
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <main id="content" className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <OrderConfirmation />
     </main>
   )

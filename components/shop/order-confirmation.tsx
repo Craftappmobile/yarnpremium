@@ -34,7 +34,7 @@ export function OrderConfirmation() {
             {order.items.map((i) => (
               <li key={i.id} className="flex justify-between gap-3">
                 <span className="text-zinc-600 dark:text-zinc-300">
-                  {i.name} <span className="text-zinc-400">× {formatQuantity(i.quantity, i.unit ?? "шт")}</span>
+                  {i.name} <span className="text-zinc-500">× {formatQuantity(i.quantity, i.unit ?? "шт")}</span>
                 </span>
                 <span className="whitespace-nowrap tabular-nums">{formatPrice(i.price * i.quantity)}</span>
               </li>
@@ -45,10 +45,10 @@ export function OrderConfirmation() {
             <span className="tabular-nums">{formatPrice(order.total)}</span>
           </div>
           <p className="text-zinc-600 dark:text-zinc-300">
-            <span className="text-zinc-400">Доставка:</span> {describeDelivery(order.delivery)}
+            <span className="text-zinc-500">Доставка:</span> {describeDelivery(order.delivery)}
           </p>
           <p className="text-zinc-600 dark:text-zinc-300">
-            <span className="text-zinc-400">Оплата:</span> {PAYMENT_LABELS[order.payment.method]}
+            <span className="text-zinc-500">Оплата:</span> {PAYMENT_LABELS[order.payment.method]}
           </p>
 
           {/* Online payment is not connected yet — placeholder until the payment provider is integrated. */}

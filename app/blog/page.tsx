@@ -19,13 +19,13 @@ export default function BlogPage() {
   const [featured, ...rest] = posts
 
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <main id="content" className="min-h-screen bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto max-w-5xl px-4 py-10">
-          <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-600">
+          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-600">
             ← До магазину
           </Link>
-          <p className="mt-6 text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">SINCERITA</p>
+          <p className="mt-6 text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">SINCERITA</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-900 text-balance">Журнал</h1>
           <p className="mt-2 max-w-lg text-zinc-500 text-pretty">
             Поради з в'язання, гайди по пряжі та історії майстрів.
@@ -51,7 +51,7 @@ export default function BlogPage() {
                   />
                 </div>
                 <div className="flex flex-col justify-center p-8">
-                  <div className="flex items-center gap-2 text-xs text-zinc-400">
+                  <div className="flex items-center gap-2 text-xs text-zinc-500">
                     <span>{formatDate(featured.date)}</span>
                     <span>·</span>
                     <span>{readingTime(featured.content)} хв читання</span>
@@ -77,7 +77,7 @@ export default function BlogPage() {
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
-                    <div className="mt-3 flex items-center gap-2 text-xs text-zinc-400">
+                    <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
                       <span>{formatDate(post.date)}</span>
                       <span>·</span>
                       <span>{readingTime(post.content)} хв</span>

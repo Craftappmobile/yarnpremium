@@ -27,7 +27,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
   const wished = isWishlisted(product.id)
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <main id="content" className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <div className="mx-auto max-w-5xl px-4 py-10">
         <Link
           href="/"
@@ -70,7 +70,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
           </div>
 
           <div className="flex flex-col">
-            <p className="text-xs uppercase tracking-widest text-zinc-400 dark:text-zinc-500">{product.category}</p>
+            <p className="text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-500">{product.category}</p>
             <h1 className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 text-balance">
               {product.name}
             </h1>
@@ -82,7 +82,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
 
             <div className="mt-3">
               {inStock ? (
-                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-500">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-500">
                   <Check className="w-4 h-4" />
                   {formatQuantity(product.stock, product.priceUnit)} в наявності
                 </span>
@@ -115,7 +115,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
             <button
               type="button"
               onClick={() => toggleWishlist(product)}
-              className="mt-3 inline-flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors self-start"
+              className="mt-1 py-2 inline-flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors self-start"
             >
               <Heart className={`w-4 h-4 ${wished ? "fill-rose-500 text-rose-500" : ""}`} />
               {wished ? "У списку бажань" : "Додати до списку бажань"}
@@ -125,23 +125,23 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
               {product.description && (
                 <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">{product.description}</p>
               )}
-              <p className="text-zinc-500 dark:text-zinc-400">
-                <span className="text-zinc-400 dark:text-zinc-500">Артикул:</span> {product.sku}
+              <p className="text-zinc-700 dark:text-zinc-300">
+                <span className="text-zinc-500 dark:text-zinc-500">Артикул:</span> {product.sku}
               </p>
               {product.brand && (
-                <p className="text-zinc-500 dark:text-zinc-400">
-                  <span className="text-zinc-400 dark:text-zinc-500">Виробник:</span> {product.brand}
+                <p className="text-zinc-700 dark:text-zinc-300">
+                  <span className="text-zinc-500 dark:text-zinc-500">Виробник:</span> {product.brand}
                   {product.article && ` · ${product.article}`}
                 </p>
               )}
               {product.color && (
-                <p className="text-zinc-500 dark:text-zinc-400">
-                  <span className="text-zinc-400 dark:text-zinc-500">Колір:</span> {product.color}
+                <p className="text-zinc-700 dark:text-zinc-300">
+                  <span className="text-zinc-500 dark:text-zinc-500">Колір:</span> {product.color}
                 </p>
               )}
               {product.length > 0 && (
-                <p className="text-zinc-500 dark:text-zinc-400">
-                  <span className="text-zinc-400 dark:text-zinc-500">Метраж:</span> {product.length} м
+                <p className="text-zinc-700 dark:text-zinc-300">
+                  <span className="text-zinc-500 dark:text-zinc-500">Метраж:</span> {product.length} м
                 </p>
               )}
             </div>

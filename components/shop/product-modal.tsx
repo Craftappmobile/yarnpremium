@@ -53,7 +53,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
               <button
                 type="button"
                 aria-label="Закрити"
-                className="absolute top-3 right-3 p-1.5 bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-full hover:bg-white transition-colors"
+                className="absolute top-3 right-3 p-2.5 bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-full hover:bg-white transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -71,7 +71,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             {/* Наявність — приходить із KeyCRM (offer.quantity) */}
             <div className="mt-3">
               {inStock ? (
-                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-500">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-500">
                   <Check className="w-4 h-4" />
                   {formatQuantity(product.stock, product.priceUnit)} в наявності
                 </span>
@@ -101,7 +101,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             <button
               type="button"
               onClick={() => toggleWishlist(product)}
-              className="mt-3 inline-flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors self-start"
+              className="mt-1 py-2 inline-flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors self-start"
             >
               <Heart className={`w-4 h-4 ${wished ? "fill-rose-500 text-rose-500" : ""}`} />
               {wished ? "У списку бажань" : "Додати до списку бажань"}
@@ -109,7 +109,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
 
             <Link
               href={`/product/${product.sku}`}
-              className="mt-2 inline-flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors self-start"
+              className="py-2 inline-flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors self-start"
             >
               <ExternalLink className="w-4 h-4" />
               Відкрити сторінку товару
@@ -119,26 +119,26 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
               {product.description && (
                 <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">{product.description}</p>
               )}
-              <p className="text-zinc-500 dark:text-zinc-400">
-                <span className="text-zinc-400 dark:text-zinc-500">Артикул:</span> {product.sku}
+              <p className="text-zinc-700 dark:text-zinc-300">
+                <span className="text-zinc-500 dark:text-zinc-500">Артикул:</span> {product.sku}
               </p>
-              <p className="text-zinc-500 dark:text-zinc-400">
-                <span className="text-zinc-400 dark:text-zinc-500">Категорія:</span> {product.category}
+              <p className="text-zinc-700 dark:text-zinc-300">
+                <span className="text-zinc-500 dark:text-zinc-500">Категорія:</span> {product.category}
               </p>
               {product.brand && (
-                <p className="text-zinc-500 dark:text-zinc-400">
-                  <span className="text-zinc-400 dark:text-zinc-500">Виробник:</span> {product.brand}
+                <p className="text-zinc-700 dark:text-zinc-300">
+                  <span className="text-zinc-500 dark:text-zinc-500">Виробник:</span> {product.brand}
                   {product.article && ` · ${product.article}`}
                 </p>
               )}
               {product.color && (
-                <p className="text-zinc-500 dark:text-zinc-400">
-                  <span className="text-zinc-400 dark:text-zinc-500">Колір:</span> {product.color}
+                <p className="text-zinc-700 dark:text-zinc-300">
+                  <span className="text-zinc-500 dark:text-zinc-500">Колір:</span> {product.color}
                 </p>
               )}
               {product.length > 0 && (
-                <p className="text-zinc-500 dark:text-zinc-400">
-                  <span className="text-zinc-400 dark:text-zinc-500">Метраж:</span> {product.length} м
+                <p className="text-zinc-700 dark:text-zinc-300">
+                  <span className="text-zinc-500 dark:text-zinc-500">Метраж:</span> {product.length} м
                 </p>
               )}
             </div>

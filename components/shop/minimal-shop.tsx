@@ -161,7 +161,8 @@ export default function MinimalShop({ products }: { products: Product[] }) {
             </Dialog.Portal>
           </Dialog.Root>
 
-          <div className="flex-1 min-w-0">
+          <div id="content" className="flex-1 min-w-0 scroll-mt-20">
+            <h2 className="sr-only">Товари</h2>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <div className="flex items-center gap-3">
                 <button
@@ -175,7 +176,7 @@ export default function MinimalShop({ products }: { products: Product[] }) {
                     <span className="rounded-full bg-zinc-900 px-1.5 text-xs tabular-nums text-white">{activeFilterCount}</span>
                   )}
                 </button>
-                <p className="text-xs tabular-nums whitespace-nowrap text-zinc-500 dark:text-zinc-400">
+                <p role="status" className="text-xs tabular-nums whitespace-nowrap text-zinc-500 dark:text-zinc-400">
                   {sortedProducts.length} {pluralUk(sortedProducts.length, ["товар", "товари", "товарів"])}
                 </p>
               </div>
