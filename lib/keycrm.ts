@@ -7,8 +7,30 @@ const PAGE_LIMIT = 50
 /** Stay a little under KeyCRM's 60 requests/minute. */
 const MAX_PER_MINUTE = 55
 
+/** The key as pasted into Vercel, minus stray whitespace, quotes or a "Bearer " prefix. */
+function apiKey(): string {
+  return (process.env.KEYCRM_API_KEY ?? "")
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .trim()
+}
+
 export function keycrmConfigured(): boolean {
-  return Boolean(process.env.KEYCRM_API_KEY)
+  return Boolean(apiKey())
+}
+
+/** Shape of the configured key, for diagnosing 401s without revealing it. */
+export function keycrmKeyShape() {
+  const raw = process.env.KEYCRM_API_KEY ?? ""
+  return {
+    rawLength: raw.length,
+    cleanedLength: apiKey().length,
+    hadWhitespace: /\s/.test(raw),
+    hadQuotes: /["']/.test(raw),
+    hadBearerPrefix: /^\s*["']?Bearer/i.test(raw),
+    charset: /^[A-Za-z0-9+/=_-]+$/.test(apiKey()) ? "base64-like" : "other",
+  }
 }
 
 const sentAt: number[] = []
@@ -36,7 +58,7 @@ export async function keycrmGet<T = any>(path: string, params: Params = {}): Pro
   for (let attempt = 1; ; attempt++) {
     await throttle()
     const res = await fetch(url, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${process.env.KEYCRM_API_KEY}` },
+      headers: { Accept: "application/json", Authorization: `Bearer ${apiKey()}` },
       cache: "no-store",
     })
     if (res.ok) return (await res.json()) as T

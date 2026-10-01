@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { keycrmConfigured, keycrmGet, keycrmGetAll } from "@/lib/keycrm"
+import { keycrmConfigured, keycrmGet, keycrmGetAll, keycrmKeyShape } from "@/lib/keycrm"
 
 // Read-only snapshot of the KeyCRM catalog and order reference lists, used to
 // plan the catalog import. Never available on production.
@@ -140,6 +140,8 @@ export async function GET() {
     for (let i = 0; i < parts; i++) console.log(`[keycrm-diagnostics ${i + 1}/${parts}] ${text.slice(i * 3000, (i + 1) * 3000)}`)
     return NextResponse.json(report)
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 502 })
+    const error = (e as Error).message
+    console.log(`[keycrm-diagnostics] ${error}`, keycrmKeyShape())
+    return NextResponse.json({ error, key: keycrmKeyShape() }, { status: 502 })
   }
 }
