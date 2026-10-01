@@ -1,6 +1,5 @@
 "use client"
 
-import { motion } from "motion/react"
 import { Heart } from "lucide-react"
 import { type Product, formatPrice } from "./data"
 import { useWishlist } from "./wishlist-context"
@@ -15,15 +14,12 @@ export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-x-2 gap-y-4">
-      {products.map((product) => {
+      {products.map((product, i) => {
         const wished = isWishlisted(product.id)
         return (
-          <motion.div
+          <div
             key={product.id}
-            layoutId={`product-${product.id}`}
-            className="group relative"
-            whileHover={{ y: -1 }}
-            transition={{ duration: 0.2 }}
+            className="group relative transition-transform duration-200 hover:-translate-y-px motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
             <button
               type="button"
@@ -36,7 +32,8 @@ export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
                   alt={product.name}
                   width={400}
                   height={500}
-                  loading="lazy"
+                  loading={i < 6 ? "eager" : "lazy"}
+                  fetchPriority={i < 2 ? "high" : undefined}
                   decoding="async"
                   className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                 />
@@ -73,7 +70,7 @@ export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
             >
               <Heart className={`w-3.5 h-3.5 ${wished ? "fill-rose-500 text-rose-500" : "text-zinc-700"}`} />
             </button>
-          </motion.div>
+          </div>
         )
       })}
     </div>
