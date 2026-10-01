@@ -30,6 +30,10 @@ export function keycrmKeyShape() {
     hadQuotes: /["']/.test(raw),
     hadBearerPrefix: /^\s*["']?Bearer/i.test(raw),
     charset: /^[A-Za-z0-9+/=_-]+$/.test(apiKey()) ? "base64-like" : "other",
+    // Characters outside the base64 alphabet (e.g. "|", or a Cyrillic look-alike), as code points.
+    unusualChars: [...new Set(apiKey().replace(/[A-Za-z0-9+/=_-]/g, ""))].map(
+      (c) => `U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`,
+    ),
   }
 }
 
