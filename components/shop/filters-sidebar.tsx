@@ -2,13 +2,17 @@
 
 import { useMemo, useState } from "react"
 import { type Product, formatPrice } from "./data"
-import { getColorHex } from "./colors"
+import { ColorFilter } from "./color-filter"
+import type { ColorFamily, Shade } from "./yarn-colors"
 
 export interface Filters {
   priceRange: [number, number]
   lengthRange: [number, number]
   categories: string[]
-  colors: string[]
+  /** Colour groups ticked (any of them matches). */
+  colorFamilies: ColorFamily[]
+  /** Exact shade picked on the wheel; also matches alongside the groups. */
+  shade: Shade | null
 }
 
 interface FiltersSidebarProps {
@@ -61,22 +65,14 @@ export function FiltersSidebar({
     return { selected, rest, total: matches.length }
   }, [categoryList, categoryQuery, filters.categories])
 
-  // Distinct colors with counts + hex
-  const colorMap = allProducts.reduce<Record<string, { count: number; hex: string }>>((acc, p) => {
-    if (!p.color) return acc
-    if (!acc[p.color]) acc[p.color] = { count: 0, hex: getColorHex(p.color) }
-    acc[p.color].count += 1
-    return acc
-  }, {})
-  const colors = Object.keys(colorMap).sort()
-
   const isFiltered =
     minPrice !== minBound ||
     maxPrice !== maxBound ||
     minLength !== minLenBound ||
     maxLength !== maxLenBound ||
     filters.categories.length > 0 ||
-    filters.colors.length > 0
+    filters.colorFamilies.length > 0 ||
+    filters.shade !== null
 
   const setMin = (value: number) => {
     const clamped = Math.min(value, maxPrice)
@@ -103,13 +99,6 @@ export function FiltersSidebar({
       ? filters.categories.filter((c) => c !== category)
       : [...filters.categories, category]
     onChange({ ...filters, categories: next })
-  }
-
-  const toggleColor = (color: string) => {
-    const next = filters.colors.includes(color)
-      ? filters.colors.filter((c) => c !== color)
-      : [...filters.colors, color]
-    onChange({ ...filters, colors: next })
   }
 
   const range = maxBound - minBound || 1
@@ -140,6 +129,19 @@ export function FiltersSidebar({
           )}
         </div>
       )}
+
+      {/* Color filter */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          Фільтр за кольором
+        </h3>
+        <ColorFilter
+          products={allProducts}
+          families={filters.colorFamilies}
+          shade={filters.shade}
+          onChange={(colorFamilies, shade) => onChange({ ...filters, colorFamilies, shade })}
+        />
+      </div>
 
       {/* Price filter */}
       <div className="space-y-4">
@@ -320,48 +322,6 @@ export function FiltersSidebar({
         )}
       </div>
 
-      {/* Color filter */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          Фільтр за кольором
-        </h3>
-        <ul className="space-y-2.5">
-          {colors.map((color) => {
-            const checked = filters.colors.includes(color)
-            return (
-              <li key={color}>
-                <button
-                  type="button"
-                  onClick={() => toggleColor(color)}
-                  aria-pressed={checked}
-                  className="flex w-full items-center gap-3 group"
-                >
-                  <span
-                    className={`h-5 w-5 rounded-sm border shrink-0 transition-transform ${
-                      checked
-                        ? "ring-2 ring-offset-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-zinc-50 dark:ring-offset-zinc-950 border-transparent"
-                        : "border-zinc-300 dark:border-zinc-700 group-hover:scale-110"
-                    }`}
-                    style={{ backgroundColor: colorMap[color].hex }}
-                  />
-                  <span
-                    className={`flex-1 text-left text-sm ${
-                      checked
-                        ? "text-zinc-900 dark:text-zinc-100 font-medium"
-                        : "text-zinc-700 dark:text-zinc-300"
-                    }`}
-                  >
-                    {color}
-                  </span>
-                  <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-500 rounded-full border border-zinc-200 dark:border-zinc-800 px-2 py-0.5">
-                    {colorMap[color].count}
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      </div>
     </aside>
   )
 }

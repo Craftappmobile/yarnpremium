@@ -1,3 +1,5 @@
+import type { ColorFamily } from "./yarn-colors"
+
 export interface Product {
   /** Equal to `sku`: stable across catalog syncs, so saved carts and wishlists survive them. */
   id: string
@@ -18,6 +20,10 @@ export interface Product {
   stock: number
   /** Color NAME only (KeyCRM custom field «Колір»). The swatch HEX is resolved from colors.ts. */
   color: string
+  /** Yarn colour worked out from the photo ("#rrggbb"); missing until the photo is analysed. */
+  colorHex?: string
+  /** Colour group for the filter (see yarn-colors.ts). */
+  colorFamily?: ColorFamily
   /** Yarn length in meters as given in KeyCRM custom field «Метраж». 0 = unknown. */
   length: number
   /** Manufacturer (KeyCRM custom field «Виробник»). */

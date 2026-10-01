@@ -123,3 +123,28 @@ html {
     width: 24px;
   }
 }
+
+/* Lightness slider under the colour wheel */
+.shade-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid #18181b;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  cursor: pointer;
+}
+.shade-slider::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid #18181b;
+  cursor: pointer;
+}
+.shade-slider:focus-visible {
+  outline: 2px solid #18181b;
+  outline-offset: 4px;
+}
