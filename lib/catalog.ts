@@ -72,7 +72,6 @@ function customFields(product: any): Record<string, string> {
 function toProduct(offer: any, product: any, fields: Record<string, string>, category: string): Product {
   const name = String(product.name ?? "").trim()
   const unit = String(product.unit_type ?? "").trim() || "шт"
-  const byWeight = unit === "г"
   const images = [offer.thumbnail_url, product.thumbnail_url, ...(product.attachments_data ?? [])]
     .map(imageUrl)
     .filter((u, i, all) => u && all.indexOf(u) === i)
@@ -93,9 +92,14 @@ function toProduct(offer: any, product: any, fields: Record<string, string>, cat
     length: Number.parseInt(fields["Метраж"] ?? "", 10) || 0,
     brand: fields["Виробник"] ?? "",
     article: fields["Артикул"] ?? "",
-    minQty: byWeight ? (isCashmere(name, category) ? CASHMERE_GRAM_MIN : GRAM_MIN) : 1,
-    step: byWeight ? GRAM_STEP : 1,
+    ...quantityLimits(name, category, unit),
   }
+}
+
+/** Minimum and step, from the selling rules in this file. */
+function quantityLimits(name: string, category: string, unit: string): Pick<Product, "minQty" | "step"> {
+  if (unit !== "г") return { minQty: 1, step: 1 }
+  return { minQty: isCashmere(name, category) ? CASHMERE_GRAM_MIN : GRAM_MIN, step: GRAM_STEP }
 }
 
 export interface SyncReport {
@@ -269,7 +273,12 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
 /** Live stock, with crumbs of yarn by weight (under MIN_SELLABLE_GRAMS, e.g. 1 g after reserves) treated as sold out. */
 function withLiveStock(p: Product, stock: string | null | undefined): Product {
   const live = stock === null || stock === undefined ? p.stock : Number(stock)
-  return { ...p, stock: p.priceUnit === "г" && live < MIN_SELLABLE_GRAMS ? 0 : live }
+  return {
+    ...p,
+    // Recomputed on read, so a change to the rules applies at once, not after the next sync.
+    ...quantityLimits(p.name, p.category, p.priceUnit),
+    stock: p.priceUnit === "г" && live < MIN_SELLABLE_GRAMS ? 0 : live,
+  }
 }
 
 /** Every non-archived product, sold-out ones included, newest first. Empty until the first sync. */
