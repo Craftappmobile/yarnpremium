@@ -61,7 +61,7 @@ export function TopBar({
         >
           SINCERITA
         </Link>
-        <div className="flex-1 min-w-0 px-4 flex items-center [justify-content:safe_center] gap-2 overflow-x-auto scrollbar-none">
+        <div className="flex-1 min-w-0 px-4 flex items-center [justify-content:safe_center] gap-2 overflow-x-auto overscroll-x-contain scrollbar-none [mask-image:linear-gradient(to_right,transparent,#000_16px,#000_calc(100%-32px),transparent)]">
           <button
             type="button"
             onClick={onClearCategories}

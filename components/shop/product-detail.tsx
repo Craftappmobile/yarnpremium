@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Check, X, Heart, ShoppingBag } from "lucide-react"
@@ -26,9 +26,25 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
   const { isWishlisted, toggleWishlist } = useWishlist()
   const wished = isWishlisted(product.id)
 
+  // Phones: when the main «Додати в кошик» is off screen, a bar at the bottom keeps it in reach.
+  const buyRef = useRef<HTMLButtonElement>(null)
+  const [buyVisible, setBuyVisible] = useState(true)
+  useEffect(() => {
+    const el = buyRef.current
+    if (!el) return
+    const io = new IntersectionObserver(([entry]) => setBuyVisible(entry.isIntersecting))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  const addAndOpenCart = () => {
+    addToCart(product, quantity)
+    setIsCartOpen(true)
+  }
+
   return (
     <main id="content" className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="mx-auto max-w-5xl px-4 py-10">
+      <div className={`mx-auto max-w-5xl px-4 pt-4 md:py-10 ${inStock ? "pb-28 md:pb-10" : "pb-10"}`}>
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
@@ -37,7 +53,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
           До магазину
         </Link>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="mt-4 md:mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
           <div>
             <div className="aspect-[4/5] bg-white dark:bg-zinc-900 rounded-xl overflow-hidden">
               <img
@@ -99,11 +115,9 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
                 <QuantityPicker product={product} quantity={quantity} onChange={setQuantity} />
 
                 <button
+                  ref={buyRef}
                   type="button"
-                  onClick={() => {
-                    addToCart(product, quantity)
-                    setIsCartOpen(true)
-                  }}
+                  onClick={addAndOpenCart}
                   className="w-full inline-flex items-center justify-center gap-2 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
                 >
                   <ShoppingBag className="w-4 h-4" />
@@ -165,7 +179,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
-                  <p className="mt-1.5 truncate text-xs font-medium">{p.name}</p>
+                  <p className="mt-1.5 line-clamp-2 text-xs leading-4 font-medium">{p.name}</p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {formatPrice(p.price)} / {p.priceUnit}
                   </p>
@@ -175,6 +189,31 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
           </section>
         )}
       </div>
+
+      {inStock && (
+        <div
+          aria-hidden={buyVisible}
+          inert={buyVisible || undefined}
+          className={`fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur transition-transform duration-200 md:hidden dark:border-zinc-800 dark:bg-zinc-900/95 ${
+            buyVisible ? "translate-y-full" : "translate-y-0"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-bold tabular-nums leading-tight">{formatPrice(product.price * quantity)}</p>
+              <p className="text-xs text-zinc-500 tabular-nums">{formatQuantity(quantity, product.priceUnit)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={addAndOpenCart}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-zinc-900 px-5 py-3 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
+            >
+              <ShoppingBag className="w-4 h-4" aria-hidden />
+              Додати в кошик
+            </button>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>{isCartOpen && <CartDrawer onClose={() => setIsCartOpen(false)} />}</AnimatePresence>
     </main>

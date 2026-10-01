@@ -122,22 +122,24 @@ export function FiltersSidebar({
 
   return (
     <aside className="w-full space-y-10">
-      <div className={`flex items-center justify-between ${!showTitle && !isFiltered ? "hidden" : ""}`}>
-        {showTitle ? (
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Фільтри</h2>
-        ) : (
-          <span />
-        )}
-        {isFiltered && (
-          <button
-            type="button"
-            onClick={onReset}
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-          >
-            Скинути все
-          </button>
-        )}
-      </div>
+      {(showTitle || isFiltered) && (
+        <div className="flex items-center justify-between">
+          {showTitle ? (
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Фільтри</h2>
+          ) : (
+            <span />
+          )}
+          {isFiltered && (
+            <button
+              type="button"
+              onClick={onReset}
+              className="text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+            >
+              Скинути все
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Price filter */}
       <div className="space-y-4">

@@ -77,7 +77,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">
-                        <h3 className="text-base font-medium truncate">{item.name}</h3>
+                        <h3 className="text-base font-medium leading-snug line-clamp-2">{item.name}</h3>
                         <button
                           onClick={() => removeFromCart(item.id)}
                           className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full shrink-0"

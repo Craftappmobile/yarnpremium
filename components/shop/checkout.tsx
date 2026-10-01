@@ -216,7 +216,7 @@ export function Checkout() {
             {DELIVERY_METHODS.map((m) => (
               <label
                 key={m.value}
-                className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border px-4 py-3 text-sm transition-colors ${
+                className={`flex cursor-pointer flex-col items-start gap-0.5 rounded-md border px-4 py-3 text-sm transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
                   delivery.method === m.value
                     ? "border-zinc-900 dark:border-zinc-100 bg-white dark:bg-zinc-900"
                     : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-400"
@@ -232,7 +232,7 @@ export function Checkout() {
                   />
                   {m.label}
                 </span>
-                <span className="text-xs text-zinc-500">{m.hint}</span>
+                <span className="pl-[25px] text-xs text-zinc-500 sm:pl-0 sm:text-right">{m.hint}</span>
               </label>
             ))}
           </div>

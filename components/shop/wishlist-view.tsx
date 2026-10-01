@@ -56,7 +56,7 @@ export function WishlistView() {
                   <div className="flex-1 min-w-0 flex flex-col">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0">
-                        <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-50 truncate">
+                        <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-50 leading-snug line-clamp-2">
                           {product.name}
                         </h3>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
