@@ -1,25 +1,24 @@
 "use client"
 
-import * as Dialog from "@radix-ui/react-dialog"
 import { AnimatePresence } from "motion/react"
-import { SlidersHorizontal, X } from "lucide-react"
+import { SlidersHorizontal } from "lucide-react"
 import { useReturnFocus } from "./use-return-focus"
 import { useMemo, useState } from "react"
 import { ProductGrid } from "./product-grid"
-import { CartDrawer } from "./cart-drawer"
-import { ProductModal } from "./product-modal"
+import { CartDrawer, CategoriesModal, MobileFiltersPanel, ProductModal, usePreloadDialogs } from "./lazy-dialogs"
 import { TopBar } from "./top-bar"
 import { FiltersSidebar, type Filters } from "./filters-sidebar"
-import { CategoriesModal } from "./categories-modal"
 import { Footer } from "./footer"
 import { type Product, type SortOption, sortOptions, sortProducts, getFilterBounds, categoryCounts } from "./data"
 import { useCart } from "./cart-context"
 import { pluralUk } from "@/lib/utils"
+import { type PackedCatalog, unpackCatalog } from "./catalog-pack"
 
 /** Cards rendered at first and per "Показати ще" click; the catalog has thousands. */
 const PAGE_SIZE = 60
 
-export default function MinimalShop({ products }: { products: Product[] }) {
+export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
+  const products = useMemo(() => unpackCatalog(catalog), [catalog])
   const { cart, itemCount, addToCart } = useCart()
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isCartOpen, setIsCartOpen] = useState(false)
@@ -29,7 +28,10 @@ export default function MinimalShop({ products }: { products: Product[] }) {
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  // Mounted on first open and kept, so the closing animation can play.
+  const [filtersMounted, setFiltersMounted] = useState(false)
   const filtersReturnFocus = useReturnFocus()
+  usePreloadDialogs()
 
   const { price: priceBounds, length: lengthBounds } = useMemo(() => getFilterBounds(products), [products])
   const popularCategories = useMemo(() => categoryCounts(products).slice(0, 8).map((c) => c.name), [products])
@@ -120,46 +122,25 @@ export default function MinimalShop({ products }: { products: Product[] }) {
             </div>
           </div>
 
-          <Dialog.Root open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-            <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 lg:hidden" />
-              <Dialog.Content
-                aria-describedby={undefined}
-                {...filtersReturnFocus}
-                className="fixed inset-y-0 left-0 z-50 flex w-[88%] max-w-sm flex-col bg-zinc-50 shadow-xl data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left lg:hidden"
-              >
-                <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-                  <Dialog.Title className="text-sm font-semibold uppercase tracking-wider">Фільтри</Dialog.Title>
-                  <Dialog.Close asChild>
-                    <button type="button" aria-label="Закрити фільтри" className="rounded-full p-2 hover:bg-zinc-100">
-                      <X className="h-5 w-5" />
-                    </button>
-                  </Dialog.Close>
-                </div>
-                <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-5">
-                  <FiltersSidebar
-                    allProducts={products}
-                    priceBounds={priceBounds}
-                    lengthBounds={lengthBounds}
-                    filters={filters}
-                    onChange={setFilters}
-                    onReset={resetFilters}
-                    showTitle={false}
-                  />
-                </div>
-                <div className="border-t border-zinc-200 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                  <Dialog.Close asChild>
-                    <button
-                      type="button"
-                      className="w-full rounded-lg bg-zinc-900 py-3 text-sm font-semibold text-white hover:bg-zinc-800"
-                    >
-                      Показати {sortedProducts.length} {pluralUk(sortedProducts.length, ["товар", "товари", "товарів"])}
-                    </button>
-                  </Dialog.Close>
-                </div>
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
+          {/* Phones: filters in a slide-in panel, loaded the first time it's opened. */}
+          {filtersMounted && (
+            <MobileFiltersPanel
+              open={isFiltersOpen}
+              onOpenChange={setIsFiltersOpen}
+              returnFocus={filtersReturnFocus}
+              resultLabel={`Показати ${sortedProducts.length} ${pluralUk(sortedProducts.length, ["товар", "товари", "товарів"])}`}
+            >
+              <FiltersSidebar
+                allProducts={products}
+                priceBounds={priceBounds}
+                lengthBounds={lengthBounds}
+                filters={filters}
+                onChange={setFilters}
+                onReset={resetFilters}
+                showTitle={false}
+              />
+            </MobileFiltersPanel>
+          )}
 
           <div id="content" className="flex-1 min-w-0 scroll-mt-20">
             <h2 className="sr-only">Товари</h2>
@@ -167,7 +148,10 @@ export default function MinimalShop({ products }: { products: Product[] }) {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsFiltersOpen(true)}
+                  onClick={() => {
+                    setFiltersMounted(true)
+                    setIsFiltersOpen(true)
+                  }}
                   className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-100 lg:hidden"
                 >
                   <SlidersHorizontal className="h-4 w-4" />

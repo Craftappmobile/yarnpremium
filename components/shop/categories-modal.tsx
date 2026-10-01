@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { useReturnFocus } from "./use-return-focus"
-import { motion } from "motion/react"
+import { m } from "motion/react"
 import { X, Search } from "lucide-react"
 import type { Product } from "./data"
 import { pluralUk } from "@/lib/utils"
@@ -48,7 +48,7 @@ export function CategoriesModal({
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal forceMount>
       <Dialog.Overlay asChild forceMount>
-        <motion.div
+        <m.div
           className="fixed inset-0 z-40 bg-zinc-950/40"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -56,7 +56,7 @@ export function CategoriesModal({
         />
       </Dialog.Overlay>
       <Dialog.Content asChild forceMount aria-describedby={undefined} {...returnFocus}>
-      <motion.div
+      <m.div
         className="fixed inset-x-4 top-8 z-50 mx-auto flex max-h-[80dvh] max-w-lg flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl sm:top-16 dark:border-zinc-800 dark:bg-zinc-900"
         initial={{ opacity: 0, y: 12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -178,7 +178,7 @@ export function CategoriesModal({
           </button>
           </Dialog.Close>
         </div>
-      </motion.div>
+      </m.div>
       </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

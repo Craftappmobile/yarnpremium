@@ -7,12 +7,13 @@ import { ArrowLeft, Heart, X, ShoppingBag } from "lucide-react"
 import { formatPrice, formatQuantity } from "./data"
 import { useWishlist } from "./wishlist-context"
 import { useCart } from "./cart-context"
-import { CartDrawer } from "./cart-drawer"
+import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
 
 export function WishlistView() {
   const { wishlist, removeFromWishlist, hydrated } = useWishlist()
   const { addToCart } = useCart()
   const [isCartOpen, setIsCartOpen] = useState(false)
+  usePreloadDialogs()
 
   return (
     <main id="content" className="min-h-screen bg-zinc-50 dark:bg-zinc-950">

@@ -8,7 +8,7 @@ import { type Product, clampQuantity, formatPrice, formatQuantity } from "./data
 import { QuantityPicker } from "./quantity-picker"
 import { useCart } from "./cart-context"
 import { useWishlist } from "./wishlist-context"
-import { CartDrawer } from "./cart-drawer"
+import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
 
 interface ProductDetailProps {
   product: Product
@@ -25,6 +25,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
   const { addToCart } = useCart()
   const { isWishlisted, toggleWishlist } = useWishlist()
   const wished = isWishlisted(product.id)
+  usePreloadDialogs()
 
   // Phones: when the main «Додати в кошик» is off screen, a bar at the bottom keeps it in reach.
   const buyRef = useRef<HTMLButtonElement>(null)

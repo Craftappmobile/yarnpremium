@@ -2,7 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog"
 import { useReturnFocus } from "./use-return-focus"
-import { motion } from "motion/react"
+import { m } from "motion/react"
 import { X, Minus, Plus } from "lucide-react"
 import Link from "next/link"
 import { formatPrice, formatQuantity, quantityRules, stepQuantity } from "./data"
@@ -22,7 +22,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal forceMount>
       <Dialog.Overlay asChild forceMount>
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.5 }}
           exit={{ opacity: 0 }}
@@ -30,7 +30,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
         />
       </Dialog.Overlay>
       <Dialog.Content asChild forceMount aria-describedby={undefined} {...returnFocus}>
-      <motion.div
+      <m.div
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
@@ -143,7 +143,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
           </div>
           )}
         </div>
-      </motion.div>
+      </m.div>
       </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

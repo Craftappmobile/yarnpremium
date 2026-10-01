@@ -2,7 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog"
 import { useReturnFocus } from "./use-return-focus"
-import { motion } from "motion/react"
+import { m } from "motion/react"
 import { X, Check, Heart, ShoppingBag, ExternalLink } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
@@ -30,7 +30,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal forceMount>
       <Dialog.Overlay asChild forceMount>
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.5 }}
           exit={{ opacity: 0 }}
@@ -38,8 +38,11 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
         />
       </Dialog.Overlay>
       <Dialog.Content asChild forceMount aria-describedby={undefined} {...returnFocus}>
-      <motion.div
-        layoutId={`product-${product.id}`}
+      <m.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 24 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
         className="fixed inset-x-4 bottom-0 md:inset-0 md:m-auto md:h-fit md:max-w-3xl z-50 bg-white dark:bg-zinc-900 rounded-t-2xl md:rounded-2xl overflow-hidden max-h-[88dvh] md:max-h-[560px]"
       >
         <div className="h-full flex flex-col md:flex-row max-h-[88dvh] md:max-h-[560px]">
@@ -144,7 +147,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             </div>
           </div>
         </div>
-      </motion.div>
+      </m.div>
       </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

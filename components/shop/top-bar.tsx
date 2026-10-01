@@ -2,7 +2,6 @@
 
 import { Search, ShoppingBag, X, SlidersHorizontal, Heart } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
-import { motion } from "motion/react"
 import Link from "next/link"
 import { useWishlist } from "./wishlist-context"
 
@@ -104,12 +103,7 @@ export function TopBar({
 
         <div className="flex items-center gap-0.5 shrink-0">
           {isSearchOpen && (
-            <motion.div
-              className="relative"
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-            >
+            <div className="relative animate-in fade-in slide-in-from-right-2 duration-150 ease-out motion-reduce:animate-none">
               <input
                 ref={searchInputRef}
                 // Opened by a deliberate click on the search icon.
@@ -134,7 +128,7 @@ export function TopBar({
               >
                 <X className="w-4 h-4" />
               </button>
-            </motion.div>
+            </div>
           )}
           <button
             type="button"
@@ -153,13 +147,11 @@ export function TopBar({
           >
             <Heart className="w-4 h-4" />
             {wishlistCount > 0 && (
-              <motion.span
-                initial={{ scale: 0.5 }}
-                animate={{ scale: 1 }}
-                className="absolute top-0.5 right-0.5 bg-rose-600 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full"
+              <span
+                className="animate-in zoom-in-50 duration-200 motion-reduce:animate-none absolute top-0.5 right-0.5 bg-rose-600 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full"
               >
                 {wishlistCount}
-              </motion.span>
+              </span>
             )}
           </Link>
           <button
@@ -170,15 +162,13 @@ export function TopBar({
           >
             <ShoppingBag className="w-4 h-4" />
             {cartItemCount > 0 && (
-              <motion.span
-                initial={{ scale: 0.5 }}
-                animate={{ scale: 1 }}
-                className="absolute top-0.5 right-0.5 bg-zinc-900 dark:bg-white 
+              <span
+                className="animate-in zoom-in-50 duration-200 motion-reduce:animate-none absolute top-0.5 right-0.5 bg-zinc-900 dark:bg-white 
                                     text-white dark:text-zinc-900 text-xs font-medium tabular-nums w-4 h-4 
                                     flex items-center justify-center rounded-full"
               >
                 {cartItemCount}
-              </motion.span>
+              </span>
             )}
           </button>
         </div>
