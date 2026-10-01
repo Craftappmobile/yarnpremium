@@ -9,6 +9,7 @@ import { QuantityPicker } from "./quantity-picker"
 import { useCart } from "./cart-context"
 import { useWishlist } from "./wishlist-context"
 import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
+import { ProductImage } from "./product-image"
 
 interface ProductDetailProps {
   product: Product
@@ -57,12 +58,13 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
         <div className="mt-4 md:mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
           <div>
             <div className="aspect-[4/5] bg-white dark:bg-zinc-900 rounded-xl overflow-hidden">
-              <img
-                src={images[imageIndex] || "/placeholder.svg"}
+              <ProductImage
+                src={images[imageIndex]}
                 alt={product.name}
                 width={800}
                 height={1000}
-                fetchPriority="high"
+                sizes="(min-width: 1024px) 480px, (min-width: 768px) 50vw, 100vw"
+                priority
                 className="w-full h-full object-cover"
               />
             </div>
@@ -79,7 +81,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
                       i === imageIndex ? "border-zinc-900 dark:border-zinc-100" : "border-transparent hover:border-zinc-300"
                     }`}
                   >
-                    <img src={src} alt="" width={56} height={64} loading="lazy" className="h-full w-full object-cover" />
+                    <ProductImage src={src} alt="" width={56} height={64} sizes="56px" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -171,12 +173,12 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
               {similar.map((p) => (
                 <Link key={p.sku} href={`/product/${p.sku}`} className="group">
                   <div className="aspect-[4/5] overflow-hidden rounded-md bg-white dark:bg-zinc-900">
-                    <img
-                      src={p.image || "/placeholder.svg"}
+                    <ProductImage
+                      src={p.image}
                       alt={p.name}
                       width={400}
                       height={500}
-                      loading="lazy"
+                      sizes="(min-width: 768px) 200px, 50vw"
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
