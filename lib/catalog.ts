@@ -9,6 +9,7 @@
 //   catalog:products   hash  sku -> Product JSON (stock as of the last sync)
 //   catalog:stock      hash  sku -> available quantity (live; stock webhooks update it)
 //   catalog:stock_at   hash  sku -> ms timestamp of the last webhook stock update
+//   catalog:offer_sku  hash  KeyCRM offer id -> sku (webhooks may name offers by id only)
 //   catalog:meta       JSON  report of the last sync
 //   catalog:lock       lock  held while a sync runs
 
@@ -19,6 +20,7 @@ import { redis, redisConfigured } from "@/lib/redis"
 const KEY_PRODUCTS = "catalog:products"
 const KEY_STOCK = "catalog:stock"
 const KEY_STOCK_AT = "catalog:stock_at"
+const KEY_OFFER_SKU = "catalog:offer_sku"
 const KEY_META = "catalog:meta"
 const KEY_LOCK = "catalog:lock"
 
@@ -171,8 +173,9 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
     const live = newer.length ? await r.hmGet(KEY_STOCK, newer) : []
     const liveStock = new Map(newer.map((sku, i) => [sku, live[i]]))
 
-    const tx = r.multi().del(KEY_PRODUCTS).del(KEY_STOCK)
+    const tx = r.multi().del(KEY_PRODUCTS).del(KEY_STOCK).del(KEY_OFFER_SKU)
     if (catalog.length) {
+      tx.hSet(KEY_OFFER_SKU, Object.fromEntries(catalog.map((p) => [String(p.offerId), p.sku])))
       tx.hSet(KEY_PRODUCTS, Object.fromEntries(catalog.map((p) => [p.sku, JSON.stringify(p)])))
       tx.hSet(KEY_STOCK, Object.fromEntries(catalog.map((p) => [p.sku, liveStock.get(p.sku) ?? String(p.stock)])))
     }
@@ -237,4 +240,42 @@ export async function reserveStock(items: { sku: string; quantity: number }[]): 
     tx.hSet(KEY_STOCK_AT, sku, now)
   }
   await tx.exec()
+}
+
+export interface StockUpdate {
+  sku?: string
+  offerId?: number
+  /** Total over all warehouses. */
+  inStock: number
+  inReserve: number
+}
+
+/**
+ * Applies stock levels pushed by the KeyCRM webhook. Returns the SKUs that were
+ * updated; products the site doesn't list yet arrive with the next sync.
+ */
+export async function applyStockUpdates(updates: StockUpdate[]): Promise<string[]> {
+  if (!redisConfigured() || updates.length === 0) return []
+  const r = await redis()
+  const byId = updates.filter((u) => !u.sku && u.offerId).map((u) => String(u.offerId))
+  const idSkus = byId.length ? await r.hmGet(KEY_OFFER_SKU, byId) : []
+  const skuOf = new Map(byId.map((id, i) => [id, idSkus[i]]))
+
+  const resolved = updates.flatMap((u) => {
+    const sku = u.sku || skuOf.get(String(u.offerId))
+    return sku ? [{ sku, stock: Math.max(0, Math.floor(u.inStock - u.inReserve)) }] : []
+  })
+  if (resolved.length === 0) return []
+  const known = await r.hmGet(KEY_PRODUCTS, resolved.map((u) => u.sku))
+  const toApply = resolved.filter((_, i) => known[i])
+  if (toApply.length === 0) return []
+
+  const now = String(Date.now())
+  const tx = r.multi()
+  for (const { sku, stock } of toApply) {
+    tx.hSet(KEY_STOCK, sku, String(stock))
+    tx.hSet(KEY_STOCK_AT, sku, now)
+  }
+  await tx.exec()
+  return toApply.map((u) => u.sku)
 }
