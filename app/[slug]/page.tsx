@@ -118,7 +118,7 @@ export default async function InfoPage({ params }: { params: Promise<{ slug: str
 
         <header className="mt-8">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
-            SINSERITA
+            SINCERITA
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-900 text-balance dark:text-zinc-50 md:text-4xl">
             {page.title}

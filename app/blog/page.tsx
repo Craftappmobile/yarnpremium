@@ -25,7 +25,7 @@ export default function BlogPage() {
           <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-600">
             ← До магазину
           </Link>
-          <p className="mt-6 text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">SINSERITA</p>
+          <p className="mt-6 text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">SINCERITA</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-900 text-balance">Журнал</h1>
           <p className="mt-2 max-w-lg text-zinc-500 text-pretty">
             Поради з в'язання, гайди по пряжі та історії майстрів.

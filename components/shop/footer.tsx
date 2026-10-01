@@ -13,7 +13,7 @@ export function Footer() {
       <div className="mx-auto max-w-[1400px] px-4 py-10">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100">
-            SINSERITA
+            SINCERITA
           </Link>
 
           <nav aria-label="Інформація про магазин">
@@ -33,7 +33,7 @@ export function Footer() {
 
           <p className="text-xs text-zinc-400 dark:text-zinc-500">
             {"© "}
-            {new Date().getFullYear()} SINSERITA. Усі права захищено.
+            {new Date().getFullYear()} SINCERITA. Усі права захищено.
           </p>
         </div>
       </div>

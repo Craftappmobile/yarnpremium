@@ -104,7 +104,7 @@ export default function MinimalShop({ products }: { products: Product[] }) {
       />
 
       <div className="mx-auto max-w-[1400px] px-4 pt-6 lg:pt-12 pb-16">
-        <h1 className="sr-only">SINSERITA — стокова пряжа для в&apos;язання</h1>
+        <h1 className="sr-only">SINCERITA — італійська пряжа преміум якості</h1>
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
           {/* Desktop: filters in a sidebar. Phones get them in a panel, so products come first. */}
           <div id="filters-sidebar" className="hidden lg:block lg:w-64 shrink-0">

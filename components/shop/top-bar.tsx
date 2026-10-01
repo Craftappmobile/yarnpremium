@@ -59,7 +59,7 @@ export function TopBar({
           href="/"
           className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 shrink-0"
         >
-          SINSERITA
+          SINCERITA
         </Link>
         <div className="flex-1 min-w-0 px-4 flex items-center [justify-content:safe_center] gap-2 overflow-x-auto scrollbar-none">
           <button

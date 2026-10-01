@@ -11,11 +11,11 @@ import { BRAND, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
 const inter = Inter({ subsets: ["latin", "cyrillic"] })
 
 const DESCRIPTION =
-  "Італійська стокова пряжа для в'язання: меринос, кашемір, шовк, альпака. Продаж на вагу від 100 г, доставка Новою Поштою та Укрпоштою."
+  "Італійська пряжа преміум якості для в'язання: меринос, кашемір, шовк, альпака. Продаж на вагу від 100 г, доставка Новою Поштою та Укрпоштою."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: `${BRAND} — італійська стокова пряжа`, template: `%s — ${BRAND}` },
+  title: { default: `${BRAND} — італійська пряжа преміум якості`, template: `%s — ${BRAND}` },
   description: DESCRIPTION,
   applicationName: BRAND,
   openGraph: { type: "website", siteName: BRAND, locale: "uk_UA", description: DESCRIPTION },
