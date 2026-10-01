@@ -3,7 +3,9 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 import { Check } from "lucide-react"
 import type { Product } from "./data"
-import { COLOR_FAMILIES, type ColorFamily, type Shade, hueName, oklchToHex, shadeHex } from "./yarn-colors"
+import { pluralUk } from "@/lib/utils"
+import { ProductImage } from "./product-image"
+import { COLOR_FAMILIES, type ColorFamily, type Shade, hueName, matchesShade, oklchToHex, shadeHex } from "./yarn-colors"
 
 interface ColorFilterProps {
   products: Product[]
@@ -13,7 +15,11 @@ interface ColorFilterProps {
 }
 
 const MULTI_SWATCH = "conic-gradient(#d0312d, #eccb4a, #4f9150, #239f9a, #3a64b4, #7c55ad, #d0312d)"
-const DEFAULT_SHADE: Shade = { h: 145, l: 0.6 }
+const DEFAULT_SHADE: Shade = { h: 145, l: null }
+/** Slider position while no lightness is picked. */
+const L_DEFAULT = 0.6
+/** Yarn thumbnails shown under the wheel while turning it. */
+const PREVIEW = 12
 const L_MIN = 0.3
 const L_MAX = 0.88
 
@@ -30,6 +36,7 @@ function wheelGradient(l = 0.68) {
 export function ColorFilter({ products, families, shade, onChange }: ColorFilterProps) {
   const [wheelOpen, setWheelOpen] = useState(shade !== null)
   const wheelRef = useRef<HTMLDivElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
 
   const counts = useMemo(() => {
     const c: Partial<Record<ColorFamily, number>> = {}
@@ -42,6 +49,13 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
     onChange(families.includes(id) ? families.filter((f) => f !== id) : [...families, id], shade)
 
   const current = shade ?? DEFAULT_SHADE
+  const coloured = useMemo(() => products.filter((p) => p.colorHex), [products])
+  // Yarn of the picked shade, shown right under the wheel: on a phone the panel
+  // covers the catalog, so this is where turning the wheel shows its effect.
+  const matches = useMemo(
+    () => (shade ? coloured.filter((p) => matchesShade(p.colorHex!, shade)) : []),
+    [coloured, shade],
+  )
   const setShade = (next: Shade) => onChange(families, next)
 
   // Angle of the touch point around the wheel's centre: 0° at the top, clockwise,
@@ -107,7 +121,12 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
       <div className="rounded-lg border border-zinc-200 bg-white">
         <button
           type="button"
-          onClick={() => setWheelOpen((o) => !o)}
+          onClick={() => {
+            const opening = !wheelOpen
+            setWheelOpen(opening)
+            // Bring the results and the whole wheel into view on a phone.
+            if (opening) requestAnimationFrame(() => pickerRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }))
+          }}
           aria-expanded={wheelOpen}
           aria-controls="shade-picker"
           className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-zinc-800"
@@ -126,8 +145,37 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
         </button>
 
         {wheelOpen && (
-          <div id="shade-picker" className="space-y-4 border-t border-zinc-200 px-3 pb-4 pt-4">
-            <p className="text-xs text-zinc-500">Торкніться кола або проведіть по ньому пальцем.</p>
+          <div ref={pickerRef} id="shade-picker" className="space-y-4 border-t border-zinc-200 px-3 pb-4 pt-4">
+            {coloured.length === 0 ? (
+              <p className="text-xs text-zinc-500">Кольори пряжі ще визначаються з фото. Спробуйте за кілька хвилин.</p>
+            ) : shade ? (
+              <div className="min-h-[104px] space-y-2" aria-live="polite">
+                <p className="text-sm font-medium text-zinc-800">
+                  {matches.length
+                    ? `Знайдено ${matches.length} ${pluralUk(matches.length, ["товар", "товари", "товарів"])} цього відтінку`
+                    : "Такого відтінку немає. Поверніть колесо або змініть світлість."}
+                </p>
+                {matches.length > 0 && (
+                  <ul className="-mx-3 flex gap-2 overflow-x-auto overscroll-x-contain px-3 pb-1">
+                    {matches.slice(0, PREVIEW).map((p) => (
+                      <li key={p.id} className="shrink-0">
+                        <ProductImage
+                          src={p.image}
+                          alt={p.name}
+                          width={56}
+                          height={70}
+                          sizes="56px"
+                          className="h-[70px] w-14 rounded-md object-cover"
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-500">Торкніться кольору на колесі або проведіть по ньому пальцем — тут одразу з'явиться пряжа цього відтінку.</p>
+            )}
+
             <div
               ref={wheelRef}
               role="slider"
@@ -140,7 +188,7 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
               onPointerDown={onPointer}
               onPointerMove={onPointer}
               onKeyDown={onWheelKey}
-              className="relative mx-auto aspect-square w-full max-w-[208px] cursor-pointer touch-none select-none rounded-full"
+              className="relative mx-auto aspect-square w-full max-w-[192px] cursor-pointer touch-none select-none rounded-full"
               style={{ background: wheelGradient() }}
             >
               {/* Hole in the middle shows the picked shade. */}
@@ -163,6 +211,7 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
             <label className="block">
               <span className="mb-1.5 flex justify-between text-xs text-zinc-500">
                 <span>Темніше</span>
+                <span>{current.l === null ? "Світлість: будь-яка" : ""}</span>
                 <span>Світліше</span>
               </span>
               <input
@@ -170,8 +219,9 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
                 min={L_MIN}
                 max={L_MAX}
                 step={0.01}
-                value={current.l}
+                value={current.l ?? L_DEFAULT}
                 aria-label="Світлість відтінку"
+                aria-valuetext={current.l === null ? "будь-яка" : undefined}
                 onChange={(e) => setShade({ ...current, l: Number(e.target.value) })}
                 className="shade-slider h-3 w-full cursor-pointer appearance-none rounded-full"
                 style={{
@@ -180,22 +230,25 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
               />
             </label>
 
-            {shade ? (
-              <button
-                type="button"
-                onClick={() => onChange(families, null)}
-                className="text-xs font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900"
-              >
-                Скинути відтінок
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShade(current)}
-                className="w-full rounded-md border border-zinc-300 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
-              >
-                Показати цей відтінок
-              </button>
+            {shade && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {shade.l !== null && (
+                  <button
+                    type="button"
+                    onClick={() => setShade({ ...shade, l: null })}
+                    className="text-xs font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900"
+                  >
+                    Будь-яка світлість
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onChange(families, null)}
+                  className="text-xs font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900"
+                >
+                  Скинути відтінок
+                </button>
+              </div>
             )}
           </div>
         )}
