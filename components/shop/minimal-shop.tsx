@@ -244,8 +244,8 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
           <ProductModal
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
-            onAddToCart={(product, quantity, tail) => {
-              addToCart(product, quantity, tail)
+            onAddToCart={(product, quantity) => {
+              addToCart(product, quantity)
               setSelectedProduct(null)
               setIsCartOpen(true)
             }}

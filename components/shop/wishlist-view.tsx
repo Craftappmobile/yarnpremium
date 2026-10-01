@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
 import { Heart, X, ShoppingBag } from "lucide-react"
-import { clampQuantity, formatPrice, formatQuantity, leftoverOffer } from "./data"
+import { formatPrice, formatQuantity } from "./data"
 import { useWishlist } from "./wishlist-context"
 import { useCart } from "./cart-context"
 import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
@@ -76,29 +76,18 @@ export function WishlistView() {
                         </button>
                       </div>
                       <div className="mt-auto pt-2">
-                        {inStock && leftoverOffer(product, clampQuantity(product, product.minQty)) > 0 ? (
-                          // The smallest amount leaves a leftover: the buyer answers that offer on the product page.
-                          <Link
-                            href={`/product/${product.sku}`}
-                            className="inline-flex items-center gap-2 py-2 px-4 text-sm font-medium rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
-                          >
-                            <ShoppingBag className="w-4 h-4" />
-                            Вибрати кількість
-                          </Link>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={!inStock}
-                            onClick={() => {
-                              addToCart(product)
-                              setIsCartOpen(true)
-                            }}
-                            className="inline-flex items-center gap-2 py-2 px-4 text-sm font-medium rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 disabled:cursor-not-allowed"
-                          >
-                            <ShoppingBag className="w-4 h-4" />
-                            {inStock ? "Додати в кошик" : "Немає в наявності"}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          disabled={!inStock}
+                          onClick={() => {
+                            addToCart(product)
+                            setIsCartOpen(true)
+                          }}
+                          className="inline-flex items-center gap-2 py-2 px-4 text-sm font-medium rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 disabled:cursor-not-allowed"
+                        >
+                          <ShoppingBag className="w-4 h-4" />
+                          {inStock ? "Додати в кошик" : "Немає в наявності"}
+                        </button>
                       </div>
                     </div>
                   </div>

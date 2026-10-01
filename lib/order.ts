@@ -74,7 +74,7 @@ export interface Order {
   customer: { firstName: string; lastName: string; phone: string; email: string }
   /**
    * `quantity` is in `unit` (grams for yarn sold by weight); `price` is per unit.
-   * `tail`: grams of it at TAIL_DISCOUNT (the spool's leftover the buyer agreed to take); `total` is the line price.
+   * `tail`: grams of it at TAIL_DISCOUNT (end of a spool taken whole); `total` is the line price.
    */
   items: { id: string; sku: string; name: string; price: number; quantity: number; unit: string; tail?: number; total?: number }[]
   subtotal: number
@@ -90,8 +90,7 @@ export interface OrderRequest {
   /** Generated once per checkout; a repeated submit with the same id returns the same order. */
   id: string
   customer: Order["customer"]
-  /** `tail`: grams of `quantity` taken as a discounted leftover offer. */
-  items: { sku: string; quantity: number; tail?: number }[]
+  items: { sku: string; quantity: number }[]
   delivery: OrderDelivery
   payment: PaymentMethod
   notes: string

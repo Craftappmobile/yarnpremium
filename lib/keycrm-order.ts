@@ -86,7 +86,7 @@ export function toKeycrmOrder(
           ...line,
           quantity: i.tail,
           price: Math.round(i.price * (1 - TAIL_DISCOUNT) * 10000) / 10000,
-          comment: `Залишок бобіни, знижка ${TAIL_DISCOUNT * 100}%`,
+          comment: `Залишок бобіни: окремо не продається, знижка ${TAIL_DISCOUNT * 100}%`,
         },
       ]
     }),
