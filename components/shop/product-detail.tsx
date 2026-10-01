@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Check, X, Heart, ShoppingBag } from "lucide-react"
-import { type Product, clampQuantity, formatPrice, formatQuantity, lineTotal } from "./data"
-import { QuantityPicker } from "./quantity-picker"
+import { type Product, formatPrice, formatQuantity } from "./data"
+import { QuantityPicker, useQuantityChoice } from "./quantity-picker"
 import { useCart } from "./cart-context"
 import { useWishlist } from "./wishlist-context"
 import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
@@ -22,7 +22,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
   const inStock = product.stock > 0
   const images = product.images.length > 0 ? product.images : [product.image]
   const [imageIndex, setImageIndex] = useState(0)
-  const [quantity, setQuantity] = useState(() => clampQuantity(product, product.minQty))
+  const choice = useQuantityChoice(product)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const { addToCart, itemCount } = useCart()
   const { isWishlisted, toggleWishlist } = useWishlist()
@@ -41,8 +41,15 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
   }, [])
 
   const addAndOpenCart = () => {
-    addToCart(product, quantity)
+    if (choice.pending) return
+    addToCart(product, choice.quantity, choice.tail)
     setIsCartOpen(true)
+  }
+  // From the bottom bar an unanswered leftover offer can't be seen: bring it into view.
+  const showOffer = () => {
+    const offer = document.getElementById("leftover-offer")
+    offer?.scrollIntoView({ block: "center", behavior: "smooth" })
+    offer?.querySelector("button")?.focus({ preventScroll: true })
   }
 
   return (
@@ -147,13 +154,21 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
 
               {inStock && (
                 <div className="mt-5 space-y-3">
-                  <QuantityPicker product={product} quantity={quantity} onChange={setQuantity} />
+                  <QuantityPicker
+                    product={product}
+                    quantity={choice.quantity}
+                    tail={choice.tail}
+                    onChange={choice.set}
+                    offerId="leftover-offer"
+                  />
 
                   <button
                     ref={buyRef}
                     type="button"
                     onClick={addAndOpenCart}
-                    className="w-full inline-flex items-center justify-center gap-2 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
+                    disabled={choice.pending}
+                    aria-describedby={choice.pending ? "leftover-offer" : undefined}
+                    className="w-full inline-flex items-center justify-center gap-2 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-600 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-300"
                   >
                     <ShoppingBag className="w-4 h-4" />
                     Додати в кошик
@@ -238,17 +253,17 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-base font-bold tabular-nums leading-tight">
-                  {formatPrice(lineTotal(product, quantity))}
+                  {formatPrice(choice.total)}
                 </p>
-                <p className="text-xs text-zinc-500 tabular-nums">{formatQuantity(quantity, product.priceUnit)}</p>
+                <p className="text-xs text-zinc-500 tabular-nums">{formatQuantity(choice.quantity, product.priceUnit)}</p>
               </div>
               <button
                 type="button"
-                onClick={addAndOpenCart}
+                onClick={choice.pending ? showOffer : addAndOpenCart}
                 className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-zinc-900 px-5 py-3 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
               >
                 <ShoppingBag className="w-4 h-4" aria-hidden />
-                Додати в кошик
+                {choice.pending ? "Вибрати кількість" : "Додати в кошик"}
               </button>
             </div>
           </div>
