@@ -36,13 +36,13 @@ export function OrderConfirmation() {
                 <span className="text-zinc-600 dark:text-zinc-300">
                   {i.name} <span className="text-zinc-400">× {formatQuantity(i.quantity, i.unit ?? "шт")}</span>
                 </span>
-                <span className="whitespace-nowrap">{formatPrice(i.price * i.quantity)}</span>
+                <span className="whitespace-nowrap tabular-nums">{formatPrice(i.price * i.quantity)}</span>
               </li>
             ))}
           </ul>
           <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 pt-3 font-semibold">
             <span>Загалом</span>
-            <span>{formatPrice(order.total)}</span>
+            <span className="tabular-nums">{formatPrice(order.total)}</span>
           </div>
           <p className="text-zinc-600 dark:text-zinc-300">
             <span className="text-zinc-400">Доставка:</span> {describeDelivery(order.delivery)}

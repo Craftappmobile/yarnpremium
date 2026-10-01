@@ -43,6 +43,9 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
               <img
                 src={images[imageIndex] || "/placeholder.svg"}
                 alt={product.name}
+                width={800}
+                height={1000}
+                fetchPriority="high"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -54,11 +57,12 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
                     key={src}
                     onClick={() => setImageIndex(i)}
                     aria-label={`Фото ${i + 1}`}
+                    aria-current={i === imageIndex}
                     className={`h-16 w-14 shrink-0 overflow-hidden rounded-md border-2 ${
-                      i === imageIndex ? "border-zinc-900 dark:border-zinc-100" : "border-transparent"
+                      i === imageIndex ? "border-zinc-900 dark:border-zinc-100" : "border-transparent hover:border-zinc-300"
                     }`}
                   >
-                    <img src={src} alt="" className="h-full w-full object-cover" />
+                    <img src={src} alt="" width={56} height={64} loading="lazy" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -72,7 +76,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
             </h1>
 
             <div className="mt-3 flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{formatPrice(product.price)}</span>
+              <span className="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">{formatPrice(product.price)}</span>
               <span className="text-sm text-zinc-500 dark:text-zinc-400">/ {product.priceUnit}</span>
             </div>
 
@@ -145,7 +149,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
         </div>
         {!inStock && similar.length > 0 && (
           <section className="mt-12">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-balance text-zinc-700 dark:text-zinc-300">
               Схожа пряжа в наявності
             </h2>
             <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -155,6 +159,9 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
                     <img
                       src={p.image || "/placeholder.svg"}
                       alt={p.name}
+                      width={400}
+                      height={500}
+                      loading="lazy"
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>

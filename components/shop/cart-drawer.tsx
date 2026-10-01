@@ -1,5 +1,7 @@
 "use client"
 
+import * as Dialog from "@radix-ui/react-dialog"
+import { useReturnFocus } from "./use-return-focus"
 import { motion } from "motion/react"
 import { X, Minus, Plus } from "lucide-react"
 import Link from "next/link"
@@ -13,39 +15,56 @@ interface CartDrawerProps {
 export function CartDrawer({ onClose }: CartDrawerProps) {
   const { cart, total, removeFromCart, updateQuantity } = useCart()
 
+  const returnFocus = useReturnFocus()
+
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.5 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black z-40"
-        onClick={onClose}
-      />
+    // Radix provides the dialog semantics: Escape, focus trap and return, scroll lock.
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal forceMount>
+      <Dialog.Overlay asChild forceMount>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.5 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black z-40"
+        />
+      </Dialog.Overlay>
+      <Dialog.Content asChild forceMount aria-describedby={undefined} {...returnFocus}>
       <motion.div
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
-        className="fixed right-0 top-0 h-full w-full sm:w-[400px] bg-white dark:bg-zinc-900 shadow-xl z-50"
+        transition={{ type: "tween", ease: "easeOut", duration: 0.25 }}
+        className="fixed right-0 top-0 h-dvh w-full sm:w-[400px] bg-white dark:bg-zinc-900 shadow-xl z-50"
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-            <h2 className="text-lg font-medium">Кошик</h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full"
-              aria-label="Закрити кошик"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <Dialog.Title className="text-lg font-medium">Кошик</Dialog.Title>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
+                aria-label="Закрити кошик"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </Dialog.Close>
           </div>
 
           {cart.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center p-8 text-center">
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
               <p className="text-sm text-zinc-500 dark:text-zinc-400">Ваш кошик порожній</p>
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-5 py-2.5 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  Продовжити покупки
+                </button>
+              </Dialog.Close>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
               {cart.map((item) => {
                 const { min, max } = quantityRules(item)
                 const atMax = item.quantity >= max
@@ -93,7 +112,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <p className="text-base font-medium">{formatPrice(item.price * item.quantity)}</p>
+                        <p className="text-base font-medium tabular-nums">{formatPrice(item.price * item.quantity)}</p>
                       </div>
 
                       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1.5">
@@ -108,12 +127,12 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
             </div>
           )}
 
-          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
+          {cart.length > 0 && (
+          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-zinc-200 dark:border-zinc-800">
             <div className="flex justify-between mb-4">
               <span className="text-base">Разом</span>
-              <span className="text-base font-medium">{formatPrice(total)}</span>
+              <span className="text-base font-medium tabular-nums">{formatPrice(total)}</span>
             </div>
-            {cart.length > 0 ? (
               <Link
                 href="/checkout"
                 onClick={onClose}
@@ -121,17 +140,12 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
               >
                 Оформити замовлення
               </Link>
-            ) : (
-              <button
-                disabled
-                className="w-full py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 text-base font-medium rounded-lg cursor-not-allowed"
-              >
-                Кошик порожній
-              </button>
-            )}
           </div>
+          )}
         </div>
       </motion.div>
-    </>
+      </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

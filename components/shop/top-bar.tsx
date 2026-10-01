@@ -37,7 +37,7 @@ export function TopBar({
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10)
     }
-    window.addEventListener("scroll", handleScroll)
+    window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
@@ -50,7 +50,7 @@ export function TopBar({
 
   return (
     <div
-      className={`sticky top-0 z-40 transition-all duration-200 ${
+      className={`sticky top-0 z-30 transition-shadow duration-200 ${
         isScrolled ? "bg-white shadow-sm dark:bg-zinc-900" : "bg-white dark:bg-zinc-900"
       } border-b border-zinc-200 dark:border-zinc-800`}
     >
@@ -61,10 +61,11 @@ export function TopBar({
         >
           SINSERITA
         </Link>
-        <div className="flex-1 min-w-0 px-4 flex items-center justify-center gap-2 overflow-x-auto scrollbar-none">
+        <div className="flex-1 min-w-0 px-4 flex items-center [justify-content:safe_center] gap-2 overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={onClearCategories}
+            aria-pressed={selectedCategories.length === 0}
             className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm transition-colors ${
               selectedCategories.length === 0
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-medium"
@@ -80,6 +81,7 @@ export function TopBar({
                 type="button"
                 key={category}
                 onClick={() => onToggleCategory(category)}
+                aria-pressed={active}
                 className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm transition-colors ${
                   active
                     ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-medium"
@@ -101,20 +103,26 @@ export function TopBar({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <motion.div className="relative" initial={false} animate={{ width: isSearchOpen ? "auto" : 0 }}>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Пошук товарів…"
-              aria-label="Пошук товарів"
-              className={`w-48 sm:w-56 bg-zinc-100 dark:bg-zinc-800 rounded-md text-sm px-3 py-1.5 
-                                text-zinc-800 dark:text-zinc-200
-                                focus:outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700
-                                transition-all duration-200 ${isSearchOpen ? "opacity-100" : "opacity-0"}`}
-              onChange={(e) => onSearch(e.target.value)}
-              onKeyDown={handleKeyPress}
-            />
-            {isSearchOpen && (
+          {isSearchOpen && (
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+            >
+              <input
+                ref={searchInputRef}
+                // Opened by a deliberate click on the search icon.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+                type="search"
+                enterKeyHint="search"
+                placeholder="Назва, колір, артикул…"
+                aria-label="Пошук товарів"
+                className="w-40 sm:w-56 bg-zinc-100 dark:bg-zinc-800 rounded-md text-sm pl-3 pr-8 py-1.5 text-zinc-800 dark:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                onChange={(e) => onSearch(e.target.value)}
+                onKeyDown={handleKeyPress}
+              />
               <button
                 type="button"
                 onClick={() => {
@@ -122,13 +130,12 @@ export function TopBar({
                   onSearch("")
                 }}
                 aria-label="Закрити пошук"
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-zinc-200 
-                                    dark:hover:bg-zinc-700 rounded-full text-zinc-600 dark:text-zinc-400"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full text-zinc-600 dark:text-zinc-400"
               >
                 <X className="w-4 h-4" />
               </button>
-            )}
-          </motion.div>
+            </motion.div>
+          )}
           <button
             type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
@@ -141,7 +148,7 @@ export function TopBar({
           </button>
           <Link
             href="/wishlist"
-            aria-label="Список бажань"
+            aria-label={wishlistCount > 0 ? `Список бажань: ${wishlistCount}` : "Список бажань"}
             className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md relative text-zinc-700 dark:text-zinc-300"
           >
             <Heart className="w-4 h-4" />
@@ -149,7 +156,7 @@ export function TopBar({
               <motion.span
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-medium w-4 h-4 flex items-center justify-center rounded-full"
+                className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full"
               >
                 {wishlistCount}
               </motion.span>
@@ -158,7 +165,7 @@ export function TopBar({
           <button
             type="button"
             onClick={onCartClick}
-            aria-label="Кошик"
+            aria-label={cartItemCount > 0 ? `Кошик: ${cartItemCount}` : "Кошик"}
             className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md relative text-zinc-700 dark:text-zinc-300"
           >
             <ShoppingBag className="w-4 h-4" />
@@ -167,7 +174,7 @@ export function TopBar({
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
                 className="absolute -top-1 -right-1 bg-zinc-900 dark:bg-white 
-                                    text-white dark:text-zinc-900 text-xs font-medium w-4 h-4 
+                                    text-white dark:text-zinc-900 text-xs font-medium tabular-nums w-4 h-4 
                                     flex items-center justify-center rounded-full"
               >
                 {cartItemCount}

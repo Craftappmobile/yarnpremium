@@ -63,10 +63,12 @@ export function UkrposhtaFields({ delivery, onChange, errors, inputClass }: Ukrp
     return (
       <>
         <div>
-          <label className="mb-1.5 block text-sm">
+          <label htmlFor="up-city" className="mb-1.5 block text-sm">
             Населений пункт <span className="text-red-500">*</span>
           </label>
           <input
+            id="up-city"
+            aria-invalid={Boolean(errors.city)}
             value={city?.name ?? ""}
             onChange={(e) => onChange({ city: { name: e.target.value } })}
             placeholder="Наприклад: Хмельницький"
@@ -75,10 +77,12 @@ export function UkrposhtaFields({ delivery, onChange, errors, inputClass }: Ukrp
           {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}
         </div>
         <div>
-          <label className="mb-1.5 block text-sm">
+          <label htmlFor="up-point" className="mb-1.5 block text-sm">
             Відділення Укрпошти <span className="text-red-500">*</span>
           </label>
           <input
+            id="up-point"
+            aria-invalid={Boolean(errors.point)}
             value={delivery.point?.name ?? ""}
             onChange={(e) => onChange({ point: { name: e.target.value } })}
             placeholder="Індекс або номер відділення"

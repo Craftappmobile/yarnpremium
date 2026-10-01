@@ -89,11 +89,25 @@ export function Checkout() {
 
   const customer = { firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim(), email: email.trim() }
 
+  // Takes the customer to the first field that needs fixing.
+  const focusFirstError = () =>
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>('[aria-invalid="true"]')
+      el?.focus()
+      el?.scrollIntoView({ block: "center", behavior: "smooth" })
+    })
+
   const validate = () => {
     const e = validateOrderFields(customer, delivery)
     setErrors(e)
+    if (Object.keys(e).length > 0) focusFirstError()
     return Object.keys(e).length === 0
   }
+
+  const fieldA11y = (key: string) => ({
+    "aria-invalid": Boolean(errors[key]),
+    "aria-describedby": errors[key] ? `${key}-error` : undefined,
+  })
 
   const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault()
@@ -130,7 +144,10 @@ export function Checkout() {
         setStockChanges(data.changes)
         await refresh()
       }
-      if (data.fields) setErrors(data.fields)
+      if (data.fields) {
+        setErrors(data.fields)
+        focusFirstError()
+      }
       setSubmitError(data.error ?? "Не вдалося оформити замовлення. Спробуйте ще раз.")
     } catch {
       setSubmitError("Немає звʼязку з сервером. Перевірте інтернет і спробуйте ще раз.")
@@ -154,39 +171,40 @@ export function Checkout() {
       <form onSubmit={handleSubmit} noValidate className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_420px]">
         {/* Left: contacts + delivery */}
         <div>
+          <h1 className="sr-only">Оформлення замовлення</h1>
           <h2 className="text-lg font-semibold uppercase tracking-wide">Контактні дані</h2>
 
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-sm">
+              <label htmlFor="firstName" className="mb-1.5 block text-sm">
                 Імʼя <span className="text-red-500">*</span>
               </label>
-              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" className={`${inputBase} ${errCls("firstName")}`} />
-              {errors.firstName && <p className="mt-1 text-xs text-red-500">{errors.firstName}</p>}
+              <input id="firstName" name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" {...fieldA11y("firstName")} className={`${inputBase} ${errCls("firstName")}`} />
+              <FieldError id="firstName" error={errors.firstName} />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm">
+              <label htmlFor="lastName" className="mb-1.5 block text-sm">
                 Прізвище <span className="text-red-500">*</span>
               </label>
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" className={`${inputBase} ${errCls("lastName")}`} />
-              {errors.lastName && <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>}
+              <input id="lastName" name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" {...fieldA11y("lastName")} className={`${inputBase} ${errCls("lastName")}`} />
+              <FieldError id="lastName" error={errors.lastName} />
             </div>
           </div>
 
           <div className="mt-4">
-            <label className="mb-1.5 block text-sm">
+            <label htmlFor="phone" className="mb-1.5 block text-sm">
               Телефон <span className="text-red-500">*</span>
             </label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="+380" className={`${inputBase} ${errCls("phone")}`} />
-            {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone}</p>}
+            <input id="phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="+380 67 123 45 67" {...fieldA11y("phone")} className={`${inputBase} ${errCls("phone")}`} />
+            <FieldError id="phone" error={errors.phone} />
           </div>
 
           <div className="mt-4">
-            <label className="mb-1.5 block text-sm">
+            <label htmlFor="email" className="mb-1.5 block text-sm">
               E-mail адреса <span className="text-red-500">*</span>
             </label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" autoComplete="email" className={`${inputBase} ${errCls("email")}`} />
-            {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+            <input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" spellCheck={false} placeholder="name@example.com" {...fieldA11y("email")} className={`${inputBase} ${errCls("email")}`} />
+            <FieldError id="email" error={errors.email} />
           </div>
 
           <h2 className="mt-10 text-lg font-semibold uppercase tracking-wide">Доставка</h2>
@@ -249,12 +267,14 @@ export function Checkout() {
           </div>
 
           <div className="mt-6">
-            <label className="mb-1.5 block text-sm">Нотатки до замовлення (необовʼязково)</label>
+            <label htmlFor="notes" className="mb-1.5 block text-sm">Нотатки до замовлення (необовʼязково)</label>
             <textarea
+              id="notes"
+              name="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={4}
-              placeholder="Нотатки до вашого замовлення, наприклад особливі побажання щодо доставки."
+              placeholder="Наприклад: зателефонуйте перед відправкою…"
               className={`${inputBase} border-zinc-300 dark:border-zinc-700 resize-none`}
             />
           </div>
@@ -276,14 +296,14 @@ export function Checkout() {
                   <span className="text-zinc-600 dark:text-zinc-300">
                     {item.name} <span className="text-zinc-400">× {formatQuantity(item.quantity, item.priceUnit)}</span>
                   </span>
-                  <span className="whitespace-nowrap">{formatPrice(item.price * item.quantity)}</span>
+                  <span className="whitespace-nowrap tabular-nums">{formatPrice(item.price * item.quantity)}</span>
                 </li>
               ))}
             </ul>
 
             <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 py-3 text-sm font-medium">
               <span>Проміжний підсумок</span>
-              <span>{formatPrice(total)}</span>
+              <span className="tabular-nums">{formatPrice(total)}</span>
             </div>
 
             <div className="flex justify-between gap-3 border-t border-zinc-200 dark:border-zinc-800 py-3 text-sm">
@@ -293,7 +313,7 @@ export function Checkout() {
 
             <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 pt-3 text-base font-semibold">
               <span>Загалом</span>
-              <span>{formatPrice(grandTotal)}</span>
+              <span className="tabular-nums">{formatPrice(grandTotal)}</span>
             </div>
           </div>
 
@@ -338,13 +358,13 @@ export function Checkout() {
               {split.now > 0 && (
                 <p className="flex justify-between font-medium text-zinc-800 dark:text-zinc-200">
                   <span>До сплати зараз</span>
-                  <span>{formatPrice(split.now)}</span>
+                  <span className="tabular-nums">{formatPrice(split.now)}</span>
                 </p>
               )}
               {split.onReceipt > 0 && (
                 <p className="flex justify-between font-medium text-zinc-800 dark:text-zinc-200">
                   <span>При отриманні</span>
-                  <span>{formatPrice(split.onReceipt)}</span>
+                  <span className="tabular-nums">{formatPrice(split.onReceipt)}</span>
                 </p>
               )}
             </div>
@@ -399,5 +419,14 @@ export function Checkout() {
         </div>
       </form>
     </div>
+  )
+}
+
+function FieldError({ id, error }: { id: string; error?: string }) {
+  if (!error) return null
+  return (
+    <p id={`${id}-error`} className="mt-1 text-xs text-red-500">
+      {error}
+    </p>
   )
 }

@@ -22,6 +22,27 @@ body {
   }
 }
 
+/* Visible keyboard focus everywhere; mouse clicks don't show the ring. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid #18181b;
+  outline-offset: 2px;
+}
+
+/* No double-tap zoom delay on buttons and links. */
+:where(a, button, input, label, select, textarea) {
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Dual-range price slider thumbs */
 .range-thumb {
   height: 0;
@@ -38,6 +59,18 @@ body {
   border: 2px solid #18181b;
   cursor: pointer;
   margin-top: 0;
+}
+
+.range-thumb:focus-visible {
+  outline: none;
+}
+
+.range-thumb:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 5px #18181b;
+}
+
+.range-thumb:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 5px #18181b;
 }
 
 .range-thumb::-moz-range-thumb {
