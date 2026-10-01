@@ -56,7 +56,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <span>·</span>
           <span>{readingTime(post.content)} хв читання</span>
           {post.draft && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
               Чернетка
             </span>
           )}
@@ -72,7 +72,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </div>
         )}
 
-        <div className="prose prose-zinc mt-8 max-w-none text-[15px] leading-relaxed prose-headings:font-semibold prose-a:underline-offset-4 prose-img:rounded-xl">
+        <div className="prose prose-zinc mt-8 max-w-none text-base leading-relaxed prose-headings:font-semibold prose-a:underline-offset-4 prose-img:rounded-xl">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
         </div>
 

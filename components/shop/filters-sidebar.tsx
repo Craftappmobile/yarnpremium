@@ -180,13 +180,13 @@ export function FiltersSidebar({
             <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {formatPrice(minPrice)}
             </span>
-            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Мін. ціна</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-500">Мін. ціна</span>
           </div>
           <div className="flex flex-col gap-1 items-end">
             <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {formatPrice(maxPrice)}
             </span>
-            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Макс. ціна</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-500">Макс. ціна</span>
           </div>
         </div>
       </div>
@@ -230,13 +230,13 @@ export function FiltersSidebar({
             <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {minLength} м
             </span>
-            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Мін. довжина</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-500">Мін. довжина</span>
           </div>
           <div className="flex flex-col gap-1 items-end">
             <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {maxLength} м
             </span>
-            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Макс. довжина</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-500">Макс. довжина</span>
           </div>
         </div>
       </div>
@@ -248,7 +248,7 @@ export function FiltersSidebar({
             Фільтр за категоріями
           </h3>
           {filters.categories.length > 0 && (
-            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">
+            <span className="text-xs text-zinc-500 dark:text-zinc-500">
               {filters.categories.length} вибрано
             </span>
           )}

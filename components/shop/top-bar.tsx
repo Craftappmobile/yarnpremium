@@ -156,7 +156,7 @@ export function TopBar({
               <motion.span
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
-                className="absolute top-0.5 right-0.5 bg-rose-500 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full"
+                className="absolute top-0.5 right-0.5 bg-rose-600 text-white text-xs font-medium tabular-nums w-4 h-4 flex items-center justify-center rounded-full"
               >
                 {wishlistCount}
               </motion.span>

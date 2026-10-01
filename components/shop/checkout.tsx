@@ -298,7 +298,7 @@ export function Checkout() {
               {cart.map((item) => (
                 <li key={item.id} className="flex justify-between gap-3 py-3 text-sm">
                   <span className="text-zinc-600 dark:text-zinc-300">
-                    {item.name} <span className="text-zinc-500">× {formatQuantity(item.quantity, item.priceUnit)}</span>
+                    {item.name} <span className="whitespace-nowrap text-zinc-500">× {formatQuantity(item.quantity, item.priceUnit)}</span>
                   </span>
                   <span className="whitespace-nowrap tabular-nums">{formatPrice(item.price * item.quantity)}</span>
                 </li>

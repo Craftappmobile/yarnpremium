@@ -37,7 +37,7 @@ function Section({ section }: { section: ContentSection }) {
 
       {section.blocks?.map((block, i) =>
         block.type === "paragraph" ? (
-          <p key={i} className="leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <p key={i} className="leading-relaxed text-pretty text-zinc-600 dark:text-zinc-400">
             {block.text}
           </p>
         ) : (
