@@ -1,6 +1,8 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState } from "react"
+import * as Dialog from "@radix-ui/react-dialog"
+import { useReturnFocus } from "./use-return-focus"
 import { motion } from "motion/react"
 import { X, Search } from "lucide-react"
 import type { Product } from "./data"
@@ -23,15 +25,6 @@ export function CategoriesModal({
 }: CategoriesModalProps) {
   const [query, setQuery] = useState("")
 
-  // Close on Escape
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [onClose])
-
   const categoryCounts = useMemo(
     () =>
       allProducts.reduce<Record<string, number>>((acc, p) => {
@@ -48,26 +41,23 @@ export function CategoriesModal({
       .sort((a, b) => a.localeCompare(b, "uk"))
   }, [categoryCounts, query])
 
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-8"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      {/* Backdrop */}
-      <button
-        type="button"
-        aria-label="Закрити категорії"
-        onClick={onClose}
-        className="absolute inset-0 bg-zinc-950/40 backdrop-blur-sm"
-      />
+  const returnFocus = useReturnFocus()
 
+  return (
+    // Radix provides the dialog semantics: Escape, focus trap and return, scroll lock.
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal forceMount>
+      <Dialog.Overlay asChild forceMount>
+        <motion.div
+          className="fixed inset-0 z-40 bg-zinc-950/40"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        />
+      </Dialog.Overlay>
+      <Dialog.Content asChild forceMount aria-describedby={undefined} {...returnFocus}>
       <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Всі категорії"
-        className="relative z-10 mt-8 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
+        className="fixed inset-x-4 top-8 z-50 mx-auto flex max-h-[80dvh] max-w-lg flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl sm:top-16 dark:border-zinc-800 dark:bg-zinc-900"
         initial={{ opacity: 0, y: 12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -75,17 +65,18 @@ export function CategoriesModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+          <Dialog.Title className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
             Всі категорії
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Закрити"
-            className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          </Dialog.Title>
+          <Dialog.Close asChild>
+            <button
+              type="button"
+              aria-label="Закрити"
+              className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </Dialog.Close>
         </div>
 
         {/* Search */}
@@ -93,8 +84,6 @@ export function CategoriesModal({
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -120,7 +109,7 @@ export function CategoriesModal({
         </div>
 
         {/* List */}
-        <div className="mt-3 flex-1 overflow-y-auto px-5 pb-5">
+        <div className="mt-3 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
           {matches.length === 0 ? (
             <p className="py-10 text-center text-sm text-zinc-400 dark:text-zinc-500">Нічого не знайдено</p>
           ) : (
@@ -131,15 +120,21 @@ export function CategoriesModal({
                 return (
                   <li key={category}>
                     <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => onToggleCategory(category)}
+                        className="peer sr-only"
+                      />
                       <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-zinc-900 peer-focus-visible:ring-offset-2 ${
                           checked
                             ? "border-zinc-900 bg-zinc-900 dark:border-zinc-100 dark:bg-zinc-100"
                             : "border-zinc-300 dark:border-zinc-700"
                         }`}
                       >
                         {checked && (
-                          <svg viewBox="0 0 12 12" className="h-3 w-3 text-white dark:text-zinc-900" fill="none">
+                          <svg viewBox="0 0 12 12" className="h-3 w-3 text-white dark:text-zinc-900" fill="none" aria-hidden="true">
                             <path
                               d="M2.5 6.5l2.5 2.5 4.5-5"
                               stroke="currentColor"
@@ -150,12 +145,6 @@ export function CategoriesModal({
                           </svg>
                         )}
                       </span>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => onToggleCategory(category)}
-                        className="sr-only"
-                      />
                       <span
                         className={`flex-1 truncate text-sm ${
                           checked
@@ -180,15 +169,18 @@ export function CategoriesModal({
 
         {/* Footer */}
         <div className="border-t border-zinc-100 px-5 py-3 dark:border-zinc-800">
+          <Dialog.Close asChild>
           <button
             type="button"
-            onClick={onClose}
             className="w-full rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
           >
             Готово
           </button>
+          </Dialog.Close>
         </div>
       </motion.div>
-    </motion.div>
+      </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

@@ -69,15 +69,16 @@ export function sortProducts<T extends Product>(items: T[], sort: SortOption): T
 }
 
 /**
- * Slider bounds that cover every product: price rounded out to whole hryvnias,
- * length rounded out to the 10 m slider step.
+ * Slider bounds that cover every product: price rounded out to 10 kopecks
+ * (yarn by weight costs a few hryvnias per gram), length rounded out to the
+ * 10 m slider step.
  */
 export function getFilterBounds(items: Product[]): { price: [number, number]; length: [number, number] } {
   if (items.length === 0) return { price: [0, 0], length: [0, 0] }
   const prices = items.map((p) => p.price)
   const lengths = items.map((p) => p.length)
   return {
-    price: [Math.floor(Math.min(...prices)), Math.ceil(Math.max(...prices))],
+    price: [Math.floor(Math.min(...prices) * 10) / 10, Math.ceil(Math.max(...prices) * 10) / 10],
     length: [Math.floor(Math.min(...lengths) / 10) * 10, Math.ceil(Math.max(...lengths) / 10) * 10],
   }
 }

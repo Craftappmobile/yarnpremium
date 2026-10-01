@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import type { Product } from "./data"
+import { type Product, formatPrice } from "./data"
 import { getColorHex } from "./colors"
 
 export interface Filters {
@@ -18,6 +18,8 @@ interface FiltersSidebarProps {
   filters: Filters
   onChange: (filters: Filters) => void
   onReset: () => void
+  /** False where the surrounding panel already shows the "Фільтри" title. */
+  showTitle?: boolean
 }
 
 export function FiltersSidebar({
@@ -27,6 +29,7 @@ export function FiltersSidebar({
   filters,
   onChange,
   onReset,
+  showTitle = true,
 }: FiltersSidebarProps) {
   const [minBound, maxBound] = priceBounds
   const [minPrice, maxPrice] = filters.priceRange
@@ -119,8 +122,12 @@ export function FiltersSidebar({
 
   return (
     <aside className="w-full space-y-10">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Фільтри</h2>
+      <div className={`flex items-center justify-between ${!showTitle && !isFiltered ? "hidden" : ""}`}>
+        {showTitle ? (
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Фільтри</h2>
+        ) : (
+          <span />
+        )}
         {isFiltered && (
           <button
             type="button"
@@ -148,6 +155,7 @@ export function FiltersSidebar({
             type="range"
             min={minBound}
             max={maxBound}
+            step={0.1}
             value={minPrice}
             onChange={(e) => setMin(Number(e.target.value))}
             aria-label="Мінімальна ціна"
@@ -157,6 +165,7 @@ export function FiltersSidebar({
             type="range"
             min={minBound}
             max={maxBound}
+            step={0.1}
             value={maxPrice}
             onChange={(e) => setMax(Number(e.target.value))}
             aria-label="Максимальна ціна"
@@ -166,14 +175,14 @@ export function FiltersSidebar({
 
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center">
-              {minPrice} ₴
+            <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
+              {formatPrice(minPrice)}
             </span>
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Мін. ціна</span>
           </div>
           <div className="flex flex-col gap-1 items-end">
-            <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center">
-              {maxPrice} ₴
+            <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
+              {formatPrice(maxPrice)}
             </span>
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Макс. ціна</span>
           </div>
@@ -183,7 +192,7 @@ export function FiltersSidebar({
       {/* Length filter (meters) */}
       <div className="space-y-4">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          Фільтрувати за довжиною
+          Фільтр за метражем
         </h3>
 
         <div className="relative h-6 flex items-center">
@@ -216,13 +225,13 @@ export function FiltersSidebar({
 
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center">
+            <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {minLength} м
             </span>
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Мін. довжина</span>
           </div>
           <div className="flex flex-col gap-1 items-end">
-            <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center">
+            <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {maxLength} м
             </span>
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Макс. довжина</span>
@@ -367,15 +376,16 @@ function CategoryRow({ category, checked, count, onToggle }: CategoryRowProps) {
   return (
     <li>
       <label className="flex items-center gap-3 cursor-pointer group">
+        <input type="checkbox" checked={checked} onChange={onToggle} className="peer sr-only" />
         <span
-          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${
+          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-zinc-900 peer-focus-visible:ring-offset-2 ${
             checked
               ? "border-zinc-900 bg-zinc-900 dark:border-zinc-100 dark:bg-zinc-100"
               : "border-zinc-300 dark:border-zinc-700 group-hover:border-zinc-400"
           }`}
         >
           {checked && (
-            <svg viewBox="0 0 12 12" className="h-3 w-3 text-white dark:text-zinc-900" fill="none">
+            <svg viewBox="0 0 12 12" className="h-3 w-3 text-white dark:text-zinc-900" fill="none" aria-hidden="true">
               <path
                 d="M2.5 6.5l2.5 2.5 4.5-5"
                 stroke="currentColor"
@@ -386,7 +396,6 @@ function CategoryRow({ category, checked, count, onToggle }: CategoryRowProps) {
             </svg>
           )}
         </span>
-        <input type="checkbox" checked={checked} onChange={onToggle} className="sr-only" />
         <span
           className={`flex-1 text-sm ${
             checked

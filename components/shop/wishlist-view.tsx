@@ -50,6 +50,7 @@ export function WishlistView() {
                   <img
                     src={product.image || "/placeholder.svg"}
                     alt={product.name}
+                    loading="lazy"
                     className="w-24 h-24 object-cover rounded-md shrink-0"
                   />
                   <div className="flex-1 min-w-0 flex flex-col">

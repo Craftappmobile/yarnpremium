@@ -1,5 +1,7 @@
 "use client"
 
+import * as Dialog from "@radix-ui/react-dialog"
+import { useReturnFocus } from "./use-return-focus"
 import { motion } from "motion/react"
 import { X, Check, Heart, ShoppingBag, ExternalLink } from "lucide-react"
 import { useState } from "react"
@@ -21,40 +23,48 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
   const wished = isWishlisted(product.id)
 
 
+  const returnFocus = useReturnFocus()
+
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.5 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black z-40"
-        onClick={onClose}
-      />
+    // Radix provides the dialog semantics: Escape, focus trap and return, scroll lock.
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal forceMount>
+      <Dialog.Overlay asChild forceMount>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.5 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black z-40"
+        />
+      </Dialog.Overlay>
+      <Dialog.Content asChild forceMount aria-describedby={undefined} {...returnFocus}>
       <motion.div
         layoutId={`product-${product.id}`}
-        className="fixed inset-x-4 bottom-0 md:inset-x-0 md:top-1/2 md:bottom-auto md:-translate-y-1/2 md:mx-auto md:max-w-3xl z-50 bg-white dark:bg-zinc-900 rounded-t-2xl md:rounded-2xl overflow-hidden max-h-[88vh] md:max-h-[560px]"
+        className="fixed inset-x-4 bottom-0 md:inset-0 md:m-auto md:h-fit md:max-w-3xl z-50 bg-white dark:bg-zinc-900 rounded-t-2xl md:rounded-2xl overflow-hidden max-h-[88dvh] md:max-h-[560px]"
       >
-        <div className="h-full flex flex-col md:flex-row max-h-[88vh] md:max-h-[560px]">
+        <div className="h-full flex flex-col md:flex-row max-h-[88dvh] md:max-h-[560px]">
           <div className="relative md:w-2/5 shrink-0">
             <img
               src={product.image || "/placeholder.svg"}
               alt={product.name}
               className="w-full h-[200px] md:h-full object-cover"
             />
-            <button
-              onClick={onClose}
-              aria-label="Закрити"
-              className="absolute top-3 right-3 p-1.5 bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-full"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                aria-label="Закрити"
+                className="absolute top-3 right-3 p-1.5 bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-full hover:bg-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </Dialog.Close>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 md:p-6 flex flex-col">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 text-balance">{product.name}</h2>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 md:p-6 flex flex-col">
+            <Dialog.Title className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 text-balance">{product.name}</Dialog.Title>
 
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xl font-bold text-zinc-900 dark:text-zinc-50">{formatPrice(product.price)}</span>
+              <span className="text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">{formatPrice(product.price)}</span>
               <span className="text-sm text-zinc-500 dark:text-zinc-400">/ {product.priceUnit}</span>
             </div>
 
@@ -135,6 +145,8 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
           </div>
         </div>
       </motion.div>
-    </>
+      </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

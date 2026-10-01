@@ -79,10 +79,12 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
   const houseFields = (
     <div className="grid grid-cols-2 gap-4">
       <div>
-        <label className="mb-1.5 block text-sm">
+        <label htmlFor="np-house" className="mb-1.5 block text-sm">
           Будинок <span className="text-red-500">*</span>
         </label>
         <input
+          id="np-house"
+          aria-invalid={Boolean(errors.house)}
           value={address.house}
           onChange={(e) => onChange({ address: { ...address, house: e.target.value } })}
           className={plainInput(errors.house)}
@@ -90,8 +92,9 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
         {errors.house && <p className="mt-1 text-xs text-red-500">{errors.house}</p>}
       </div>
       <div>
-        <label className="mb-1.5 block text-sm">Квартира</label>
+        <label htmlFor="np-flat" className="mb-1.5 block text-sm">Квартира</label>
         <input
+          id="np-flat"
           value={address.flat ?? ""}
           onChange={(e) => onChange({ address: { ...address, flat: e.target.value } })}
           className={plainInput()}
@@ -105,10 +108,12 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
     return (
       <>
         <div>
-          <label className="mb-1.5 block text-sm">
+          <label htmlFor="np-city" className="mb-1.5 block text-sm">
             Населений пункт <span className="text-red-500">*</span>
           </label>
           <input
+            id="np-city"
+            aria-invalid={Boolean(errors.city)}
             value={city?.name ?? ""}
             onChange={(e) => onChange({ city: { name: e.target.value } })}
             placeholder="Наприклад: Київ"
@@ -119,10 +124,12 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
         {mode === "np_courier" ? (
           <>
             <div>
-              <label className="mb-1.5 block text-sm">
+              <label htmlFor="np-street" className="mb-1.5 block text-sm">
                 Вулиця <span className="text-red-500">*</span>
               </label>
               <input
+                id="np-street"
+                aria-invalid={Boolean(errors.street)}
                 value={address.street}
                 onChange={(e) => onChange({ address: { ...address, street: e.target.value } })}
                 className={plainInput(errors.street)}
@@ -133,10 +140,12 @@ export function NovaPoshtaFields({ mode, delivery, onChange, errors, inputClass 
           </>
         ) : (
           <div>
-            <label className="mb-1.5 block text-sm">
+            <label htmlFor="np-point" className="mb-1.5 block text-sm">
               {pointLabel} <span className="text-red-500">*</span>
             </label>
             <input
+              id="np-point"
+              aria-invalid={Boolean(errors.point)}
               value={delivery.point?.name ?? ""}
               onChange={(e) => onChange({ point: { name: e.target.value } })}
               placeholder={mode === "np_postomat" ? "Номер поштомата" : "Наприклад: Відділення №1"}
