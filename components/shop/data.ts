@@ -1,20 +1,32 @@
 export interface Product {
+  /** Equal to `sku`: stable across catalog syncs, so saved carts and wishlists survive them. */
   id: string
+  /** KeyCRM offer id (stock webhooks identify offers by it). */
+  offerId: number
   name: string
   description: string
+  /** Price per `priceUnit`. */
   price: number
-  /** Unit the price is charged per, e.g. "г" (gram). Yarn is priced by weight. */
+  /** "г" for yarn sold by weight, "шт" for pieces. */
   priceUnit: string
   image: string
+  images: string[]
   category: string
-  /** Article / SKU. Maps to KeyCRM offer.sku on import. */
+  /** Article / SKU — KeyCRM offer.sku; orders reference products by it. */
   sku: string
-  /** Units in stock. Maps to KeyCRM offer.quantity on import. 0 = out of stock. */
+  /** Available to sell (KeyCRM stock minus reserves), in `priceUnit`. 0 = sold out. */
   stock: number
-  /** Color NAME only. The swatch HEX is resolved from colors.ts (colorHexMap). */
+  /** Color NAME only (KeyCRM custom field «Колір»). The swatch HEX is resolved from colors.ts. */
   color: string
-  /** Yarn length per skein, in meters */
+  /** Yarn length in meters as given in KeyCRM custom field «Метраж». 0 = unknown. */
   length: number
+  /** Manufacturer (KeyCRM custom field «Виробник»). */
+  brand: string
+  /** Yarn model, e.g. "Patagonia" (KeyCRM custom field «Артикул»). */
+  article: string
+  /** Smallest quantity that can be bought and the +/− step, in `priceUnit`. */
+  minQty: number
+  step: number
 }
 
 export interface CartItem extends Product {
@@ -92,11 +104,6 @@ export function sortProducts<T extends Product>(items: T[], sort: SortOption): T
   }
 }
 
-/** Current catalog entry for a product id (used to restore a saved cart/wishlist). */
-export function getProductById(id: string): Product | undefined {
-  return products.find((p) => p.id === id)
-}
-
 /**
  * Slider bounds that cover every product: price rounded out to whole hryvnias,
  * length rounded out to the 10 m slider step.
@@ -111,239 +118,30 @@ export function getFilterBounds(items: Product[]): { price: [number, number]; le
   }
 }
 
-// Full yarn category taxonomy (alphabetical). The filter derives its list from
-// here, while product counts are computed from the `products` array below.
-export const categoryList: string[] = [
-  "Акційний товар",
-  "Альпака",
-  "Ангора",
-  "Ангора суміш",
-  "Бебі лама з мериносом",
-  "Бусинки",
-  "Велюр",
-  "Велюровий котон",
-  "Верблюд суміш",
-  "Віскоза",
-  "Вспушений меринос",
-  "Евкаліпт",
-  "Засоби для прання",
-  "Кашемір",
-  "Кашемір Котон",
-  "Кашемір меринос",
-  "Кашемір меринос віскоза",
-  "Кашемір Меринос Шовк",
-  "Кашемір Шовк",
-  "Кід мохер",
-  "Кід на шовку бобінний",
-  "Коноплля",
-  "Королівська пайєтка",
-  "Котон",
-  "Котон шовк",
-  "Кропива",
-  "Льон",
-  "Льон з пайєткою та люрексом",
-  "Льон Шовк",
-  "Люрекс товстий",
-  "Люрекс тонкий",
-  "Меринос",
-  "Меринос верблюд",
-  "Меринос віскоза",
-  "Меринос з ангорою",
-  "Меринос з еластаном",
-  "Меринос з пайєткою",
-  "Меринос Льон",
-  "Меринос Мохер",
-  "Меринос шовк",
-  "Меринос шовк льон",
-  "Мериноси товсті",
-  "Мериноси тонкі",
-  "Мікропаєстка на бавовні",
-  "Мікропаєстка по 195 грн",
-  "Мікропайєтка на нейлоні",
-  "Мохер 30%",
-  "Напіввовна",
-  "Пайєтка на нейлоні",
-  "Пряжа Букле",
-  "Спиці",
-  "СуперКід мохер на шовку",
-  "Твід",
-  "Травка",
-  "Шишибрики букле",
-  "Шишибрики на котоні",
-  "Шишибрики тонкі",
-  "Шкарпеткова пряжа",
-  "Шовк",
-  "Шовк буретний",
-  "Ягня",
-  "Як",
-  "Як суміш",
-]
+/**
+ * Quantity limits for the +/− picker. When less than the minimum is left, only
+ * the whole remainder can be bought.
+ */
+export function quantityRules(p: Pick<Product, "stock" | "minQty" | "step">): { min: number; max: number; step: number } {
+  if (p.stock < p.minQty) return { min: p.stock, max: p.stock, step: p.stock }
+  return { min: p.minQty, max: p.stock, step: p.step }
+}
 
-// A short, curated set surfaced as quick-access pills in the top bar. The full
-// taxonomy stays searchable in the sidebar via categoryList.
-export const popularCategories: string[] = [
-  "Меринос",
-  "Кашемір",
-  "Альпака",
-  "Ангора",
-  "Шовк",
-  "Меринос шовк",
-  "Кашемір меринос",
-  "Мохер 30%",
-]
+export function clampQuantity(p: Pick<Product, "stock" | "minQty" | "step">, quantity: number): number {
+  const { min, max } = quantityRules(p)
+  return Math.min(max, Math.max(min, quantity))
+}
 
-export const products: Product[] = [
-  {
-    id: "p1",
-    name: "Minimal Desk Lamp",
-    description: "A sleek and modern desk lamp with adjustable brightness and color temperature.",
-    price: 89,
-    priceUnit: "г",
-    sku: "L401",
-    stock: 35,
-    image:
-      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Меринос",
-    color: "Black",
-    length: 400,
-  },
-  {
-    id: "p2",
-    name: "Ceramic Coffee Set",
-    description: "Handcrafted ceramic coffee set including 4 cups and a matching pour-over dripper.",
-    price: 65,
-    priceUnit: "г",
-    sku: "L402",
-    stock: 12,
-    image:
-      "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Кашемір",
-    color: "White",
-    length: 800,
-  },
-  {
-    id: "p3",
-    name: "Linen Throw Pillow",
-    description: "Soft linen throw pillow with minimalist pattern design.",
-    price: 45,
-    priceUnit: "г",
-    sku: "L403",
-    stock: 8,
-    image:
-      "https://images.unsplash.com/photo-1579656381226-5fc0f0100c3b?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Альпака",
-    color: "Beige",
-    length: 250,
-  },
-  {
-    id: "p4",
-    name: "Wooden Wall Clock",
-    description: "Modern wooden wall clock with silent movement.",
-    price: 79,
-    priceUnit: "г",
-    sku: "L404",
-    stock: 3,
-    image:
-      "https://images.unsplash.com/photo-1563861826100-9cb868fdbe1c?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Ангора",
-    color: "Wood",
-    length: 550,
-  },
-  {
-    id: "p5",
-    name: "Concrete Planter",
-    description: "Minimalist concrete planter perfect for succulents.",
-    price: 34,
-    priceUnit: "г",
-    sku: "L405",
-    stock: 50,
-    image:
-      "https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Мохер 30%",
-    color: "Gray",
-    length: 1000,
-  },
-  {
-    id: "p6",
-    name: "Glass Vase Set",
-    description: "Set of 3 minimalist glass vases in varying sizes.",
-    price: 55,
-    priceUnit: "г",
-    sku: "L406",
-    stock: 0,
-    image:
-      "https://images.unsplash.com/photo-1581783898377-1c85bf937427?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Шовк",
-    color: "White",
-    length: 300,
-  },
-  {
-    id: "p7",
-    name: "Bamboo Organizer",
-    description: "Desk organizer made from sustainable bamboo.",
-    price: 42,
-    priceUnit: "г",
-    sku: "L407",
-    stock: 22,
-    image:
-      "https://images.unsplash.com/photo-1591129841117-3adfd313e34f?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Меринос шовк",
-    color: "Wood",
-    length: 450,
-  },
-  {
-    id: "p9",
-    name: "Marble Coasters",
-    description: "Set of 4 marble coasters with cork backing.",
-    price: 38,
-    priceUnit: "г",
-    sku: "L409",
-    stock: 17,
-    image:
-      "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Кашемір меринос",
-    color: "White",
-    length: 700,
-  },
-  {
-    id: "p10",
-    name: "Brass Bookends",
-    description: "Modern geometric brass bookends, set of 2.",
-    price: 68,
-    priceUnit: "г",
-    sku: "L410",
-    stock: 6,
-    image: "https://images.unsplash.com/photo-1544457070-4cd773b4d71e?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Меринос шовк льон",
-    color: "Gold",
-    length: 500,
-  },
-  {
-    id: "p11",
-    name: "Ceramic Plant Pot",
-    description: "Handmade ceramic plant pot with drainage hole.",
-    price: 48,
-    priceUnit: "г",
-    sku: "L411",
-    stock: 28,
-    image:
-      "https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Меринос",
-    color: "Terracotta",
-    length: 350,
-  },
-  {
-    id: "p12",
-    name: "Wall Mirror",
-    description: "Round wall mirror with minimal metal frame.",
-    price: 120,
-    priceUnit: "г",
-    sku: "L412",
-    stock: 4,
-    image:
-      "https://images.unsplash.com/photo-1618220179428-22790b461013?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    category: "Альпака",
-    color: "Silver",
-    length: 650,
-  },
-]
+/** "350 г" / "3 шт". */
+export function formatQuantity(quantity: number, unit: string): string {
+  return `${quantity.toLocaleString("uk-UA")} ${unit}`
+}
+
+/** Distinct categories with product counts, most stocked first. */
+export function categoryCounts(items: Product[]): { name: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const p of items) counts.set(p.category, (counts.get(p.category) ?? 0) + 1)
+  return [...counts]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "uk"))
+}

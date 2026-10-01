@@ -70,7 +70,8 @@ export interface OrderDelivery {
 
 export interface Order {
   customer: { firstName: string; lastName: string; phone: string; email: string }
-  items: { id: string; sku: string; name: string; price: number; quantity: number }[]
+  /** `quantity` is in `unit` (grams for yarn sold by weight); `price` is per unit. */
+  items: { id: string; sku: string; name: string; price: number; quantity: number; unit: string }[]
   subtotal: number
   discount: number
   coupon: string | null

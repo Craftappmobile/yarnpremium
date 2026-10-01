@@ -4,11 +4,12 @@ import { Search, ShoppingBag, X, SlidersHorizontal, Heart } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { motion } from "motion/react"
 import Link from "next/link"
-import { popularCategories } from "./data"
 import { useWishlist } from "./wishlist-context"
 
 interface TopBarProps {
   cartItemCount: number
+  /** Quick-access category pills. */
+  popularCategories: string[]
   onCartClick: () => void
   onSearch: (query: string) => void
   selectedCategories: string[]
@@ -19,6 +20,7 @@ interface TopBarProps {
 
 export function TopBar({
   cartItemCount,
+  popularCategories,
   onCartClick,
   onSearch,
   selectedCategories,

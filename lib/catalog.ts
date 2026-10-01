@@ -1,0 +1,224 @@
+// Server-only catalog: a snapshot of the KeyCRM catalog kept in Redis.
+//
+// KeyCRM is the source of truth. `syncCatalog()` (run by the cron route) reads
+// every non-archived offer from KeyCRM and replaces the snapshot; pages read the
+// snapshot, never KeyCRM itself, because a full read takes a couple of minutes
+// under KeyCRM's 60 requests/minute limit.
+//
+// Redis keys:
+//   catalog:products   hash  sku -> Product JSON (stock as of the last sync)
+//   catalog:stock      hash  sku -> available quantity (live; stock webhooks update it)
+//   catalog:stock_at   hash  sku -> ms timestamp of the last webhook stock update
+//   catalog:meta       JSON  report of the last sync
+//   catalog:lock       lock  held while a sync runs
+
+import type { Product } from "@/components/shop/data"
+import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
+import { redis, redisConfigured } from "@/lib/redis"
+
+const KEY_PRODUCTS = "catalog:products"
+const KEY_STOCK = "catalog:stock"
+const KEY_STOCK_AT = "catalog:stock_at"
+const KEY_META = "catalog:meta"
+const KEY_LOCK = "catalog:lock"
+
+/** KeyCRM categories that are not sold on the site (compared case-insensitively). */
+const EXCLUDED_CATEGORIES = ["стікери", "палітри", "подарунковий сертифікат", "спиці", "засоби для прання"]
+const SALE_CATEGORY = "акційний товар"
+/** Grams: the minimum is 100 g (50 g for cashmere), then ±10 g. */
+const GRAM_MIN = 100
+const CASHMERE_GRAM_MIN = 50
+const GRAM_STEP = 10
+const DESCRIPTION_MAX = 1000
+
+/** Cashmere is sold from 50 g: its category says so, or for sale items its name starts with it. */
+function isCashmere(name: string, category: string): boolean {
+  const cat = category.toLowerCase()
+  if (cat.includes("кашемір")) return true
+  return cat === SALE_CATEGORY && name.trim().toLowerCase().startsWith("кашемір")
+}
+
+/** KeyCRM sometimes serves images through a "/remote?url=" proxy; use the original URL. */
+function imageUrl(url: unknown): string {
+  if (typeof url !== "string" || !url) return ""
+  const i = url.indexOf("/remote?url=")
+  if (i === -1) return url
+  return decodeURIComponent(url.slice(i + "/remote?url=".length).split("&")[0])
+}
+
+function customFields(product: any): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const cf of product?.custom_fields ?? []) {
+    const value = Array.isArray(cf.value) ? cf.value.join(", ") : cf.value
+    if (cf.name && value !== null && value !== undefined && String(value).trim()) out[cf.name] = String(value).trim()
+  }
+  return out
+}
+
+function toProduct(offer: any, product: any, fields: Record<string, string>, category: string): Product {
+  const name = String(product.name ?? "").trim()
+  const unit = String(product.unit_type ?? "").trim() || "шт"
+  const byWeight = unit === "г"
+  const images = [offer.thumbnail_url, product.thumbnail_url, ...(product.attachments_data ?? [])]
+    .map(imageUrl)
+    .filter((u, i, all) => u && all.indexOf(u) === i)
+  return {
+    id: offer.sku,
+    offerId: offer.id,
+    name,
+    description: String(product.description ?? "").trim().slice(0, DESCRIPTION_MAX),
+    price: Number(offer.price ?? product.price ?? 0),
+    priceUnit: unit,
+    image: images[0] ?? "",
+    images: images.slice(0, 6),
+    category,
+    sku: offer.sku,
+    // quantity is the total over all warehouses; in_reserve is held by open orders.
+    stock: Math.max(0, Math.floor(Number(offer.quantity ?? 0) - Number(offer.in_reserve ?? 0))),
+    color: fields["Колір"] ?? "",
+    length: Number.parseInt(fields["Метраж"] ?? "", 10) || 0,
+    brand: fields["Виробник"] ?? "",
+    article: fields["Артикул"] ?? "",
+    minQty: byWeight ? (isCashmere(name, category) ? CASHMERE_GRAM_MIN : GRAM_MIN) : 1,
+    step: byWeight ? GRAM_STEP : 1,
+  }
+}
+
+export interface SyncReport {
+  ran: boolean
+  reason?: string
+  startedAt?: string
+  seconds?: number
+  products?: number
+  inStock?: number
+  skipped?: { noSku: string[]; excludedCategory: number; archived: number; noProduct: number }
+  /** Offers' quantity/in_reserve compared with /offers/stocks for one page, to confirm their meaning. */
+  stockCheck?: { compared: number; quantityMismatches: number; reserveMismatches: number; examples: unknown[] }
+}
+
+/**
+ * Replaces the Redis snapshot with the current KeyCRM catalog. Skips when another
+ * sync holds the lock or the last one finished less than `minIntervalMs` ago.
+ */
+export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncReport> {
+  const r = await redis()
+  if (minIntervalMs > 0) {
+    const meta = JSON.parse((await r.get(KEY_META)) ?? "null")
+    const last = meta?.finishedAt ? Date.parse(meta.finishedAt) : 0
+    if (Date.now() - last < minIntervalMs) return { ran: false, reason: "synced recently" }
+  }
+  const token = String(Math.random())
+  if (!(await r.set(KEY_LOCK, token, { NX: true, EX: 600 }))) return { ran: false, reason: "sync already running" }
+
+  const started = Date.now()
+  try {
+    const [categories, offers, products, stocksPage] = await Promise.all([
+      keycrmGetAll("/products/categories"),
+      keycrmGetAll("/offers", { include: "product", "filter[is_archived]": "false" }),
+      keycrmGetAll("/products", { include: "custom_fields", "filter[is_archived]": "false" }),
+      keycrmGetPages("/offers/stocks", {}, 1),
+    ])
+
+    const categoryName = new Map<number, string>(categories.map((c: any) => [c.id, String(c.name ?? "").trim()]))
+    const productById = new Map<number, any>(products.map((p: any) => [p.id, p]))
+
+    const skipped = { noSku: [] as string[], excludedCategory: 0, archived: 0, noProduct: 0 }
+    const catalog: Product[] = []
+    const seen = new Set<string>()
+    for (const offer of offers) {
+      const product = productById.get(offer.product_id) ?? offer.product
+      if (!product) {
+        skipped.noProduct++
+        continue
+      }
+      if (offer.is_archived || product.is_archived) {
+        skipped.archived++
+        continue
+      }
+      const category = categoryName.get(product.category_id) ?? ""
+      if (EXCLUDED_CATEGORIES.includes(category.toLowerCase())) {
+        skipped.excludedCategory++
+        continue
+      }
+      // Orders reach KeyCRM stock by SKU, so an offer without one can't be sold here.
+      const sku = String(offer.sku ?? "").trim()
+      if (!sku || seen.has(sku)) {
+        if (!sku) skipped.noSku.push(String(product.name ?? offer.id))
+        continue
+      }
+      seen.add(sku)
+      catalog.push(toProduct({ ...offer, sku }, product, customFields(productById.get(offer.product_id)), category))
+    }
+
+    const offerById = new Map<number, any>(offers.map((o: any) => [o.id, o]))
+    const compared = stocksPage.items.filter((s: any) => offerById.has(s.id))
+    const quantityOff = compared.filter((s: any) => Number(s.quantity) !== Number(offerById.get(s.id).quantity))
+    const reserveOff = compared.filter((s: any) => Number(s.reserve) !== Number(offerById.get(s.id).in_reserve))
+    const stockCheck = {
+      compared: compared.length,
+      quantityMismatches: quantityOff.length,
+      reserveMismatches: reserveOff.length,
+      examples: [...quantityOff, ...reserveOff].slice(0, 3).map((s: any) => ({
+        sku: s.sku,
+        stocks: { quantity: s.quantity, reserve: s.reserve },
+        offer: { quantity: offerById.get(s.id).quantity, in_reserve: offerById.get(s.id).in_reserve },
+      })),
+    }
+
+    // A stock webhook that landed while we were reading KeyCRM is newer than our data: keep it.
+    const stockAt = await r.hGetAll(KEY_STOCK_AT)
+    const newer = catalog.filter((p) => Number(stockAt[p.sku] ?? 0) > started).map((p) => p.sku)
+    const live = newer.length ? await r.hmGet(KEY_STOCK, newer) : []
+    const liveStock = new Map(newer.map((sku, i) => [sku, live[i]]))
+
+    const tx = r.multi().del(KEY_PRODUCTS).del(KEY_STOCK)
+    if (catalog.length) {
+      tx.hSet(KEY_PRODUCTS, Object.fromEntries(catalog.map((p) => [p.sku, JSON.stringify(p)])))
+      tx.hSet(KEY_STOCK, Object.fromEntries(catalog.map((p) => [p.sku, liveStock.get(p.sku) ?? String(p.stock)])))
+    }
+    const report: SyncReport = {
+      ran: true,
+      startedAt: new Date(started).toISOString(),
+      seconds: Math.round((Date.now() - started) / 1000),
+      products: catalog.length,
+      inStock: catalog.filter((p) => Number(liveStock.get(p.sku) ?? p.stock) > 0).length,
+      skipped: { ...skipped, noSku: skipped.noSku.slice(0, 100) },
+      stockCheck,
+    }
+    tx.set(KEY_META, JSON.stringify({ ...report, finishedAt: new Date().toISOString() }))
+    await tx.exec()
+    return report
+  } finally {
+    if ((await r.get(KEY_LOCK)) === token) await r.del(KEY_LOCK)
+  }
+}
+
+function withLiveStock(p: Product, stock: string | null | undefined): Product {
+  return stock === null || stock === undefined ? p : { ...p, stock: Number(stock) }
+}
+
+/** Every non-archived product, sold-out ones included, newest first. Empty until the first sync. */
+export async function readCatalog(): Promise<Product[]> {
+  if (!redisConfigured()) return []
+  const r = await redis()
+  const [raw, stock] = await Promise.all([r.hVals(KEY_PRODUCTS), r.hGetAll(KEY_STOCK)])
+  return raw
+    .map((json) => {
+      const p = JSON.parse(json) as Product
+      return withLiveStock(p, stock[p.sku])
+    })
+    .sort((a, b) => b.offerId - a.offerId)
+}
+
+/** Current data for the given SKUs (unknown ones are left out). */
+export async function readProducts(skus: string[]): Promise<Product[]> {
+  if (!redisConfigured() || skus.length === 0) return []
+  const r = await redis()
+  const [raw, stock] = await Promise.all([r.hmGet(KEY_PRODUCTS, skus), r.hmGet(KEY_STOCK, skus)])
+  return raw.flatMap((json, i) => (json ? [withLiveStock(JSON.parse(json) as Product, stock[i])] : []))
+}
+
+export async function readCatalogMeta(): Promise<(SyncReport & { finishedAt?: string }) | null> {
+  if (!redisConfigured()) return null
+  return JSON.parse((await (await redis()).get(KEY_META)) ?? "null")
+}

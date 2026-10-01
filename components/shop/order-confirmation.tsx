@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { CheckCircle2, ArrowLeft, CreditCard } from "lucide-react"
-import { formatPrice } from "./data"
+import { formatPrice, formatQuantity } from "./data"
 import { loadLastOrder } from "./last-order"
 import { PAYMENT_LABELS, describeDelivery, type Order } from "@/lib/order"
 
@@ -28,7 +28,7 @@ export function OrderConfirmation() {
             {order.items.map((i) => (
               <li key={i.id} className="flex justify-between gap-3">
                 <span className="text-zinc-600 dark:text-zinc-300">
-                  {i.name} <span className="text-zinc-400">× {i.quantity}</span>
+                  {i.name} <span className="text-zinc-400">× {formatQuantity(i.quantity, i.unit ?? "шт")}</span>
                 </span>
                 <span className="whitespace-nowrap">{formatPrice(i.price * i.quantity)}</span>
               </li>

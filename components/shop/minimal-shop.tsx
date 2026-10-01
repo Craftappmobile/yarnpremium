@@ -9,11 +9,14 @@ import { TopBar } from "./top-bar"
 import { FiltersSidebar, type Filters } from "./filters-sidebar"
 import { CategoriesModal } from "./categories-modal"
 import { Footer } from "./footer"
-import { type Product, products, type SortOption, sortOptions, sortProducts, getFilterBounds } from "./data"
+import { type Product, type SortOption, sortOptions, sortProducts, getFilterBounds, categoryCounts } from "./data"
 import { useCart } from "./cart-context"
 import { pluralUk } from "@/lib/utils"
 
-export default function MinimalShop() {
+/** Cards rendered at first and per "Показати ще" click; the catalog has thousands. */
+const PAGE_SIZE = 60
+
+export default function MinimalShop({ products }: { products: Product[] }) {
   const { cart, itemCount, addToCart } = useCart()
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isCartOpen, setIsCartOpen] = useState(false)
@@ -21,7 +24,10 @@ export default function MinimalShop() {
   const [searchQuery, setSearchQuery] = useState("")
   const [sort, setSort] = useState<SortOption>("default")
 
-  const { price: priceBounds, length: lengthBounds } = useMemo(() => getFilterBounds(products), [])
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+
+  const { price: priceBounds, length: lengthBounds } = useMemo(() => getFilterBounds(products), [products])
+  const popularCategories = useMemo(() => categoryCounts(products).slice(0, 8).map((c) => c.name), [products])
 
   const [filters, setFilters] = useState<Filters>({
     priceRange: priceBounds,
@@ -51,8 +57,11 @@ export default function MinimalShop() {
     setIsCategoriesOpen(true)
   }
 
+  const query = searchQuery.trim().toLowerCase()
   const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch =
+      !query ||
+      [product.name, product.sku, product.color, product.brand, product.article].some((v) => v.toLowerCase().includes(query))
     const matchesPrice = product.price >= filters.priceRange[0] && product.price <= filters.priceRange[1]
     const matchesLength = product.length >= filters.lengthRange[0] && product.length <= filters.lengthRange[1]
     const matchesCategory = filters.categories.length === 0 || filters.categories.includes(product.category)
@@ -61,11 +70,21 @@ export default function MinimalShop() {
   })
 
   const sortedProducts = sortProducts(filteredProducts, sort)
+  const shownProducts = sortedProducts.slice(0, visibleCount)
+
+  // A new search, filter or sort starts from the top of the list again.
+  const listKey = JSON.stringify([query, filters, sort])
+  const [lastListKey, setLastListKey] = useState(listKey)
+  if (listKey !== lastListKey) {
+    setLastListKey(listKey)
+    setVisibleCount(PAGE_SIZE)
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <TopBar
         cartItemCount={itemCount}
+        popularCategories={popularCategories}
         onCartClick={() => setIsCartOpen(true)}
         onSearch={setSearchQuery}
         selectedCategories={filters.categories}
@@ -109,8 +128,25 @@ export default function MinimalShop() {
                 </select>
               </label>
             </div>
-            {sortedProducts.length > 0 ? (
-              <ProductGrid products={sortedProducts} onProductSelect={setSelectedProduct} />
+            {products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Каталог оновлюється. Зазирніть за кілька хвилин.</p>
+              </div>
+            ) : sortedProducts.length > 0 ? (
+              <>
+                <ProductGrid products={shownProducts} onProductSelect={setSelectedProduct} />
+                {sortedProducts.length > shownProducts.length && (
+                  <div className="mt-8 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                      className="rounded-md border border-zinc-300 dark:border-zinc-700 px-5 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      Показати ще ({sortedProducts.length - shownProducts.length})
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">Немає товарів за вибраними фільтрами.</p>

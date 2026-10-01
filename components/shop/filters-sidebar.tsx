@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { type Product, categoryList } from "./data"
+import type { Product } from "./data"
 import { getColorHex } from "./colors"
 
 export interface Filters {
@@ -34,7 +34,7 @@ export function FiltersSidebar({
   const [minLength, maxLength] = filters.lengthRange
   const [categoryQuery, setCategoryQuery] = useState("")
 
-  // Product counts per category (taxonomy comes from categoryList)
+  // Product counts per category; the list itself is the categories in the catalog.
   const categoryCounts = useMemo(
     () =>
       allProducts.reduce<Record<string, number>>((acc, p) => {
@@ -44,17 +44,23 @@ export function FiltersSidebar({
     [allProducts],
   )
 
-  // Full taxonomy, filtered by the in-panel search, with selected pinned to top
+  const categoryList = useMemo(
+    () => Object.keys(categoryCounts).filter(Boolean).sort((a, b) => a.localeCompare(b, "uk")),
+    [categoryCounts],
+  )
+
+  // All categories, filtered by the in-panel search, with selected pinned to top
   const visibleCategories = useMemo(() => {
     const q = categoryQuery.trim().toLowerCase()
     const matches = categoryList.filter((c) => c.toLowerCase().includes(q))
     const selected = matches.filter((c) => filters.categories.includes(c))
     const rest = matches.filter((c) => !filters.categories.includes(c))
     return { selected, rest, total: matches.length }
-  }, [categoryQuery, filters.categories])
+  }, [categoryList, categoryQuery, filters.categories])
 
   // Distinct colors with counts + hex
   const colorMap = allProducts.reduce<Record<string, { count: number; hex: string }>>((acc, p) => {
+    if (!p.color) return acc
     if (!acc[p.color]) acc[p.color] = { count: 0, hex: getColorHex(p.color) }
     acc[p.color].count += 1
     return acc

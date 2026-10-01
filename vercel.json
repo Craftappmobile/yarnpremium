@@ -1,0 +1,4 @@
+{
+  "regions": ["dub1"],
+  "crons": [{ "path": "/api/cron/catalog-sync", "schedule": "*/15 * * * *" }]
+}

@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Heart, X, ShoppingBag } from "lucide-react"
-import { formatPrice } from "./data"
+import { formatPrice, formatQuantity } from "./data"
 import { useWishlist } from "./wishlist-context"
 import { useCart } from "./cart-context"
 import { CartDrawer } from "./cart-drawer"
@@ -62,7 +62,7 @@ export function WishlistView() {
                           {formatPrice(product.price)} / {product.priceUnit}
                         </p>
                         <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                          {inStock ? `${product.stock} в наявності` : "Немає в наявності"}
+                          {inStock ? `${formatQuantity(product.stock, product.priceUnit)} в наявності` : "Немає в наявності"}
                         </p>
                       </div>
                       <button
@@ -78,7 +78,7 @@ export function WishlistView() {
                         type="button"
                         disabled={!inStock}
                         onClick={() => {
-                          addToCart(product, 1)
+                          addToCart(product)
                           setIsCartOpen(true)
                         }}
                         className="inline-flex items-center gap-2 py-2 px-4 text-sm font-medium rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 disabled:cursor-not-allowed"
