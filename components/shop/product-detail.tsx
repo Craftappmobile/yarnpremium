@@ -6,6 +6,7 @@ import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Check, X, Heart, ShoppingBag } from "lucide-react"
 import { type Product, clampQuantity, formatPrice, formatQuantity, lineTotal } from "./data"
 import { QuantityPicker } from "./quantity-picker"
+import { trackViewItem } from "./analytics"
 import { useCart } from "./cart-context"
 import { useWishlist } from "./wishlist-context"
 import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
@@ -39,6 +40,12 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
     io.observe(el)
     return () => io.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (inStock) trackViewItem(product)
+    // Once per product page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.sku])
 
   const addAndOpenCart = () => {
     addToCart(product, quantity)

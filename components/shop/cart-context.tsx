@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import { type Product, type CartItem, clampQuantity, lineTotal } from "./data"
 import { isProductLike, lookupProducts } from "./catalog-client"
+import { trackAddToCart } from "./analytics"
 import { readStorage, writeStorage, parseStorageEvent } from "@/lib/storage"
 
 // v2 stores product snapshots, so the cart shows instantly and survives a catalog outage.
@@ -79,6 +80,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = useCallback((product: Product, quantity = product.minQty) => {
     if (product.stock <= 0) return
+    trackAddToCart(product, clampQuantity(product, quantity))
     setCart((prev) => {
       const exists = prev.find((item) => item.id === product.id)
       if (exists) {

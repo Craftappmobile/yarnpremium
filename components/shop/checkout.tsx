@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, MapPin, Clock } from "lucide-react"
@@ -24,6 +24,7 @@ import {
   type StockChange,
 } from "@/lib/order"
 import { saveLastOrder } from "./last-order"
+import { trackBeginCheckout, trackPurchase } from "./analytics"
 import { readUtm } from "./utm-capture"
 
 export function Checkout() {
@@ -44,6 +45,14 @@ export function Checkout() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState("")
   const [stockChanges, setStockChanges] = useState<StockChange[]>([])
+
+  // Reported once, when the restored cart is first seen on this page.
+  const checkoutTracked = useRef(false)
+  useEffect(() => {
+    if (!hydrated || checkoutTracked.current || cart.length === 0) return
+    checkoutTracked.current = true
+    trackBeginCheckout(cart)
+  }, [hydrated, cart])
 
   const grandTotal = total
   const payments = paymentMethodsFor(delivery.method)
@@ -138,6 +147,7 @@ export function Checkout() {
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.order) {
         saveLastOrder(data.order as Order)
+        trackPurchase(data.order as Order, orderId)
         clearCart()
         router.push("/checkout/success")
         return

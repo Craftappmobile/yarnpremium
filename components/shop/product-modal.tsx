@@ -4,10 +4,11 @@ import * as Dialog from "@radix-ui/react-dialog"
 import { useReturnFocus } from "./use-return-focus"
 import { m } from "motion/react"
 import { X, Check, Heart, ShoppingBag, ExternalLink } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { type Product, clampQuantity, formatPrice, formatQuantity } from "./data"
 import { QuantityPicker } from "./quantity-picker"
+import { trackViewItem } from "./analytics"
 import { useWishlist } from "./wishlist-context"
 import { ProductImage } from "./product-image"
 
@@ -22,6 +23,12 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
   const [quantity, setQuantity] = useState(() => clampQuantity(product, product.minQty))
   const { isWishlisted, toggleWishlist } = useWishlist()
   const wished = isWishlisted(product.id)
+
+  useEffect(() => {
+    if (inStock) trackViewItem(product)
+    // Once per opened product.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.sku])
 
 
   const returnFocus = useReturnFocus()
