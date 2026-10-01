@@ -222,3 +222,19 @@ export async function readCatalogMeta(): Promise<(SyncReport & { finishedAt?: st
   if (!redisConfigured()) return null
   return JSON.parse((await (await redis()).get(KEY_META)) ?? "null")
 }
+
+/**
+ * Takes sold quantities off the live stock right away, so the site stops offering
+ * them before KeyCRM's reservation comes back through the next sync or webhook.
+ */
+export async function reserveStock(items: { sku: string; quantity: number }[]): Promise<void> {
+  if (!redisConfigured() || items.length === 0) return
+  const r = await redis()
+  const now = String(Date.now())
+  const tx = r.multi()
+  for (const { sku, quantity } of items) {
+    tx.hIncrBy(KEY_STOCK, sku, -Math.round(quantity))
+    tx.hSet(KEY_STOCK_AT, sku, now)
+  }
+  await tx.exec()
+}

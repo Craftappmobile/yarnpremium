@@ -1,6 +1,6 @@
-// Delivery and payment options for checkout, plus the order shape the checkout
-// produces. The order is structured so it can later be sent to KeyCRM as-is
-// (carrier refs are kept alongside the human-readable names).
+// Delivery and payment options for checkout, the order shape, and the checks
+// shared by the checkout form and /api/orders (which sends orders to KeyCRM;
+// carrier refs are kept alongside the human-readable names).
 
 /** Prepayment taken online for cash-on-delivery orders (₴). */
 export const COD_PREPAYMENT = 200
@@ -69,17 +69,75 @@ export interface OrderDelivery {
 }
 
 export interface Order {
+  /** KeyCRM order id, shown to the customer as the order number. */
+  number?: number
   customer: { firstName: string; lastName: string; phone: string; email: string }
   /** `quantity` is in `unit` (grams for yarn sold by weight); `price` is per unit. */
   items: { id: string; sku: string; name: string; price: number; quantity: number; unit: string }[]
   subtotal: number
-  discount: number
-  coupon: string | null
   total: number
   delivery: OrderDelivery
   payment: { method: PaymentMethod; now: number; onReceipt: number }
   notes: string
   createdAt: string
+}
+
+/** What the checkout sends to /api/orders. Prices and totals are worked out on the server. */
+export interface OrderRequest {
+  /** Generated once per checkout; a repeated submit with the same id returns the same order. */
+  id: string
+  customer: Order["customer"]
+  items: { sku: string; quantity: number }[]
+  delivery: OrderDelivery
+  payment: PaymentMethod
+  notes: string
+  /** utm_* parameters of the visit that brought the customer. */
+  utm?: Record<string, string>
+  /** Honeypot: hidden from people, filled in by bots. */
+  website?: string
+}
+
+/** A cart line that can't be bought as ordered any more (returned by /api/orders with 409). */
+export interface StockChange {
+  sku: string
+  name: string
+  /** What can be bought now, in `unit`; 0 = sold out. */
+  available: number
+  unit: string
+}
+
+/** "+380XXXXXXXXX", or null when it isn't a Ukrainian mobile/landline number. */
+export function normalizePhone(raw: string): string | null {
+  let digits = raw.replace(/\D/g, "")
+  if (digits.length === 10 && digits.startsWith("0")) digits = `38${digits}`
+  if (digits.length === 11 && digits.startsWith("80")) digits = `3${digits}`
+  return digits.length === 12 && digits.startsWith("380") ? `+${digits}` : null
+}
+
+/** Field errors for the contact and delivery part of an order, keyed like the form fields. */
+export function validateOrderFields(customer: Order["customer"], delivery: OrderDelivery): Record<string, string> {
+  const e: Record<string, string> = {}
+  if (!customer.firstName.trim()) e.firstName = "Вкажіть імʼя"
+  if (!customer.lastName.trim()) e.lastName = "Вкажіть прізвище"
+  if (!normalizePhone(customer.phone)) e.phone = "Вкажіть телефон у форматі +380XXXXXXXXX"
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email.trim())) e.email = "Вкажіть коректний email"
+  if (delivery.method !== "pickup") {
+    if (!delivery.city?.name.trim()) e.city = "Оберіть населений пункт"
+    if (delivery.method === "np_courier") {
+      if (!delivery.address?.street.trim()) e.street = "Вкажіть вулицю"
+      if (!delivery.address?.house.trim()) e.house = "Вкажіть номер будинку"
+    } else if (!delivery.point?.name.trim()) {
+      e.point = delivery.method === "np_postomat" ? "Оберіть поштомат" : "Оберіть відділення"
+    }
+  }
+  return e
+}
+
+/** The payment actually used: cash on delivery falls back to card when nothing would be left after the prepayment. */
+export function effectivePaymentMethod(method: PaymentMethod, delivery: DeliveryMethod, total: number): PaymentMethod {
+  const allowed = paymentMethodsFor(delivery)
+  const chosen = allowed.includes(method) ? method : allowed[0]
+  return chosen === "cod" && total <= COD_PREPAYMENT ? "card" : chosen
 }
 
 /** Single-line delivery summary for confirmations. */

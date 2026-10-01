@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, MapPin, Clock } from "lucide-react"
 import { useCart } from "./cart-context"
-import { formatPrice, formatQuantity, applyCoupon, type Coupon } from "./data"
+import { formatPrice, formatQuantity } from "./data"
 import { NovaPoshtaFields } from "./nova-poshta-fields"
 import { UkrposhtaFields } from "./ukrposhta-fields"
 import {
@@ -15,16 +15,20 @@ import {
   PICKUP_POINT,
   paymentMethodsFor,
   paymentSplit,
+  validateOrderFields,
   type DeliveryMethod,
   type Order,
   type OrderDelivery,
+  type OrderRequest,
   type PaymentMethod,
+  type StockChange,
 } from "@/lib/order"
 import { saveLastOrder } from "./last-order"
+import { readUtm } from "./utm-capture"
 
 export function Checkout() {
   const router = useRouter()
-  const { cart, total, clearCart, hydrated } = useCart()
+  const { cart, total, clearCart, hydrated, refresh } = useCart()
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -33,39 +37,21 @@ export function Checkout() {
   const [notes, setNotes] = useState("")
   const [delivery, setDelivery] = useState<OrderDelivery>({ method: "np_warehouse" })
   const [payment, setPayment] = useState<PaymentMethod>("card")
-  const [showCoupon, setShowCoupon] = useState(false)
-  const [coupon, setCoupon] = useState("")
-  const [appliedCoupon, setAppliedCoupon] = useState<{ coupon: Coupon; discount: number } | null>(null)
-  const [couponError, setCouponError] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [website, setWebsite] = useState("")
+  // One id per checkout: a repeated submit can't create a second order.
+  const [orderId] = useState(() => crypto.randomUUID())
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
+  const [stockChanges, setStockChanges] = useState<StockChange[]>([])
 
-  // Recompute the discount against the live subtotal so it stays valid if the
-  // cart changes after a coupon was applied.
-  const discount = appliedCoupon ? Math.min(appliedCoupon.discount, total) : 0
-  const grandTotal = Math.max(0, total - discount)
+  const grandTotal = total
   const payments = paymentMethodsFor(delivery.method)
   // Cash on delivery only makes sense when something is left to pay after the prepayment.
   const codAvailable = grandTotal > COD_PREPAYMENT
   const effectivePayment: PaymentMethod = payment === "cod" && !codAvailable ? "card" : payment
   const split = paymentSplit(effectivePayment, grandTotal)
   const deliveryHint = DELIVERY_METHODS.find((m) => m.value === delivery.method)?.hint
-
-  const handleApplyCoupon = () => {
-    const result = applyCoupon(coupon, total)
-    if (result.ok) {
-      setAppliedCoupon({ coupon: result.coupon, discount: result.discount })
-      setCouponError("")
-    } else {
-      setAppliedCoupon(null)
-      setCouponError(result.error)
-    }
-  }
-
-  const removeCoupon = () => {
-    setAppliedCoupon(null)
-    setCoupon("")
-    setCouponError("")
-  }
 
   const selectDelivery = (method: DeliveryMethod) => {
     // Keep the chosen city when switching between Nova Poshta options; drop
@@ -101,48 +87,55 @@ export function Checkout() {
     )
   }
 
+  const customer = { firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim(), email: email.trim() }
+
   const validate = () => {
-    const e: Record<string, string> = {}
-    if (!firstName.trim()) e.firstName = "Вкажіть імʼя"
-    if (!lastName.trim()) e.lastName = "Вкажіть прізвище"
-    const digits = phone.replace(/\D/g, "")
-    if (digits.length < 10 || digits.length > 12) e.phone = "Вкажіть коректний телефон"
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = "Вкажіть коректний email"
-    if (delivery.method !== "pickup") {
-      if (!delivery.city?.name.trim()) e.city = "Оберіть населений пункт"
-      if (delivery.method === "np_courier") {
-        if (!delivery.address?.street.trim()) e.street = "Вкажіть вулицю"
-        if (!delivery.address?.house.trim()) e.house = "Вкажіть номер будинку"
-      } else if (!delivery.point?.name.trim()) {
-        e.point = delivery.method === "np_postomat" ? "Оберіть поштомат" : "Оберіть відділення"
-      }
-    }
+    const e = validateOrderFields(customer, delivery)
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault()
-    if (!validate()) return
+    if (submitting || !validate()) return
+    setSubmitting(true)
+    setSubmitError("")
+    setStockChanges([])
 
-    const order: Order = {
-      customer: { firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim(), email: email.trim() },
-      items: cart.map((i) => ({ id: i.id, sku: i.sku, name: i.name, price: i.price, quantity: i.quantity, unit: i.priceUnit })),
-      subtotal: total,
-      discount,
-      coupon: appliedCoupon?.coupon.code ?? null,
-      total: grandTotal,
+    const request: OrderRequest = {
+      id: orderId,
+      customer,
+      items: cart.map((i) => ({ sku: i.sku, quantity: i.quantity })),
       delivery,
-      payment: { method: effectivePayment, ...split },
+      payment: effectivePayment,
       notes: notes.trim(),
-      createdAt: new Date().toISOString(),
+      utm: readUtm(),
+      website,
     }
-
-    // No backend yet: keep the order for the confirmation page. Sending it to
-    // KeyCRM and taking the online payment are the next steps.
-    saveLastOrder(order)
-    clearCart()
-    router.push("/checkout/success")
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.order) {
+        saveLastOrder(data.order as Order)
+        clearCart()
+        router.push("/checkout/success")
+        return
+      }
+      if (data.changes) {
+        // Show what changed and bring the cart in line before the customer tries again.
+        setStockChanges(data.changes)
+        await refresh()
+      }
+      if (data.fields) setErrors(data.fields)
+      setSubmitError(data.error ?? "Не вдалося оформити замовлення. Спробуйте ще раз.")
+    } catch {
+      setSubmitError("Немає звʼязку з сервером. Перевірте інтернет і спробуйте ще раз.")
+    }
+    setSubmitting(false)
   }
 
   const inputBase =
@@ -157,53 +150,6 @@ export function Checkout() {
       >
         <ArrowLeft className="h-4 w-4" /> До магазину
       </Link>
-
-      {/* Coupon */}
-      <div className="mt-6 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm">
-        <span className="text-zinc-600 dark:text-zinc-400">Маєте купон знижки? </span>
-        <button
-          type="button"
-          onClick={() => setShowCoupon((s) => !s)}
-          className="font-medium underline underline-offset-4"
-        >
-          Натисніть тут, щоб ввести код купону знижки
-        </button>
-        {showCoupon && (
-          <div className="mt-3">
-            <div className="flex gap-2">
-              <input
-                value={coupon}
-                onChange={(e) => setCoupon(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                    e.preventDefault()
-                    handleApplyCoupon()
-                  }
-                }}
-                placeholder="Код купону"
-                className={`${inputBase} border-zinc-300 dark:border-zinc-700 max-w-xs`}
-              />
-              <button
-                type="button"
-                onClick={handleApplyCoupon}
-                className="rounded-md bg-zinc-900 dark:bg-white px-4 text-sm font-medium text-white dark:text-zinc-900"
-              >
-                Застосувати
-              </button>
-            </div>
-            {couponError && <p className="mt-2 text-xs text-red-500">{couponError}</p>}
-            {appliedCoupon && (
-              <p className="mt-2 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-500">
-                Купон {appliedCoupon.coupon.code} застосовано (−{formatPrice(discount)})
-                <button type="button" onClick={removeCoupon} className="text-zinc-400 underline underline-offset-2">
-                  прибрати
-                </button>
-              </p>
-            )}
-            <p className="mt-2 text-xs text-zinc-400">Спробуйте демо-коди: SINSERITA10 або YARN50</p>
-          </div>
-        )}
-      </div>
 
       <form onSubmit={handleSubmit} noValidate className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_420px]">
         {/* Left: contacts + delivery */}
@@ -340,13 +286,6 @@ export function Checkout() {
               <span>{formatPrice(total)}</span>
             </div>
 
-            {appliedCoupon && discount > 0 && (
-              <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-500">
-                <span>Знижка ({appliedCoupon.coupon.code})</span>
-                <span>−{formatPrice(discount)}</span>
-              </div>
-            )}
-
             <div className="flex justify-between gap-3 border-t border-zinc-200 dark:border-zinc-800 py-3 text-sm">
               <span className="font-medium">Доставка</span>
               <span className="text-right text-zinc-500">{deliveryHint}</span>
@@ -418,11 +357,43 @@ export function Checkout() {
               .
             </p>
 
+            {stockChanges.length > 0 && (
+              <div className="mt-4 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+                <p className="font-medium">Поки ви оформлювали, змінилася наявність. Кошик оновлено:</p>
+                <ul className="mt-1 list-disc pl-4">
+                  {stockChanges.map((c) => (
+                    <li key={c.sku}>
+                      {c.name} — {c.available > 0 ? `лишилося ${formatQuantity(c.available, c.unit)}` : "розпродано"}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1">Перевірте замовлення і підтвердьте ще раз.</p>
+              </div>
+            )}
+            {submitError && stockChanges.length === 0 && (
+              <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">
+                {submitError}
+              </p>
+            )}
+
+            {/* Honeypot: hidden from people; bots that fill it are rejected. */}
+            <input
+              type="text"
+              name="website"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              className="absolute -left-[9999px] h-0 w-0 opacity-0"
+            />
+
             <button
               type="submit"
-              className="mt-4 w-full rounded-md bg-zinc-900 dark:bg-white py-3 text-sm font-semibold uppercase tracking-wide text-white dark:text-zinc-900 transition-colors hover:bg-zinc-800 dark:hover:bg-zinc-100"
+              disabled={submitting}
+              className="mt-4 w-full rounded-md bg-zinc-900 dark:bg-white py-3 text-sm font-semibold uppercase tracking-wide text-white dark:text-zinc-900 transition-colors hover:bg-zinc-800 dark:hover:bg-zinc-100 disabled:opacity-60 disabled:cursor-wait"
             >
-              Підтвердити замовлення
+              {submitting ? "Оформлюємо…" : "Підтвердити замовлення"}
             </button>
           </div>
         </div>

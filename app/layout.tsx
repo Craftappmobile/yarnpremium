@@ -4,6 +4,7 @@ import "./globals.css"
 import type React from "react"
 import { CartProvider } from "@/components/shop/cart-context"
 import { WishlistProvider } from "@/components/shop/wishlist-context"
+import { UtmCapture } from "@/components/shop/utm-capture"
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] })
 
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="uk" className="bg-zinc-50 dark:bg-zinc-950">
       <body className={inter.className}>
+        <UtmCapture />
         <CartProvider>
           <WishlistProvider>{children}</WishlistProvider>
         </CartProvider>
