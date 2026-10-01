@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server"
-import { keycrmConfigured, keycrmGet, keycrmGetAll, keycrmKeyShape } from "@/lib/keycrm"
+import { keycrmConfigured, keycrmGet, keycrmGetAll, keycrmGetPages, keycrmKeyShape } from "@/lib/keycrm"
 
 // Read-only snapshot of the KeyCRM catalog and order reference lists, used to
-// plan the catalog import. Never available on production.
+// plan the catalog import. The catalog is too large to read in one request under
+// KeyCRM's rate limit, so lists are sampled (SAMPLE_PAGES pages each) and their
+// totals reported. Never available on production.
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
+
+const SAMPLE_PAGES = 4
 
 const count = (map: Record<string, number>, key: unknown) => {
   const k = key === null || key === undefined || key === "" ? "(порожньо)" : String(key)
@@ -20,12 +24,32 @@ export async function GET() {
 
   const started = Date.now()
   try {
-    const [categories, products, offers, stocks] = await Promise.all([
+    const [categories, productsPage, offersPage, stocksPage] = await Promise.all([
       keycrmGetAll("/products/categories"),
-      keycrmGetAll("/products", { include: "custom_fields" }),
-      keycrmGetAll("/offers"),
-      keycrmGetAll("/offers/stocks", { "filter[details]": "true" }),
+      keycrmGetPages("/products", { include: "custom_fields" }, SAMPLE_PAGES),
+      keycrmGetPages("/offers", { include: "product" }, SAMPLE_PAGES),
+      keycrmGetPages("/offers/stocks", { "filter[details]": "true" }, SAMPLE_PAGES),
     ])
+    const products = productsPage.items
+    const offers = offersPage.items
+    const stocks = stocksPage.items
+    // Do the list filters we'd rely on for the import work? Compare totals.
+    const filterProbes = await Promise.all(
+      [
+        ["/products", { "filter[is_archived]": "false" }],
+        ["/products", { "filter[is_archived]": "true" }],
+        ["/offers", { "filter[is_archived]": "false" }],
+        ["/offers", { "filter[product_id]": products[0]?.id }],
+        ["/offers/stocks", { "filter[offers_id]": offers.slice(0, 3).map((o: any) => o.id).join(",") }],
+      ].map(async ([path, params]) => {
+        try {
+          const { total, items } = await keycrmGetPages(path as string, params as Record<string, string>, 1)
+          return { path, params, total, firstPageCount: items.length }
+        } catch (e) {
+          return { path, params, error: (e as Error).message }
+        }
+      }),
+    )
     const [sources, statuses, deliveryServices, paymentMethods, customFields] = await Promise.all([
       keycrmGet("/order/source", { limit: 50 }),
       keycrmGet("/order/status", { limit: 50 }),
@@ -79,7 +103,7 @@ export async function GET() {
 
     // What the site would show: offers of non-archived products with stock left after reserves.
     const sellable = offers.filter((o: any) => {
-      const p = productById.get(o.product_id)
+      const p = productById.get(o.product_id) ?? o.product
       const s = stockByOffer.get(o.id)
       const available = (s?.quantity ?? o.quantity ?? 0) - (s?.reserve ?? 0)
       return p && !p.is_archived && available > 0
@@ -88,7 +112,7 @@ export async function GET() {
     const sellableByUnit: Record<string, { count: number; minPrice: number; maxPrice: number }> = {}
     let cashmere = 0
     for (const o of sellable) {
-      const p = productById.get(o.product_id)
+      const p = productById.get(o.product_id) ?? o.product
       const cat = categoryName.get(p.category_id) ?? "(без категорії)"
       count(sellableByCategory, cat)
       const unit = p.unit_type ?? "шт (системні)"
@@ -101,8 +125,11 @@ export async function GET() {
 
     const report = {
       tookSeconds: Math.round((Date.now() - started) / 1000),
+      note: `Statistics below are from the first ${SAMPLE_PAGES} pages (${SAMPLE_PAGES * 50} items) of each list; *Total fields are whole-catalog counts.`,
+      filterProbes,
       products: {
-        total: products.length,
+        listTotal: productsPage.total,
+        sampled: products.length,
         archived,
         withOffers,
         unitTypes,
@@ -115,14 +142,15 @@ export async function GET() {
         samples: products.slice(0, 2).map(trim),
       },
       offers: {
-        total: offers.length,
+        listTotal: offersPage.total,
+        sampled: offers.length,
         withoutSku: skuSeen["(порожньо)"] ?? 0,
         duplicateSkus: duplicateSkus.slice(0, 30),
         propertyNames: offerProperties,
         sampleKeys: Object.keys(offers[0] ?? {}),
         samples: offers.slice(0, 2).map(trim),
       },
-      stocks: { total: stocks.length, withReserve, warehouses, samples: stocks.slice(0, 2) },
+      stocks: { listTotal: stocksPage.total, sampled: stocks.length, withReserve, warehouses, samples: stocks.slice(0, 2) },
       site: { sellableOffers: sellable.length, byCategory: sellableByCategory, byUnit: sellableByUnit, cashmere },
       categories: categories.map((c: any) => ({ id: c.id, name: c.name, parent_id: c.parent_id })),
       reference: {

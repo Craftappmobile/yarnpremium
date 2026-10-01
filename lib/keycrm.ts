@@ -87,3 +87,24 @@ export async function keycrmGetAll<T = any>(path: string, params: Params = {}): 
     if (!res.next_page_url || data.length === 0) return items
   }
 }
+
+/** Reads up to `maxPages` pages of a list; `total` is KeyCRM's count for the whole list. */
+export async function keycrmGetPages<T = any>(
+  path: string,
+  params: Params = {},
+  maxPages = 1,
+): Promise<{ items: T[]; total: number }> {
+  const items: T[] = []
+  let total = 0
+  for (let page = 1; page <= maxPages; page++) {
+    const res = await keycrmGet<{ data?: T[]; total?: number; next_page_url?: string | null }>(path, {
+      ...params,
+      limit: PAGE_LIMIT,
+      page,
+    })
+    total = res.total ?? total
+    items.push(...(res.data ?? []))
+    if (!res.next_page_url) break
+  }
+  return { items, total }
+}
