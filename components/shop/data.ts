@@ -37,6 +37,8 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number
+  /** Grams of `quantity` taken through a leftover offer, at TAIL_DISCOUNT. */
+  tail?: number
 }
 
 /** Formats a price in UAH with Ukrainian comma decimals, e.g. 2.08 -> "2,08 ₴". */
@@ -89,36 +91,87 @@ export function getFilterBounds(items: Product[]): { price: [number, number]; le
   }
 }
 
+type QuantityProduct = Pick<Product, "stock" | "minQty" | "step" | "priceUnit">
+
+/** Discount on the leftover of a spool a buyer agrees to take, so none is left behind. */
+export const TAIL_DISCOUNT = 0.1
+/** Yarn by weight with less than this left isn't offered at all (e.g. 1 g after reserves). */
+export const MIN_SELLABLE_GRAMS = 20
+
+const byWeight = (p: Pick<Product, "priceUnit">) => p.priceUnit === "г"
+
 /**
- * Quantity limits for the +/− picker. When less than the minimum is left, only
- * the whole remainder can be bought.
+ * Quantities on offer. Yarn by weight: from the minimum (100 g, cashmere 50 g)
+ * in steps (50 g) up to the whole spool; with less than the minimum in stock,
+ * only all of it.
  */
-export function quantityRules(p: Pick<Product, "stock" | "minQty" | "step">): { min: number; max: number; step: number } {
+export function quantityRules(p: QuantityProduct): { min: number; max: number; step: number } {
   if (p.stock < p.minQty) return { min: p.stock, max: p.stock, step: p.stock }
   return { min: p.minQty, max: p.stock, step: p.step }
 }
 
-export function clampQuantity(p: Pick<Product, "stock" | "minQty" | "step">, quantity: number): number {
-  const { min, max } = quantityRules(p)
-  return Math.min(max, Math.max(min, quantity))
+/**
+ * Grams that would stay on the spool, too few to sell on their own, if the
+ * buyer took `quantity`: the site offers them at TAIL_DISCOUNT instead
+ * (160 g in stock, 100 g wanted → 60 g). 0 when nothing like that is left.
+ */
+export function leftoverOffer(p: QuantityProduct, quantity: number): number {
+  if (!byWeight(p)) return 0
+  const left = p.stock - quantity
+  return left > 0 && left < p.minQty ? left : 0
 }
 
 /**
- * Next quantity for a +/− press. Quantities sit on the grid min, min+step, …
- * plus the whole remainder ("Взяти все"); from the remainder, − goes back onto the grid.
+ * Whether `quantity` can be bought, `tail` grams of it being an accepted
+ * leftover offer: a step of the grid that leaves at least the minimum behind,
+ * or the whole spool — as is, or as a step plus its discounted leftover.
  */
-export function stepQuantity(p: Pick<Product, "stock" | "minQty" | "step">, quantity: number, direction: 1 | -1): number {
-  const { min, step } = quantityRules(p)
-  const steps = (quantity - min) / step
-  const next = min + (direction > 0 ? Math.floor(steps) + 1 : Math.ceil(steps) - 1) * step
-  return clampQuantity(p, next)
+export function isValidQuantity(p: QuantityProduct, quantity: number, tail = 0): boolean {
+  if (tail > 0) return quantity === p.stock && leftoverOffer(p, quantity - tail) === tail && isOnGrid(p, quantity - tail)
+  if (quantity === p.stock) return quantity > 0
+  return isOnGrid(p, quantity) && quantity < p.stock && leftoverOffer(p, quantity) === 0
 }
 
-/** True for quantities the picker can produce: on the grid, or the whole remainder. */
-export function isValidQuantity(p: Pick<Product, "stock" | "minQty" | "step">, quantity: number): boolean {
+function isOnGrid(p: QuantityProduct, q: number): boolean {
+  return q >= p.minQty && q <= p.stock && Number.isInteger((q - p.minQty) / p.step)
+}
+
+/** Nearest amount the picker can show: on the grid (leftover offers included) or the whole spool. */
+export function clampQuantity(p: QuantityProduct, quantity: number): number {
+  const { min, max } = quantityRules(p)
+  const q = Math.min(max, Math.max(min, quantity))
+  if (q === max || isOnGrid(p, q)) return q
+  return p.minQty + Math.floor((q - p.minQty) / p.step) * p.step
+}
+
+/** Nearest amount that can go into the cart without an offer: drops amounts that would leave a leftover. */
+export function clampToBuyable(p: QuantityProduct, quantity: number): number {
+  let q = clampQuantity(p, quantity)
+  while (q < p.stock && leftoverOffer(p, q) > 0 && q - p.step >= p.minQty) q -= p.step
+  return leftoverOffer(p, q) > 0 ? p.stock : q
+}
+
+/** The next amount up or down: grid steps, then the whole spool. */
+export function stepQuantity(p: QuantityProduct, quantity: number, direction: 1 | -1, buyableOnly = false): number {
   const { min, max, step } = quantityRules(p)
-  if (quantity === max) return true
-  return quantity >= min && quantity <= max && Number.isInteger((quantity - min) / step)
+  let q = quantity
+  for (;;) {
+    if (direction > 0) {
+      const next = q >= max ? max : Math.min(max, min + (Math.floor((q - min) / step) + 1) * step)
+      if (next === q) return q
+      q = next
+    } else {
+      const prev = q >= max && !isOnGrid(p, max) ? min + Math.floor((max - min) / step) * step : min + (Math.ceil((q - min) / step) - 1) * step
+      if (prev < min) return quantity
+      q = prev
+    }
+    if (!buyableOnly || leftoverOffer(p, q) === 0) return q
+  }
+}
+
+/** Price of `quantity`, `tail` grams of it at the leftover discount, rounded to kopecks. */
+export function lineTotal(p: Pick<Product, "price">, quantity: number, tail = 0): number {
+  return Math.round((p.price * quantity - p.price * tail * TAIL_DISCOUNT) * 100) / 100
 }
 
 /** "350 г" / "3 шт". */

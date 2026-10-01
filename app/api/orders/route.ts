@@ -5,7 +5,7 @@ import { createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { SHOP_PHONE } from "@/lib/site"
-import { isValidQuantity } from "@/components/shop/data"
+import { isValidQuantity, lineTotal } from "@/components/shop/data"
 import {
   effectivePaymentMethod,
   normalizePhone,
@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
   if (!/^[\w-]{8,64}$/.test(id) || items.length === 0 || items.length > 50) {
     return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
   }
-  const lines = items.map((i) => ({ sku: text(i?.sku, 64), quantity: Number(i?.quantity) }))
-  if (lines.some((l) => !l.sku || !Number.isFinite(l.quantity) || l.quantity <= 0)) {
+  const lines = items.map((i) => ({ sku: text(i?.sku, 64), quantity: Number(i?.quantity), tail: Number(i?.tail ?? 0) }))
+  if (lines.some((l) => !l.sku || !Number.isFinite(l.quantity) || l.quantity <= 0 || !Number.isFinite(l.tail) || l.tail < 0)) {
     return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
   }
 
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       const p = products.get(line.sku)
       if (!p || p.stock <= 0) {
         changes.push({ sku: line.sku, name: p?.name ?? line.sku, available: 0, unit: p?.priceUnit ?? "" })
-      } else if (!isValidQuantity(p, line.quantity)) {
+      } else if (!isValidQuantity(p, line.quantity, line.tail)) {
         changes.push({ sku: p.sku, name: p.name, available: p.stock, unit: p.priceUnit })
       }
     }
@@ -96,9 +96,18 @@ export async function POST(req: NextRequest) {
 
     const orderItems = lines.map((l) => {
       const p = products.get(l.sku)!
-      return { id: p.id, sku: p.sku, name: p.name, price: p.price, quantity: l.quantity, unit: p.priceUnit }
+      return {
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        price: p.price,
+        quantity: l.quantity,
+        unit: p.priceUnit,
+        ...(l.tail > 0 ? { tail: l.tail } : {}),
+        total: lineTotal(p, l.quantity, l.tail),
+      }
     })
-    const subtotal = money(orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0))
+    const subtotal = money(orderItems.reduce((sum, i) => sum + i.total, 0))
     const method = effectivePaymentMethod(body.payment, delivery.method, subtotal)
     const split = paymentSplit(method, subtotal)
     const order: Order = {

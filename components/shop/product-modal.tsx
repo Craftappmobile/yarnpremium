@@ -4,22 +4,21 @@ import * as Dialog from "@radix-ui/react-dialog"
 import { useReturnFocus } from "./use-return-focus"
 import { m } from "motion/react"
 import { X, Check, Heart, ShoppingBag, ExternalLink } from "lucide-react"
-import { useState } from "react"
 import Link from "next/link"
-import { type Product, clampQuantity, formatPrice, formatQuantity } from "./data"
-import { QuantityPicker } from "./quantity-picker"
+import { type Product, formatPrice, formatQuantity } from "./data"
+import { QuantityPicker, useQuantityChoice } from "./quantity-picker"
 import { useWishlist } from "./wishlist-context"
 import { ProductImage } from "./product-image"
 
 interface ProductModalProps {
   product: Product
   onClose: () => void
-  onAddToCart: (product: Product, quantity: number) => void
+  onAddToCart: (product: Product, quantity: number, tail: number) => void
 }
 
 export function ProductModal({ product, onClose, onAddToCart }: ProductModalProps) {
   const inStock = product.stock > 0
-  const [quantity, setQuantity] = useState(() => clampQuantity(product, product.minQty))
+  const choice = useQuantityChoice(product)
   const { isWishlisted, toggleWishlist } = useWishlist()
   const wished = isWishlisted(product.id)
 
@@ -92,12 +91,20 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
 
             {inStock && (
               <div className="mt-4 space-y-3">
-                <QuantityPicker product={product} quantity={quantity} onChange={setQuantity} />
+                <QuantityPicker
+                  product={product}
+                  quantity={choice.quantity}
+                  tail={choice.tail}
+                  onChange={choice.set}
+                  offerId="modal-leftover-offer"
+                />
 
                 <button
                   type="button"
-                  onClick={() => onAddToCart(product, quantity)}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
+                  onClick={() => onAddToCart(product, choice.quantity, choice.tail)}
+                  disabled={choice.pending}
+                  aria-describedby={choice.pending ? "modal-leftover-offer" : undefined}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-600 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-300"
                 >
                   <ShoppingBag className="w-4 h-4" />
                   Додати в кошик

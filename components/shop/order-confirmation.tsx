@@ -36,7 +36,7 @@ export function OrderConfirmation() {
                 <span className="text-zinc-600 dark:text-zinc-300">
                   {i.name} <span className="whitespace-nowrap text-zinc-500">× {formatQuantity(i.quantity, i.unit ?? "шт")}</span>
                 </span>
-                <span className="whitespace-nowrap tabular-nums">{formatPrice(i.price * i.quantity)}</span>
+                <span className="whitespace-nowrap tabular-nums">{formatPrice(i.total ?? i.price * i.quantity)}</span>
               </li>
             ))}
           </ul>

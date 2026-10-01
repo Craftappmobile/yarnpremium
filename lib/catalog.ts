@@ -14,7 +14,7 @@
 //   catalog:meta       JSON  report of the last sync
 //   catalog:lock       lock  held while a sync runs
 
-import type { Product } from "@/components/shop/data"
+import { MIN_SELLABLE_GRAMS, type Product } from "@/components/shop/data"
 import type { YarnColor } from "@/lib/image-color"
 import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
@@ -38,17 +38,18 @@ const MULTI_NAME = /мульти|секційн|принт|омбре|граді
 /** KeyCRM categories that are not sold on the site (compared case-insensitively). */
 const EXCLUDED_CATEGORIES = ["стікери", "палітри", "подарунковий сертифікат", "спиці", "засоби для прання"]
 const SALE_CATEGORY = "акційний товар"
-/** Grams: the minimum is 100 g (50 g for cashmere), then ±10 g. */
+/** Grams: the minimum is 100 g (50 g for cashmere), then ±50 g. */
 const GRAM_MIN = 100
 const CASHMERE_GRAM_MIN = 50
-const GRAM_STEP = 10
+const GRAM_STEP = 50
 const DESCRIPTION_MAX = 1000
 
 /** Cashmere is sold from 50 g: its category says so, or for sale items its name starts with it. */
 function isCashmere(name: string, category: string): boolean {
   const cat = category.toLowerCase()
   if (cat.includes("кашемір")) return true
-  return cat === SALE_CATEGORY && name.trim().toLowerCase().startsWith("кашемір")
+  const n = name.trim().toLowerCase()
+  return cat === SALE_CATEGORY && (n.startsWith("кашемір") || n.includes("кашемір шовк"))
 }
 
 /** KeyCRM sometimes serves images through a "/remote?url=" proxy; use the original URL. */
@@ -71,7 +72,6 @@ function customFields(product: any): Record<string, string> {
 function toProduct(offer: any, product: any, fields: Record<string, string>, category: string): Product {
   const name = String(product.name ?? "").trim()
   const unit = String(product.unit_type ?? "").trim() || "шт"
-  const byWeight = unit === "г"
   const images = [offer.thumbnail_url, product.thumbnail_url, ...(product.attachments_data ?? [])]
     .map(imageUrl)
     .filter((u, i, all) => u && all.indexOf(u) === i)
@@ -92,9 +92,14 @@ function toProduct(offer: any, product: any, fields: Record<string, string>, cat
     length: Number.parseInt(fields["Метраж"] ?? "", 10) || 0,
     brand: fields["Виробник"] ?? "",
     article: fields["Артикул"] ?? "",
-    minQty: byWeight ? (isCashmere(name, category) ? CASHMERE_GRAM_MIN : GRAM_MIN) : 1,
-    step: byWeight ? GRAM_STEP : 1,
+    ...quantityLimits(name, category, unit),
   }
+}
+
+/** Minimum and step, from the selling rules in this file. */
+function quantityLimits(name: string, category: string, unit: string): Pick<Product, "minQty" | "step"> {
+  if (unit !== "г") return { minQty: 1, step: 1 }
+  return { minQty: isCashmere(name, category) ? CASHMERE_GRAM_MIN : GRAM_MIN, step: GRAM_STEP }
 }
 
 export interface SyncReport {
@@ -265,8 +270,15 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
   }
 }
 
+/** Live stock, with crumbs of yarn by weight (under MIN_SELLABLE_GRAMS, e.g. 1 g after reserves) treated as sold out. */
 function withLiveStock(p: Product, stock: string | null | undefined): Product {
-  return stock === null || stock === undefined ? p : { ...p, stock: Number(stock) }
+  const live = stock === null || stock === undefined ? p.stock : Number(stock)
+  return {
+    ...p,
+    // Recomputed on read, so a change to the rules applies at once, not after the next sync.
+    ...quantityLimits(p.name, p.category, p.priceUnit),
+    stock: p.priceUnit === "г" && live < MIN_SELLABLE_GRAMS ? 0 : live,
+  }
 }
 
 /** Every non-archived product, sold-out ones included, newest first. Empty until the first sync. */
