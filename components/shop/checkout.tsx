@@ -131,6 +131,9 @@ export function Checkout() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
+        // On a bad connection give up and let the customer retry; the same
+        // checkout id makes the retry safe (no duplicate order).
+        signal: AbortSignal.timeout(45_000),
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.order) {
@@ -150,7 +153,7 @@ export function Checkout() {
       }
       setSubmitError(data.error ?? "Не вдалося оформити замовлення. Спробуйте ще раз.")
     } catch {
-      setSubmitError("Немає звʼязку з сервером. Перевірте інтернет і спробуйте ще раз.")
+      setSubmitError("Немає звʼязку з сервером. Перевірте інтернет і натисніть «Підтвердити» ще раз — повторне натискання не створить друге замовлення.")
     }
     setSubmitting(false)
   }
@@ -179,14 +182,14 @@ export function Checkout() {
               <label htmlFor="firstName" className="mb-1.5 block text-sm">
                 Імʼя <span className="text-red-500">*</span>
               </label>
-              <input id="firstName" name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" {...fieldA11y("firstName")} className={`${inputBase} ${errCls("firstName")}`} />
+              <input id="firstName" name="firstName" maxLength={100} value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" {...fieldA11y("firstName")} className={`${inputBase} ${errCls("firstName")}`} />
               <FieldError id="firstName" error={errors.firstName} />
             </div>
             <div>
               <label htmlFor="lastName" className="mb-1.5 block text-sm">
                 Прізвище <span className="text-red-500">*</span>
               </label>
-              <input id="lastName" name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" {...fieldA11y("lastName")} className={`${inputBase} ${errCls("lastName")}`} />
+              <input id="lastName" name="lastName" maxLength={100} value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" {...fieldA11y("lastName")} className={`${inputBase} ${errCls("lastName")}`} />
               <FieldError id="lastName" error={errors.lastName} />
             </div>
           </div>
@@ -195,7 +198,7 @@ export function Checkout() {
             <label htmlFor="phone" className="mb-1.5 block text-sm">
               Телефон <span className="text-red-500">*</span>
             </label>
-            <input id="phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="+380 67 123 45 67" {...fieldA11y("phone")} className={`${inputBase} ${errCls("phone")}`} />
+            <input id="phone" name="phone" maxLength={40} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="+380 67 123 45 67" {...fieldA11y("phone")} className={`${inputBase} ${errCls("phone")}`} />
             <FieldError id="phone" error={errors.phone} />
           </div>
 
@@ -203,7 +206,7 @@ export function Checkout() {
             <label htmlFor="email" className="mb-1.5 block text-sm">
               E-mail адреса <span className="text-red-500">*</span>
             </label>
-            <input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" spellCheck={false} placeholder="name@example.com" {...fieldA11y("email")} className={`${inputBase} ${errCls("email")}`} />
+            <input id="email" name="email" maxLength={200} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" spellCheck={false} placeholder="name@example.com" {...fieldA11y("email")} className={`${inputBase} ${errCls("email")}`} />
             <FieldError id="email" error={errors.email} />
           </div>
 
@@ -271,6 +274,7 @@ export function Checkout() {
             <textarea
               id="notes"
               name="notes"
+              maxLength={1000}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={4}

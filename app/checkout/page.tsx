@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import { Checkout } from "@/components/shop/checkout"
 
 export const metadata: Metadata = {
-  title: "Оформлення замовлення | SINSERITA",
-  description: "Оформлення замовлення пряжі SINSERITA",
+  title: "Оформлення замовлення",
+  robots: { index: false },
 }
 
 export default function CheckoutPage() {

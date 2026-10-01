@@ -15,16 +15,18 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const post = getPost(slug)
-  if (!post) return { title: "Статтю не знайдено — SINSERITA" }
+  if (!post) return { title: "Статтю не знайдено" }
   const description = post.excerpt ?? post.content.slice(0, 155)
   return {
-    title: `${post.title} — SINSERITA`,
+    title: post.title,
+    alternates: { canonical: `/blog/${post.slug}` },
     description,
     robots: post.draft ? { index: false } : undefined,
     openGraph: {
       title: post.title,
       description,
       type: "article",
+      url: `/blog/${post.slug}`,
       publishedTime: post.date,
       images: post.cover ? [{ url: post.cover }] : undefined,
     },

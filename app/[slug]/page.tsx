@@ -19,7 +19,13 @@ export async function generateMetadata({
   const { slug } = await params
   const page = getSitePage(slug)
   if (!page) return {}
-  return { title: page.metaTitle, description: page.metaDescription }
+  return {
+    // metaTitle already ends with the brand.
+    title: { absolute: page.metaTitle },
+    description: page.metaDescription,
+    alternates: { canonical: `/${page.slug}` },
+    openGraph: { title: page.metaTitle, description: page.metaDescription, url: `/${page.slug}` },
+  }
 }
 
 function Section({ section }: { section: ContentSection }) {

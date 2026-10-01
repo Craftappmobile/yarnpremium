@@ -1,5 +1,11 @@
+import type { Metadata } from "next"
 import MinimalShop from "@/components/shop/minimal-shop"
 import { readCatalog } from "@/lib/catalog"
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: { url: "/" },
+}
 
 // Rebuilt after every catalog sync (revalidatePath) and at least every 5 minutes.
 export const revalidate = 300

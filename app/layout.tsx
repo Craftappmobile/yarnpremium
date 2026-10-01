@@ -6,12 +6,22 @@ import { CartProvider } from "@/components/shop/cart-context"
 import { WishlistProvider } from "@/components/shop/wishlist-context"
 import { UtmCapture } from "@/components/shop/utm-capture"
 import { MotionProvider } from "@/components/shop/motion-provider"
+import { BRAND, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] })
 
+const DESCRIPTION =
+  "Італійська стокова пряжа для в'язання: меринос, кашемір, шовк, альпака. Продаж на вагу від 100 г, доставка Новою Поштою та Укрпоштою."
+
 export const metadata: Metadata = {
-  title: "SINSERITA — магазин пряжі",
-  description: "Стокова пряжа для в'язання: широкий вибір кольорів та метражу. Меринос, кашемір, альпака, шовк.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: `${BRAND} — італійська стокова пряжа`, template: `%s — ${BRAND}` },
+  description: DESCRIPTION,
+  applicationName: BRAND,
+  openGraph: { type: "website", siteName: BRAND, locale: "uk_UA", description: DESCRIPTION },
+  twitter: { card: "summary_large_image" },
+  // Until the shop moves to its own domain, keep the *.vercel.app address out of search.
+  robots: SITE_INDEXABLE ? undefined : { index: false, follow: false },
 }
 
 export const viewport: Viewport = {

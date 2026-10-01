@@ -2,8 +2,10 @@ import Link from "next/link"
 import { getAllPosts, formatDate, readingTime } from "@/lib/blog"
 
 export const metadata = {
-  title: "Блог — SINSERITA",
+  title: "Журнал",
   description: "Поради з в'язання, гайди по пряжі та історії майстрів.",
+  alternates: { canonical: "/blog" },
+  openGraph: { url: "/blog" },
 }
 
 function DraftBadge() {
