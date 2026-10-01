@@ -1,4 +1,5 @@
 import type { Product } from "./data"
+import type { ColorFamily } from "./yarn-colors"
 
 // The home page ships the whole in-stock catalog to the browser so search,
 // filters and sorting work instantly. Sent as plain objects that is ~550 bytes
@@ -21,10 +22,21 @@ type Row = [
   article: number,
   minQty: number,
   step: number,
+  /** Photo colour "rrggbb" ("" = not known yet) and colour group (pool index, -1 = none). */
+  colorHex: string,
+  colorFamily: number,
 ]
 
 export interface PackedCatalog {
-  pools: { unit: string[]; imageDir: string[]; category: string[]; color: string[]; brand: string[]; article: string[] }
+  pools: {
+    unit: string[]
+    imageDir: string[]
+    category: string[]
+    color: string[]
+    brand: string[]
+    article: string[]
+    colorFamily: string[]
+  }
   rows: Row[]
 }
 
@@ -53,6 +65,7 @@ export function packCatalog(products: Product[]): PackedCatalog {
   const color = pool()
   const brand = pool()
   const article = pool()
+  const colorFamily = pool()
   const rows = products.map((p): Row => {
     const cut = p.image.lastIndexOf("/") + 1
     return [
@@ -70,32 +83,63 @@ export function packCatalog(products: Product[]): PackedCatalog {
       article.id(p.article),
       p.minQty,
       p.step,
+      p.colorHex ? p.colorHex.slice(1) : "",
+      p.colorFamily ? colorFamily.id(p.colorFamily) : -1,
     ]
   })
   return {
-    pools: { unit: unit.values, imageDir: imageDir.values, category: category.values, color: color.values, brand: brand.values, article: article.values },
+    pools: {
+      unit: unit.values,
+      imageDir: imageDir.values,
+      category: category.values,
+      color: color.values,
+      brand: brand.values,
+      article: article.values,
+      colorFamily: colorFamily.values,
+    },
     rows,
   }
 }
 
 export function unpackCatalog({ pools, rows }: PackedCatalog): Product[] {
-  return rows.map(([sku, name, price, unit, imageDir, imageFile, category, stock, color, length, brand, article, minQty, step]) => ({
-    id: sku,
-    offerId: 0,
-    sku,
-    name,
-    description: "",
-    price,
-    priceUnit: pools.unit[unit],
-    image: imageDir < 0 ? "" : pools.imageDir[imageDir] + imageFile,
-    images: [],
-    category: pools.category[category],
-    stock,
-    color: pools.color[color],
-    length,
-    brand: pools.brand[brand],
-    article: pools.article[article],
-    minQty,
-    step,
-  }))
+  return rows.map(
+    ([
+      sku,
+      name,
+      price,
+      unit,
+      imageDir,
+      imageFile,
+      category,
+      stock,
+      color,
+      length,
+      brand,
+      article,
+      minQty,
+      step,
+      colorHex,
+      colorFamily,
+    ]) => ({
+      id: sku,
+      offerId: 0,
+      sku,
+      name,
+      description: "",
+      price,
+      priceUnit: pools.unit[unit],
+      image: imageDir < 0 ? "" : pools.imageDir[imageDir] + imageFile,
+      images: [],
+      category: pools.category[category],
+      stock,
+      color: pools.color[color],
+      length,
+      brand: pools.brand[brand],
+      article: pools.article[article],
+      minQty,
+      step,
+      colorHex: colorHex ? `#${colorHex}` : undefined,
+      colorFamily: colorFamily < 0 ? undefined : (pools.colorFamily[colorFamily] as ColorFamily),
+    }),
+  )
 }

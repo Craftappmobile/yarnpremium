@@ -10,10 +10,12 @@
 //   catalog:stock      hash  sku -> available quantity (live; stock webhooks update it)
 //   catalog:stock_at   hash  sku -> ms timestamp of the last webhook stock update
 //   catalog:offer_sku  hash  KeyCRM offer id -> sku (webhooks may name offers by id only)
+//   catalog:image_color hash photo URL -> yarn colour worked out from it (kept across syncs)
 //   catalog:meta       JSON  report of the last sync
 //   catalog:lock       lock  held while a sync runs
 
 import type { Product } from "@/components/shop/data"
+import type { YarnColor } from "@/lib/image-color"
 import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 
@@ -23,6 +25,15 @@ const KEY_STOCK_AT = "catalog:stock_at"
 const KEY_OFFER_SKU = "catalog:offer_sku"
 const KEY_META = "catalog:meta"
 const KEY_LOCK = "catalog:lock"
+const KEY_IMAGE_COLOR = "catalog:image_color"
+
+/** Photo colours are worked out after KeyCRM is read, until this long after the sync started. */
+const COLOR_DEADLINE_MS = 200_000
+const COLOR_CONCURRENCY = 8
+/** A photo that couldn't be read is tried again after a day. */
+const COLOR_RETRY_MS = 24 * 3600_000
+/** Names and categories that mean a multicoloured yarn, whatever the photo shows. */
+const MULTI_NAME = /мульти|секційн|принт|омбре|градієнт|шкарпетков/i
 
 /** KeyCRM categories that are not sold on the site (compared case-insensitively). */
 const EXCLUDED_CATEGORIES = ["стікери", "палітри", "подарунковий сертифікат", "спиці", "засоби для прання"]
@@ -96,12 +107,57 @@ export interface SyncReport {
   skipped?: { noSku: string[]; excludedCategory: number; archived: number; noProduct: number }
   /** Offers' quantity/in_reserve compared with /offers/stocks for one page, to confirm their meaning. */
   stockCheck?: { compared: number; quantityMismatches: number; reserveMismatches: number; examples: unknown[] }
+  /** Photo colours: known after this sync, worked out now, unreadable, left for the next sync. */
+  colors?: { known: number; computed: number; failed: number; pending: number }
 }
 
 /**
  * Replaces the Redis snapshot with the current KeyCRM catalog. Skips when another
  * sync holds the lock or the last one finished less than `minIntervalMs` ago.
  */
+type StoredColor = YarnColor | { failedAt: number }
+
+/**
+ * Yarn colour for each photo URL: from the cache, or worked out now for new
+ * photos while time allows (the rest are picked up by the next sync).
+ */
+async function photoColors(urls: string[], deadline: number) {
+  const r = await redis()
+  const unique = [...new Set(urls.filter(Boolean))]
+  const cached = unique.length ? await r.hmGet(KEY_IMAGE_COLOR, unique) : []
+  const colors = new Map<string, YarnColor>()
+  const todo: string[] = []
+  unique.forEach((url, i) => {
+    const stored = cached[i] ? (JSON.parse(cached[i]!) as StoredColor) : null
+    if (stored && "hex" in stored) colors.set(url, stored)
+    else if (!stored || Date.now() - stored.failedAt > COLOR_RETRY_MS) todo.push(url)
+  })
+
+  const { yarnColorFromUrl } = await import("@/lib/image-color")
+  let computed = 0
+  let failed = 0
+  const queue = [...todo]
+  await Promise.all(
+    Array.from({ length: COLOR_CONCURRENCY }, async () => {
+      for (let url = queue.shift(); url && Date.now() < deadline; url = queue.shift()) {
+        let stored: StoredColor
+        try {
+          const color = await yarnColorFromUrl(url, AbortSignal.timeout(10_000))
+          stored = color ?? { failedAt: Date.now() }
+        } catch {
+          stored = { failedAt: Date.now() }
+        }
+        if ("hex" in stored) {
+          colors.set(url, stored)
+          computed++
+        } else failed++
+        await r.hSet(KEY_IMAGE_COLOR, url, JSON.stringify(stored))
+      }
+    }),
+  )
+  return { colors, report: { known: colors.size, computed, failed, pending: queue.length } }
+}
+
 export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncReport> {
   const r = await redis()
   if (minIntervalMs > 0) {
@@ -167,6 +223,18 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       })),
     }
 
+    // Colour of each yarn on sale, from its photo; the name can mark it multicoloured.
+    const { colors, report: colorReport } = await photoColors(
+      catalog.filter((p) => p.stock > 0).map((p) => p.image),
+      started + COLOR_DEADLINE_MS,
+    )
+    for (const p of catalog) {
+      const color = colors.get(p.image)
+      if (color) p.colorHex = color.hex
+      if (MULTI_NAME.test(`${p.name} ${p.category}`)) p.colorFamily = "multi"
+      else if (color) p.colorFamily = color.family
+    }
+
     // A stock webhook that landed while we were reading KeyCRM is newer than our data: keep it.
     const stockAt = await r.hGetAll(KEY_STOCK_AT)
     const newer = catalog.filter((p) => Number(stockAt[p.sku] ?? 0) > started).map((p) => p.sku)
@@ -187,6 +255,7 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       inStock: catalog.filter((p) => Number(liveStock.get(p.sku) ?? p.stock) > 0).length,
       skipped: { ...skipped, noSku: skipped.noSku.slice(0, 100) },
       stockCheck,
+      colors: colorReport,
     }
     tx.set(KEY_META, JSON.stringify({ ...report, finishedAt: new Date().toISOString() }))
     await tx.exec()

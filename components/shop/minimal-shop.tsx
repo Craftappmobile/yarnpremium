@@ -13,6 +13,7 @@ import { type Product, type SortOption, sortOptions, sortProducts, getFilterBoun
 import { useCart } from "./cart-context"
 import { pluralUk } from "@/lib/utils"
 import { type PackedCatalog, unpackCatalog } from "./catalog-pack"
+import { matchesShade } from "./yarn-colors"
 
 /** Cards rendered at first and per "Показати ще" click; the catalog has thousands. */
 const PAGE_SIZE = 60
@@ -40,11 +41,12 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
     priceRange: priceBounds,
     lengthRange: lengthBounds,
     categories: [],
-    colors: [],
+    colorFamilies: [],
+    shade: null,
   })
 
   const resetFilters = () => {
-    setFilters({ priceRange: priceBounds, lengthRange: lengthBounds, categories: [], colors: [] })
+    setFilters({ priceRange: priceBounds, lengthRange: lengthBounds, categories: [], colorFamilies: [], shade: null })
   }
 
   const toggleCategory = (category: string) => {
@@ -72,14 +74,19 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
     const matchesPrice = product.price >= filters.priceRange[0] && product.price <= filters.priceRange[1]
     const matchesLength = product.length >= filters.lengthRange[0] && product.length <= filters.lengthRange[1]
     const matchesCategory = filters.categories.length === 0 || filters.categories.includes(product.category)
-    const matchesColor = filters.colors.length === 0 || filters.colors.includes(product.color)
+    const anyColor = filters.colorFamilies.length === 0 && !filters.shade
+    const matchesColor =
+      anyColor ||
+      (product.colorFamily !== undefined && filters.colorFamilies.includes(product.colorFamily)) ||
+      (filters.shade !== null && product.colorHex !== undefined && matchesShade(product.colorHex, filters.shade))
     return matchesSearch && matchesPrice && matchesLength && matchesCategory && matchesColor
   })
 
   const sortedProducts = sortProducts(filteredProducts, sort)
   const activeFilterCount =
     filters.categories.length +
-    filters.colors.length +
+    filters.colorFamilies.length +
+    (filters.shade ? 1 : 0) +
     (filters.priceRange[0] !== priceBounds[0] || filters.priceRange[1] !== priceBounds[1] ? 1 : 0) +
     (filters.lengthRange[0] !== lengthBounds[0] || filters.lengthRange[1] !== lengthBounds[1] ? 1 : 0)
   const shownProducts = sortedProducts.slice(0, visibleCount)
