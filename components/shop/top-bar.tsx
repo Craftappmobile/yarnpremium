@@ -59,7 +59,7 @@ export function TopBar({ cartItemCount, onCartClick, searchQuery, onSearch, cate
   }
 
   return (
-    <div
+    <header
       className={`sticky top-0 z-30 transition-shadow duration-200 ${
         isScrolled ? "bg-white shadow-sm dark:bg-zinc-900" : "bg-white dark:bg-zinc-900"
       } border-b border-zinc-200 dark:border-zinc-800`}
@@ -186,6 +186,6 @@ export function TopBar({ cartItemCount, onCartClick, searchQuery, onSearch, cate
           </button>
         </div>
       </div>
-    </div>
+    </header>
   )
 }
