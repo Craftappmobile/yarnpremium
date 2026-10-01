@@ -178,13 +178,13 @@ export function FiltersSidebar({
             <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {formatPrice(minPrice)}
             </span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Мін. ціна</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Мін. ціна</span>
           </div>
           <div className="flex flex-col gap-1 items-end">
             <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {formatPrice(maxPrice)}
             </span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Макс. ціна</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Макс. ціна</span>
           </div>
         </div>
       </div>
@@ -228,13 +228,13 @@ export function FiltersSidebar({
             <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {minLength} м
             </span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Мін. довжина</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Мін. довжина</span>
           </div>
           <div className="flex flex-col gap-1 items-end">
             <span className="rounded border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 min-w-[64px] text-center tabular-nums">
               {maxLength} м
             </span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Макс. довжина</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Макс. довжина</span>
           </div>
         </div>
       </div>
@@ -246,7 +246,7 @@ export function FiltersSidebar({
             Фільтр за категоріями
           </h3>
           {filters.categories.length > 0 && (
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">
               {filters.categories.length} вибрано
             </span>
           )}
@@ -256,7 +256,7 @@ export function FiltersSidebar({
         <div className="relative">
           <svg
             viewBox="0 0 16 16"
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500"
             fill="none"
           >
             <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
@@ -269,14 +269,14 @@ export function FiltersSidebar({
             onChange={(e) => setCategoryQuery(e.target.value)}
             placeholder="Пошук категорії…"
             aria-label="Пошук категорії"
-            className="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-1.5 pl-8 pr-7 text-xs text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600"
+            className="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-1.5 pl-8 pr-7 text-xs text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-600"
           />
           {categoryQuery && (
             <button
               type="button"
               onClick={() => setCategoryQuery("")}
               aria-label="Очистити пошук категорії"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"
             >
               <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
                 <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -287,7 +287,7 @@ export function FiltersSidebar({
 
         {/* Scrollable list with selected pinned to the top */}
         {visibleCategories.total === 0 ? (
-          <p className="py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">Нічого не знайдено</p>
+          <p className="py-4 text-center text-xs text-zinc-500 dark:text-zinc-500">Нічого не знайдено</p>
         ) : (
           <div className="max-h-72 overflow-y-auto pr-1 -mr-1 [contain:content]">
             {visibleCategories.selected.length > 0 && (
@@ -351,7 +351,7 @@ export function FiltersSidebar({
                   >
                     {color}
                   </span>
-                  <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500 rounded-full border border-zinc-200 dark:border-zinc-800 px-2 py-0.5">
+                  <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-500 rounded-full border border-zinc-200 dark:border-zinc-800 px-2 py-0.5">
                     {colorMap[color].count}
                   </span>
                 </button>
@@ -401,13 +401,13 @@ function CategoryRow({ category, checked, count, onToggle }: CategoryRowProps) {
             checked
               ? "font-medium text-zinc-900 dark:text-zinc-100"
               : empty
-                ? "text-zinc-400 dark:text-zinc-600"
+                ? "text-zinc-500 dark:text-zinc-600"
                 : "text-zinc-700 dark:text-zinc-300"
           }`}
         >
           {category}
         </span>
-        <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500 rounded-full border border-zinc-200 dark:border-zinc-800 px-2 py-0.5">
+        <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-500 rounded-full border border-zinc-200 dark:border-zinc-800 px-2 py-0.5">
           {count}
         </span>
       </label>

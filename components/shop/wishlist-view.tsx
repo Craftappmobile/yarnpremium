@@ -15,7 +15,7 @@ export function WishlistView() {
   const [isCartOpen, setIsCartOpen] = useState(false)
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <main id="content" className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <div className="mx-auto max-w-4xl px-4 py-12">
         <Link
           href="/"
@@ -62,7 +62,7 @@ export function WishlistView() {
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
                           {formatPrice(product.price)} / {product.priceUnit}
                         </p>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-0.5">
                           {inStock ? `${formatQuantity(product.stock, product.priceUnit)} в наявності` : "Немає в наявності"}
                         </p>
                       </div>

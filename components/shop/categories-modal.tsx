@@ -82,18 +82,18 @@ export function CategoriesModal({
         {/* Search */}
         <div className="px-5 pt-4">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Пошук категорії…"
               aria-label="Пошук категорії"
-              className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:focus:ring-zinc-600"
+              className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:focus:ring-zinc-600"
             />
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-500">
               {matches.length} {pluralUk(matches.length, ["категорія", "категорії", "категорій"])}
             </span>
             {selectedCategories.length > 0 && (
@@ -111,7 +111,7 @@ export function CategoriesModal({
         {/* List */}
         <div className="mt-3 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
           {matches.length === 0 ? (
-            <p className="py-10 text-center text-sm text-zinc-400 dark:text-zinc-500">Нічого не знайдено</p>
+            <p className="py-10 text-center text-sm text-zinc-500 dark:text-zinc-500">Нічого не знайдено</p>
           ) : (
             <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
               {matches.map((category) => {
@@ -150,13 +150,13 @@ export function CategoriesModal({
                           checked
                             ? "font-medium text-zinc-900 dark:text-zinc-100"
                             : count === 0
-                              ? "text-zinc-400 dark:text-zinc-600"
+                              ? "text-zinc-500 dark:text-zinc-600"
                               : "text-zinc-700 dark:text-zinc-300"
                         }`}
                       >
                         {category}
                       </span>
-                      <span className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs tabular-nums text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
+                      <span className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs tabular-nums text-zinc-500 dark:border-zinc-800 dark:text-zinc-500">
                         {count}
                       </span>
                     </label>

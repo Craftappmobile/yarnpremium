@@ -49,7 +49,7 @@ export type SitePage = {
 
 import { COD_PREPAYMENT, PICKUP_POINT } from "@/lib/order"
 
-const BRAND = "SINSERITA"
+const BRAND = "SINCERITA"
 
 const contacts: ContactInfo = {
   address: ["Україна, 29025", "м. Хмельницький, вул. Романа Шухевича, 20"],

@@ -1,6 +1,6 @@
 // Site-wide constants for metadata, sitemap and robots.
 
-export const BRAND = "SINSERITA"
+export const BRAND = "SINCERITA"
 
 /**
  * Public address of the shop. NEXT_PUBLIC_SITE_URL wins; otherwise Vercel's

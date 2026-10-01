@@ -45,13 +45,13 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound()
 
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <main id="content" className="min-h-screen bg-zinc-50">
       <article className="mx-auto max-w-2xl px-4 py-12">
-        <Link href="/blog" className="text-sm text-zinc-400 hover:text-zinc-600">
+        <Link href="/blog" className="text-sm text-zinc-500 hover:text-zinc-600">
           ← Усі записи
         </Link>
 
-        <div className="mt-8 flex items-center gap-2 text-xs text-zinc-400">
+        <div className="mt-8 flex items-center gap-2 text-xs text-zinc-500">
           <span>{formatDate(post.date)}</span>
           <span>·</span>
           <span>{readingTime(post.content)} хв читання</span>

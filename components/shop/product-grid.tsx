@@ -53,9 +53,9 @@ export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
                 <div className="flex justify-between items-center gap-1">
                   <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                     {formatPrice(product.price)}
-                    {product.priceUnit === "г" && <span className="text-zinc-400"> / г</span>}
+                    {product.priceUnit === "г" && <span className="text-zinc-500"> / г</span>}
                   </p>
-                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{product.category}</p>
+                  <p className="text-[10px] text-zinc-500 dark:text-zinc-500 truncate">{product.category}</p>
                 </div>
               </div>
             </button>
