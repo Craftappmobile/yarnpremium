@@ -136,14 +136,18 @@ export function classifyColor({ l, c, h }: Oklch): Exclude<ColorFamily, "multi">
   return l < 0.45 ? "burgundy" : "pink"
 }
 
-/** A point picked on the hue wheel and the lightness slider. */
+/** A point picked on the hue wheel, optionally narrowed by the lightness slider. */
 export interface Shade {
   h: number
-  l: number
+  /** null until the slider is touched: then any lightness of the hue matches. */
+  l: number | null
 }
 
+/** Lightness used to draw a shade when none is picked. */
+const SHOW_L = 0.6
+
 /** The colour shown for a picked shade (wheel marker, swatch). */
-export const shadeHex = ({ h, l }: Shade) => oklchToHex({ l, c: 0.14, h })
+export const shadeHex = ({ h, l }: Shade) => oklchToHex({ l: l ?? SHOW_L, c: 0.14, h })
 
 const hueDistance = (a: number, b: number) => {
   const d = Math.abs(a - b) % 360
@@ -153,12 +157,14 @@ const hueDistance = (a: number, b: number) => {
 /** Whether a yarn's colour is close to the shade picked on the wheel. */
 export function matchesShade(hex: string, shade: Shade): boolean {
   const color = hexToOklch(hex)
-  if (!color || color.c < 0.04) return false
-  return hueDistance(color.h, shade.h) <= 22 && Math.abs(color.l - shade.l) <= 0.14
+  // Below this the yarn is grey, black or white: it has no hue to match.
+  if (!color || color.c < 0.03) return false
+  if (hueDistance(color.h, shade.h) > 25) return false
+  return shade.l === null || Math.abs(color.l - shade.l) <= 0.15
 }
 
 /** Nearest group name for a hue on the wheel, for screen readers. */
 export function hueName(shade: Shade): string {
-  const family = classifyColor({ l: shade.l, c: 0.14, h: shade.h })
+  const family = classifyColor({ l: shade.l ?? SHOW_L, c: 0.14, h: shade.h })
   return COLOR_FAMILIES.find((f) => f.id === family)?.label ?? ""
 }
