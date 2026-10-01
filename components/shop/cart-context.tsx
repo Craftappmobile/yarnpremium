@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import { type Product, type CartItem, clampQuantity } from "./data"
 import { isProductLike, lookupProducts } from "./catalog-client"
 import { readStorage, writeStorage, parseStorageEvent } from "@/lib/storage"
@@ -19,6 +19,8 @@ interface CartContextValue {
   removeFromCart: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => void
+  /** Re-reads price and stock of every cart item from the catalog. */
+  refresh: () => Promise<void>
 }
 
 const CartContext = createContext<CartContextValue | null>(null)
@@ -45,6 +47,8 @@ function applyCatalog(items: CartItem[], checked: Set<string>, current: Map<stri
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [hydrated, setHydrated] = useState(false)
+  const cartRef = useRef(cart)
+  cartRef.current = cart
 
   // Restore after mount (localStorage is browser-only), refresh against the
   // catalog, and follow changes made in other tabs.
@@ -100,12 +104,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = useCallback(() => setCart([]), [])
 
+  const refresh = useCallback(async () => {
+    const checked = new Set(cartRef.current.map((i) => i.sku))
+    const current = await lookupProducts([...checked])
+    if (current) setCart((prev) => applyCatalog(prev, checked, current))
+  }, [])
+
   const itemCount = cart.length
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   return (
     <CartContext.Provider
-      value={{ cart, itemCount, total, hydrated, addToCart, removeFromCart, updateQuantity, clearCart }}
+      value={{ cart, itemCount, total, hydrated, addToCart, removeFromCart, updateQuantity, clearCart, refresh }}
     >
       {children}
     </CartContext.Provider>

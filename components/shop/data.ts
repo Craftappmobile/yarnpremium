@@ -38,42 +38,6 @@ export function formatPrice(value: number): string {
   return `${value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴`
 }
 
-/**
- * Demo discount coupons. Later these can be resolved from KeyCRM instead of
- * being hardcoded. `type` is "percent" (value = %) or "fixed" (value = ₴).
- */
-export interface Coupon {
-  code: string
-  type: "percent" | "fixed"
-  value: number
-  /** Optional minimum subtotal (₴) required for the coupon to apply. */
-  minSubtotal?: number
-}
-
-export const coupons: Coupon[] = [
-  { code: "SINSERITA10", type: "percent", value: 10 },
-  { code: "YARN50", type: "fixed", value: 50, minSubtotal: 100 },
-]
-
-export type CouponResult =
-  | { ok: true; coupon: Coupon; discount: number }
-  | { ok: false; error: string }
-
-/** Validates a coupon against the current subtotal and returns the discount amount (₴). */
-export function applyCoupon(code: string, subtotal: number): CouponResult {
-  const normalized = code.trim().toUpperCase()
-  if (!normalized) return { ok: false, error: "Введіть код купону" }
-  const coupon = coupons.find((c) => c.code === normalized)
-  if (!coupon) return { ok: false, error: "Купон не знайдено або недійсний" }
-  if (coupon.minSubtotal && subtotal < coupon.minSubtotal) {
-    return { ok: false, error: `Купон діє від суми ${formatPrice(coupon.minSubtotal)}` }
-  }
-  const raw = coupon.type === "percent" ? (subtotal * coupon.value) / 100 : coupon.value
-  // Never discount below zero.
-  const discount = Math.min(raw, subtotal)
-  return { ok: true, coupon, discount }
-}
-
 export type SortOption = "default" | "price-asc" | "price-desc" | "length-asc" | "length-desc" | "name-asc"
 
 export const sortOptions: { value: SortOption; label: string }[] = [
@@ -130,6 +94,24 @@ export function quantityRules(p: Pick<Product, "stock" | "minQty" | "step">): { 
 export function clampQuantity(p: Pick<Product, "stock" | "minQty" | "step">, quantity: number): number {
   const { min, max } = quantityRules(p)
   return Math.min(max, Math.max(min, quantity))
+}
+
+/**
+ * Next quantity for a +/− press. Quantities sit on the grid min, min+step, …
+ * plus the whole remainder ("Взяти все"); from the remainder, − goes back onto the grid.
+ */
+export function stepQuantity(p: Pick<Product, "stock" | "minQty" | "step">, quantity: number, direction: 1 | -1): number {
+  const { min, step } = quantityRules(p)
+  const steps = (quantity - min) / step
+  const next = min + (direction > 0 ? Math.floor(steps) + 1 : Math.ceil(steps) - 1) * step
+  return clampQuantity(p, next)
+}
+
+/** True for quantities the picker can produce: on the grid, or the whole remainder. */
+export function isValidQuantity(p: Pick<Product, "stock" | "minQty" | "step">, quantity: number): boolean {
+  const { min, max, step } = quantityRules(p)
+  if (quantity === max) return true
+  return quantity >= min && quantity <= max && Number.isInteger((quantity - min) / step)
 }
 
 /** "350 г" / "3 шт". */

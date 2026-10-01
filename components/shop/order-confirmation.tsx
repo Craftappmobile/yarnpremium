@@ -22,6 +22,12 @@ export function OrderConfirmation() {
         Ваше замовлення прийнято. Найближчим часом ми звʼяжемося з вами для підтвердження деталей доставки та оплати.
       </p>
 
+      {order?.number && (
+        <p className="mt-4 text-sm">
+          Номер замовлення: <strong className="tabular-nums">№{order.number}</strong>
+        </p>
+      )}
+
       {order && (
         <div className="mt-8 w-full space-y-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 text-left text-sm">
           <ul className="space-y-1">

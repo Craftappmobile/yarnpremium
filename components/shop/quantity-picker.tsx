@@ -1,7 +1,7 @@
 "use client"
 
 import { Minus, Plus } from "lucide-react"
-import { type Product, formatQuantity, quantityRules } from "./data"
+import { type Product, formatQuantity, quantityRules, stepQuantity } from "./data"
 
 interface QuantityPickerProps {
   product: Pick<Product, "stock" | "minQty" | "step" | "priceUnit">
@@ -15,15 +15,14 @@ interface QuantityPickerProps {
  * whole remainder. When less than the minimum is left, only the remainder is sold.
  */
 export function QuantityPicker({ product, quantity, onChange }: QuantityPickerProps) {
-  const { min, max, step } = quantityRules(product)
-  const set = (n: number) => onChange(Math.min(max, Math.max(min, n)))
+  const { min, max } = quantityRules(product)
 
   return (
     <div className="flex items-center gap-3">
       <div className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-700">
         <button
           type="button"
-          onClick={() => set(quantity - step)}
+          onClick={() => onChange(stepQuantity(product, quantity, -1))}
           disabled={quantity <= min}
           aria-label="Зменшити кількість"
           className="p-2.5 text-zinc-600 dark:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -35,7 +34,7 @@ export function QuantityPicker({ product, quantity, onChange }: QuantityPickerPr
         </span>
         <button
           type="button"
-          onClick={() => set(quantity + step)}
+          onClick={() => onChange(stepQuantity(product, quantity, 1))}
           disabled={quantity >= max}
           aria-label="Збільшити кількість"
           className="p-2.5 text-zinc-600 dark:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -45,7 +44,7 @@ export function QuantityPicker({ product, quantity, onChange }: QuantityPickerPr
       </div>
       <button
         type="button"
-        onClick={() => set(max)}
+        onClick={() => onChange(max)}
         disabled={quantity === max}
         className="flex-1 py-2.5 px-4 text-sm font-medium rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-60 transition-colors"
       >

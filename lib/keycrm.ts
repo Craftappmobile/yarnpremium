@@ -1,6 +1,6 @@
 // Server-only KeyCRM OpenAPI client. The API key is read from the environment
 // and never sent to the browser. KeyCRM allows 60 requests per minute per key,
-// so every call goes through a sliding-window limiter and retries on 429/5xx.
+// so every call goes through a sliding-window limiter; reads also retry on 5xx.
 
 const KEYCRM_URL = process.env.KEYCRM_API_URL || "https://openapi.keycrm.app/v1"
 const PAGE_LIMIT = 50
@@ -58,16 +58,47 @@ type Params = Record<string, string | number | boolean | undefined>
 export async function keycrmGet<T = any>(path: string, params: Params = {}): Promise<T> {
   const url = new URL(`${KEYCRM_URL}${path}`)
   for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v))
+  return request<T>("GET", url)
+}
 
+/**
+ * POST/PUT to KeyCRM. Retried only on 429 (the request was not processed): a
+ * retry after a 5xx or a timeout could create the same order twice.
+ */
+export async function keycrmSend<T = any>(method: "POST" | "PUT", path: string, body: unknown): Promise<T> {
+  return request<T>(method, new URL(`${KEYCRM_URL}${path}`), body)
+}
+
+export class KeycrmError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: string,
+  ) {
+    super(message)
+  }
+}
+
+async function request<T>(method: string, url: URL, body?: unknown): Promise<T> {
+  const path = url.pathname.replace(/^\/v1/, "")
   for (let attempt = 1; ; attempt++) {
     await throttle()
     const res = await fetch(url, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${apiKey()}` },
+      method,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey()}`,
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
     })
     if (res.ok) return (await res.json()) as T
-    const retryable = res.status === 429 || res.status >= 500
-    if (!retryable || attempt >= 4) throw new Error(`KeyCRM ${path}: HTTP ${res.status}`)
+    const retryable = res.status === 429 || (method === "GET" && res.status >= 500)
+    if (!retryable || attempt >= 4) {
+      const text = await res.text().catch(() => "")
+      throw new KeycrmError(`KeyCRM ${method} ${path}: HTTP ${res.status}`, res.status, text.slice(0, 2000))
+    }
     const retryAfter = Number(res.headers.get("retry-after"))
     await sleep(retryAfter > 0 ? retryAfter * 1000 : 2000 * 2 ** (attempt - 1))
   }

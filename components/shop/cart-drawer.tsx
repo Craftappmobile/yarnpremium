@@ -3,7 +3,7 @@
 import { motion } from "motion/react"
 import { X, Minus, Plus } from "lucide-react"
 import Link from "next/link"
-import { formatPrice, formatQuantity, quantityRules } from "./data"
+import { formatPrice, formatQuantity, quantityRules, stepQuantity } from "./data"
 import { useCart } from "./cart-context"
 
 interface CartDrawerProps {
@@ -47,7 +47,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
           ) : (
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {cart.map((item) => {
-                const { min, max, step } = quantityRules(item)
+                const { min, max } = quantityRules(item)
                 const atMax = item.quantity >= max
                 return (
                   <div key={item.id} className="flex gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
@@ -74,7 +74,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center border border-zinc-200 dark:border-zinc-700 rounded-md">
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - step)}
+                            onClick={() => updateQuantity(item.id, stepQuantity(item, item.quantity, -1))}
                             className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
                             disabled={item.quantity <= min}
                             aria-label="Зменшити кількість"
@@ -85,7 +85,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                             {formatQuantity(item.quantity, item.priceUnit)}
                           </span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + step)}
+                            onClick={() => updateQuantity(item.id, stepQuantity(item, item.quantity, 1))}
                             className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
                             disabled={atMax}
                             aria-label="Збільшити кількість"
