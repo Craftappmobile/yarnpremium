@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import { motion } from "motion/react"
 import { X, Search } from "lucide-react"
-import { type Product, categoryList } from "./data"
+import type { Product } from "./data"
 import { pluralUk } from "@/lib/utils"
 
 interface CategoriesModalProps {
@@ -43,8 +43,10 @@ export function CategoriesModal({
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return categoryList.filter((c) => c.toLowerCase().includes(q))
-  }, [query])
+    return Object.keys(categoryCounts)
+      .filter((c) => c && c.toLowerCase().includes(q))
+      .sort((a, b) => a.localeCompare(b, "uk"))
+  }, [categoryCounts, query])
 
   return (
     <motion.div

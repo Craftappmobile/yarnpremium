@@ -1,10 +1,11 @@
 "use client"
 
 import { motion } from "motion/react"
-import { X, Check, Heart, Minus, Plus, ShoppingBag, ExternalLink } from "lucide-react"
+import { X, Check, Heart, ShoppingBag, ExternalLink } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
-import { type Product, formatPrice } from "./data"
+import { type Product, clampQuantity, formatPrice, formatQuantity } from "./data"
+import { QuantityPicker } from "./quantity-picker"
 import { useWishlist } from "./wishlist-context"
 
 interface ProductModalProps {
@@ -15,15 +16,10 @@ interface ProductModalProps {
 
 export function ProductModal({ product, onClose, onAddToCart }: ProductModalProps) {
   const inStock = product.stock > 0
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState(() => clampQuantity(product, product.minQty))
   const { isWishlisted, toggleWishlist } = useWishlist()
   const wished = isWishlisted(product.id)
 
-  // Keep quantity within [1, stock] at all times.
-  const clamp = (n: number) => Math.max(1, Math.min(n, product.stock))
-  const decrease = () => setQuantity((q) => clamp(q - 1))
-  const increase = () => setQuantity((q) => clamp(q + 1))
-  const takeAll = () => setQuantity(product.stock)
 
   return (
     <>
@@ -67,7 +63,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
               {inStock ? (
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-500">
                   <Check className="w-4 h-4" />
-                  {product.stock} в наявності
+                  {formatQuantity(product.stock, product.priceUnit)} в наявності
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-rose-600 dark:text-rose-500">
@@ -79,37 +75,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
 
             {inStock && (
               <div className="mt-4 space-y-3">
-                {/* Лічильник кількості — обмежений залишком */}
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-700">
-                    <button
-                      type="button"
-                      onClick={decrease}
-                      disabled={quantity <= 1}
-                      aria-label="Зменшити кількість"
-                      className="p-2.5 text-zinc-600 dark:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="w-10 text-center text-sm font-medium tabular-nums">{quantity}</span>
-                    <button
-                      type="button"
-                      onClick={increase}
-                      disabled={quantity >= product.stock}
-                      aria-label="Збільшити кількість"
-                      className="p-2.5 text-zinc-600 dark:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={takeAll}
-                    className="flex-1 py-2.5 px-4 text-sm font-medium rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                  >
-                    Візьміть усе ({product.stock})
-                  </button>
-                </div>
+                <QuantityPicker product={product} quantity={quantity} onChange={setQuantity} />
 
                 <button
                   type="button"
@@ -140,19 +106,31 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             </Link>
 
             <div className="mt-5 pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-2 text-sm">
-              <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">{product.description}</p>
+              {product.description && (
+                <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">{product.description}</p>
+              )}
               <p className="text-zinc-500 dark:text-zinc-400">
                 <span className="text-zinc-400 dark:text-zinc-500">Артикул:</span> {product.sku}
               </p>
               <p className="text-zinc-500 dark:text-zinc-400">
                 <span className="text-zinc-400 dark:text-zinc-500">Категорія:</span> {product.category}
               </p>
-              <p className="text-zinc-500 dark:text-zinc-400">
-                <span className="text-zinc-400 dark:text-zinc-500">Колір:</span> {product.color}
-              </p>
-              <p className="text-zinc-500 dark:text-zinc-400">
-                <span className="text-zinc-400 dark:text-zinc-500">Метраж:</span> {product.length} м
-              </p>
+              {product.brand && (
+                <p className="text-zinc-500 dark:text-zinc-400">
+                  <span className="text-zinc-400 dark:text-zinc-500">Виробник:</span> {product.brand}
+                  {product.article && ` · ${product.article}`}
+                </p>
+              )}
+              {product.color && (
+                <p className="text-zinc-500 dark:text-zinc-400">
+                  <span className="text-zinc-400 dark:text-zinc-500">Колір:</span> {product.color}
+                </p>
+              )}
+              {product.length > 0 && (
+                <p className="text-zinc-500 dark:text-zinc-400">
+                  <span className="text-zinc-400 dark:text-zinc-500">Метраж:</span> {product.length} м
+                </p>
+              )}
             </div>
           </div>
         </div>

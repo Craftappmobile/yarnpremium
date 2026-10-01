@@ -3,21 +3,28 @@
 import { useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
-import { ArrowLeft, Check, X, Heart, Minus, Plus, ShoppingBag } from "lucide-react"
-import { type Product, formatPrice } from "./data"
+import { ArrowLeft, Check, X, Heart, ShoppingBag } from "lucide-react"
+import { type Product, clampQuantity, formatPrice, formatQuantity } from "./data"
+import { QuantityPicker } from "./quantity-picker"
 import { useCart } from "./cart-context"
 import { useWishlist } from "./wishlist-context"
 import { CartDrawer } from "./cart-drawer"
 
-export function ProductDetail({ product }: { product: Product }) {
+interface ProductDetailProps {
+  product: Product
+  /** In-stock products from the same category, shown when this one is sold out. */
+  similar?: Product[]
+}
+
+export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
   const inStock = product.stock > 0
-  const [quantity, setQuantity] = useState(1)
+  const images = product.images.length > 0 ? product.images : [product.image]
+  const [imageIndex, setImageIndex] = useState(0)
+  const [quantity, setQuantity] = useState(() => clampQuantity(product, product.minQty))
   const [isCartOpen, setIsCartOpen] = useState(false)
   const { addToCart } = useCart()
   const { isWishlisted, toggleWishlist } = useWishlist()
   const wished = isWishlisted(product.id)
-
-  const clamp = (n: number) => Math.max(1, Math.min(n, product.stock))
 
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -31,12 +38,31 @@ export function ProductDetail({ product }: { product: Product }) {
         </Link>
 
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="aspect-[4/5] bg-white dark:bg-zinc-900 rounded-xl overflow-hidden">
-            <img
-              src={product.image || "/placeholder.svg"}
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
+          <div>
+            <div className="aspect-[4/5] bg-white dark:bg-zinc-900 rounded-xl overflow-hidden">
+              <img
+                src={images[imageIndex] || "/placeholder.svg"}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            {images.length > 1 && (
+              <div className="mt-2 flex gap-2 overflow-x-auto">
+                {images.map((src, i) => (
+                  <button
+                    type="button"
+                    key={src}
+                    onClick={() => setImageIndex(i)}
+                    aria-label={`Фото ${i + 1}`}
+                    className={`h-16 w-14 shrink-0 overflow-hidden rounded-md border-2 ${
+                      i === imageIndex ? "border-zinc-900 dark:border-zinc-100" : "border-transparent"
+                    }`}
+                  >
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col">
@@ -54,48 +80,19 @@ export function ProductDetail({ product }: { product: Product }) {
               {inStock ? (
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-500">
                   <Check className="w-4 h-4" />
-                  {product.stock} в наявності
+                  {formatQuantity(product.stock, product.priceUnit)} в наявності
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-rose-600 dark:text-rose-500">
                   <X className="w-4 h-4" />
-                  Немає в наявності
+                  Цю пряжу розпродано
                 </span>
               )}
             </div>
 
             {inStock && (
               <div className="mt-5 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-700">
-                    <button
-                      type="button"
-                      onClick={() => setQuantity((q) => clamp(q - 1))}
-                      disabled={quantity <= 1}
-                      aria-label="Зменшити кількість"
-                      className="p-2.5 text-zinc-600 dark:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="w-10 text-center text-sm font-medium tabular-nums">{quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => setQuantity((q) => clamp(q + 1))}
-                      disabled={quantity >= product.stock}
-                      aria-label="Збільшити кількість"
-                      className="p-2.5 text-zinc-600 dark:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setQuantity(product.stock)}
-                    className="flex-1 py-2.5 px-4 text-sm font-medium rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                  >
-                    Візьміть усе ({product.stock})
-                  </button>
-                </div>
+                <QuantityPicker product={product} quantity={quantity} onChange={setQuantity} />
 
                 <button
                   type="button"
@@ -121,19 +118,55 @@ export function ProductDetail({ product }: { product: Product }) {
             </button>
 
             <div className="mt-6 pt-5 border-t border-zinc-200 dark:border-zinc-800 space-y-2 text-sm">
-              <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">{product.description}</p>
+              {product.description && (
+                <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">{product.description}</p>
+              )}
               <p className="text-zinc-500 dark:text-zinc-400">
                 <span className="text-zinc-400 dark:text-zinc-500">Артикул:</span> {product.sku}
               </p>
-              <p className="text-zinc-500 dark:text-zinc-400">
-                <span className="text-zinc-400 dark:text-zinc-500">Колір:</span> {product.color}
-              </p>
-              <p className="text-zinc-500 dark:text-zinc-400">
-                <span className="text-zinc-400 dark:text-zinc-500">Метраж:</span> {product.length} м
-              </p>
+              {product.brand && (
+                <p className="text-zinc-500 dark:text-zinc-400">
+                  <span className="text-zinc-400 dark:text-zinc-500">Виробник:</span> {product.brand}
+                  {product.article && ` · ${product.article}`}
+                </p>
+              )}
+              {product.color && (
+                <p className="text-zinc-500 dark:text-zinc-400">
+                  <span className="text-zinc-400 dark:text-zinc-500">Колір:</span> {product.color}
+                </p>
+              )}
+              {product.length > 0 && (
+                <p className="text-zinc-500 dark:text-zinc-400">
+                  <span className="text-zinc-400 dark:text-zinc-500">Метраж:</span> {product.length} м
+                </p>
+              )}
             </div>
           </div>
         </div>
+        {!inStock && similar.length > 0 && (
+          <section className="mt-12">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+              Схожа пряжа в наявності
+            </h2>
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {similar.map((p) => (
+                <Link key={p.sku} href={`/product/${p.sku}`} className="group">
+                  <div className="aspect-[4/5] overflow-hidden rounded-md bg-white dark:bg-zinc-900">
+                    <img
+                      src={p.image || "/placeholder.svg"}
+                      alt={p.name}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                  <p className="mt-1.5 truncate text-xs font-medium">{p.name}</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {formatPrice(p.price)} / {p.priceUnit}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <AnimatePresence>{isCartOpen && <CartDrawer onClose={() => setIsCartOpen(false)} />}</AnimatePresence>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, MapPin, Clock } from "lucide-react"
 import { useCart } from "./cart-context"
-import { formatPrice, applyCoupon, type Coupon } from "./data"
+import { formatPrice, formatQuantity, applyCoupon, type Coupon } from "./data"
 import { NovaPoshtaFields } from "./nova-poshta-fields"
 import { UkrposhtaFields } from "./ukrposhta-fields"
 import {
@@ -127,7 +127,7 @@ export function Checkout() {
 
     const order: Order = {
       customer: { firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim(), email: email.trim() },
-      items: cart.map((i) => ({ id: i.id, sku: i.sku, name: i.name, price: i.price, quantity: i.quantity })),
+      items: cart.map((i) => ({ id: i.id, sku: i.sku, name: i.name, price: i.price, quantity: i.quantity, unit: i.priceUnit })),
       subtotal: total,
       discount,
       coupon: appliedCoupon?.coupon.code ?? null,
@@ -328,7 +328,7 @@ export function Checkout() {
               {cart.map((item) => (
                 <li key={item.id} className="flex justify-between gap-3 py-3 text-sm">
                   <span className="text-zinc-600 dark:text-zinc-300">
-                    {item.name} <span className="text-zinc-400">× {item.quantity}</span>
+                    {item.name} <span className="text-zinc-400">× {formatQuantity(item.quantity, item.priceUnit)}</span>
                   </span>
                   <span className="whitespace-nowrap">{formatPrice(item.price * item.quantity)}</span>
                 </li>

@@ -1,10 +1,12 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
-import { type Product, getProductById } from "./data"
+import type { Product } from "./data"
+import { isProductLike, lookupProducts } from "./catalog-client"
 import { readStorage, writeStorage, parseStorageEvent } from "@/lib/storage"
 
-const WISHLIST_KEY = "sinserita:wishlist:v1"
+// v2 stores product snapshots, refreshed from the catalog on load.
+const WISHLIST_KEY = "sinserita:wishlist:v2"
 
 interface WishlistContextValue {
   wishlist: Product[]
@@ -18,13 +20,8 @@ interface WishlistContextValue {
 
 const WishlistContext = createContext<WishlistContextValue | null>(null)
 
-/** Rebuilds the wishlist from saved ids using the current catalog; unknown ids are dropped. */
-function restoreWishlist(saved: unknown): Product[] {
-  if (!Array.isArray(saved)) return []
-  return saved.flatMap((id) => {
-    const product = typeof id === "string" ? getProductById(id) : undefined
-    return product ? [product] : []
-  })
+function readSavedWishlist(saved: unknown): Product[] {
+  return Array.isArray(saved) ? saved.filter(isProductLike) : []
 }
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
@@ -32,17 +29,30 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
-    setWishlist(restoreWishlist(readStorage(WISHLIST_KEY)))
+    let active = true
+    const saved = readSavedWishlist(readStorage(WISHLIST_KEY))
+    setWishlist(saved)
     setHydrated(true)
+    // Refresh against the catalog: withdrawn products are dropped, sold-out ones
+    // stay (marked). Kept as saved when the catalog can't be reached.
+    const checked = new Set(saved.map((p) => p.sku))
+    lookupProducts([...checked]).then((current) => {
+      if (active && current) {
+        setWishlist((prev) => prev.flatMap((p) => (checked.has(p.sku) ? (current.get(p.sku) ?? []) : [p])))
+      }
+    })
     const onStorage = (e: StorageEvent) => {
-      if (e.key === WISHLIST_KEY) setWishlist(restoreWishlist(parseStorageEvent(e)))
+      if (e.key === WISHLIST_KEY) setWishlist(readSavedWishlist(parseStorageEvent(e)))
     }
     window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
+    return () => {
+      active = false
+      window.removeEventListener("storage", onStorage)
+    }
   }, [])
 
   useEffect(() => {
-    if (hydrated) writeStorage(WISHLIST_KEY, wishlist.map((p) => p.id))
+    if (hydrated) writeStorage(WISHLIST_KEY, wishlist)
   }, [wishlist, hydrated])
 
   const isWishlisted = useCallback((productId: string) => wishlist.some((p) => p.id === productId), [wishlist])

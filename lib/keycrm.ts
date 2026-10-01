@@ -2,7 +2,7 @@
 // and never sent to the browser. KeyCRM allows 60 requests per minute per key,
 // so every call goes through a sliding-window limiter and retries on 429/5xx.
 
-const KEYCRM_URL = "https://openapi.keycrm.app/v1"
+const KEYCRM_URL = process.env.KEYCRM_API_URL || "https://openapi.keycrm.app/v1"
 const PAGE_LIMIT = 50
 /** Stay a little under KeyCRM's 60 requests/minute. */
 const MAX_PER_MINUTE = 55
