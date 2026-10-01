@@ -49,7 +49,7 @@ export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
                 )}
               </div>
               <div className="mt-1.5 space-y-0.5">
-                <h3 className="text-xs font-medium truncate">{product.name}</h3>
+                <h3 className="text-xs leading-4 font-medium line-clamp-2 min-h-8">{product.name}</h3>
                 <div className="flex justify-between items-center gap-1">
                   <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                     {formatPrice(product.price)}

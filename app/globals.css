@@ -33,6 +33,32 @@ body {
   touch-action: manipulation;
 }
 
+/* Phones: no grey flash on tap, no font inflation in landscape. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Long-pressing a button shouldn't select its label. */
+:where(button, [role="button"]) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@media (pointer: coarse) {
+  /* iOS zooms into any field under 16px and doesn't zoom back out. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* With the tap highlight gone, buttons and links dim while pressed instead. */
+  :where(a, button, [role="button"], label):active {
+    opacity: 0.7;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -85,3 +111,15 @@ body {
 
 
 
+
+/* Bigger slider thumbs for fingers. */
+@media (pointer: coarse) {
+  .range-thumb::-webkit-slider-thumb {
+    height: 24px;
+    width: 24px;
+  }
+  .range-thumb::-moz-range-thumb {
+    height: 24px;
+    width: 24px;
+  }
+}
