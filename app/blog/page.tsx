@@ -3,7 +3,7 @@ import { getAllPosts, formatDate, readingTime } from "@/lib/blog"
 
 export const metadata = {
   title: "Журнал",
-  description: "Поради з в'язання, гайди по пряжі та історії майстрів.",
+  description: "Поради з вʼязання, гайди по пряжі та історії майстрів.",
   alternates: { canonical: "/blog" },
   openGraph: { url: "/blog" },
 }
@@ -28,14 +28,14 @@ export default function BlogPage() {
           <p className="mt-6 text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">SINCERITA</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-900 text-balance">Журнал</h1>
           <p className="mt-2 max-w-lg text-zinc-500 text-pretty">
-            Поради з в'язання, гайди по пряжі та історії майстрів.
+            Поради з вʼязання, гайди по пряжі та історії майстрів.
           </p>
         </div>
       </header>
 
       <div className="mx-auto max-w-5xl px-4 py-10">
         {posts.length === 0 ? (
-          <p className="py-16 text-center text-zinc-500">Записів поки немає. Незабаром тут з'являться статті.</p>
+          <p className="py-16 text-center text-zinc-500">Записів поки немає. Незабаром тут зʼявляться статті.</p>
         ) : (
           <>
             {featured && (

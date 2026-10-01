@@ -2,6 +2,10 @@
 
 export const BRAND = "SINCERITA"
 
+/** Shop phone, shown wherever we ask people to call. */
+export const SHOP_PHONE = "+38 068 992 9059"
+export const SHOP_PHONE_HREF = "+380689929059"
+
 /**
  * Public address of the shop. NEXT_PUBLIC_SITE_URL wins; otherwise Vercel's
  * production domain (the custom domain once one is attached, else *.vercel.app).

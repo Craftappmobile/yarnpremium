@@ -11,7 +11,7 @@ import { BRAND, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
 const inter = Inter({ subsets: ["latin", "cyrillic"] })
 
 const DESCRIPTION =
-  "Італійська пряжа преміум якості для в'язання: меринос, кашемір, шовк, альпака. Продаж на вагу від 100 г, доставка Новою Поштою та Укрпоштою."
+  "Італійська пряжа преміум якості для вʼязання: меринос, кашемір, шовк, альпака. Продаж на вагу від 100 г, доставка Новою Поштою та Укрпоштою."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

@@ -15,7 +15,7 @@ export type DeliveryMethod = "np_warehouse" | "np_postomat" | "np_courier" | "uk
 export const DELIVERY_METHODS: { value: DeliveryMethod; label: string; hint: string }[] = [
   { value: "np_warehouse", label: "Нова Пошта — відділення", hint: "За тарифами перевізника" },
   { value: "np_postomat", label: "Нова Пошта — поштомат", hint: "За тарифами перевізника" },
-  { value: "np_courier", label: "Нова Пошта — кур'єр", hint: "За тарифами перевізника" },
+  { value: "np_courier", label: "Нова Пошта — курʼєр", hint: "За тарифами перевізника" },
   { value: "ukrposhta", label: "Укрпошта — відділення", hint: "За тарифами перевізника" },
   { value: "pickup", label: "Самовивіз", hint: "Безкоштовно" },
 ]
@@ -24,7 +24,7 @@ export type PaymentMethod = "card" | "cod" | "on_pickup"
 
 export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   card: "Повна оплата карткою онлайн",
-  cod: `Накладений платіж (передоплата ${COD_PREPAYMENT} ₴)`,
+  cod: `Накладений платіж (передоплата ${COD_PREPAYMENT}\u00a0₴)`,
   on_pickup: "Оплата при отриманні в магазині",
 }
 
@@ -119,8 +119,8 @@ export function validateOrderFields(customer: Order["customer"], delivery: Order
   const e: Record<string, string> = {}
   if (!customer.firstName.trim()) e.firstName = "Вкажіть імʼя"
   if (!customer.lastName.trim()) e.lastName = "Вкажіть прізвище"
-  if (!normalizePhone(customer.phone)) e.phone = "Вкажіть телефон у форматі +380XXXXXXXXX"
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email.trim())) e.email = "Вкажіть коректний email"
+  if (!normalizePhone(customer.phone)) e.phone = "Вкажіть номер телефону, наприклад +380 67 123 45 67"
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email.trim())) e.email = "Перевірте email, наприклад name@example.com"
   if (delivery.method !== "pickup") {
     if (!delivery.city?.name.trim()) e.city = "Оберіть населений пункт"
     if (delivery.method === "np_courier") {

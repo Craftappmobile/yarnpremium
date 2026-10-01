@@ -41,7 +41,7 @@ export function OrderConfirmation() {
             ))}
           </ul>
           <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 pt-3 font-semibold">
-            <span>Загалом</span>
+            <span>Разом</span>
             <span className="tabular-nums">{formatPrice(order.total)}</span>
           </div>
           <p className="text-zinc-600 dark:text-zinc-300">

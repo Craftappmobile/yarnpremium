@@ -270,7 +270,7 @@ export function Checkout() {
           </div>
 
           <div className="mt-6">
-            <label htmlFor="notes" className="mb-1.5 block text-sm">Нотатки до замовлення (необовʼязково)</label>
+            <label htmlFor="notes" className="mb-1.5 block text-sm">Коментар до замовлення (необовʼязково)</label>
             <textarea
               id="notes"
               name="notes"
@@ -291,7 +291,7 @@ export function Checkout() {
 
             <div className="mt-5 flex justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
               <span>Товар</span>
-              <span>Проміжний підсумок</span>
+              <span>Сума</span>
             </div>
 
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -306,7 +306,7 @@ export function Checkout() {
             </ul>
 
             <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 py-3 text-sm font-medium">
-              <span>Проміжний підсумок</span>
+              <span>Товари</span>
               <span className="tabular-nums">{formatPrice(total)}</span>
             </div>
 
@@ -316,7 +316,7 @@ export function Checkout() {
             </div>
 
             <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 pt-3 text-base font-semibold">
-              <span>Загалом</span>
+              <span>Разом</span>
               <span className="tabular-nums">{formatPrice(grandTotal)}</span>
             </div>
           </div>
@@ -353,15 +353,16 @@ export function Checkout() {
               })}
             </div>
 
+            {/* Until online payment (WayForPay) is connected, the manager sends a payment link — update this copy then. */}
             <div className="mt-3 space-y-1 rounded-md bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-400">
-              {effectivePayment === "card" && <p>Оплата карткою онлайн після підтвердження замовлення.</p>}
+              {effectivePayment === "card" && <p>Після оформлення менеджер надішле вам посилання для оплати карткою онлайн.</p>}
               {effectivePayment === "cod" && (
-                <p>Передоплата онлайн, решта — при отриманні у відділенні (плюс комісія перевізника за накладений платіж).</p>
+                <p>Передоплату ви сплатите онлайн за посиланням від менеджера, решту — при отриманні у відділенні (плюс комісія перевізника за накладений платіж).</p>
               )}
               {effectivePayment === "on_pickup" && <p>Оплата готівкою або карткою в магазині під час отримання.</p>}
               {split.now > 0 && (
                 <p className="flex justify-between font-medium text-zinc-800 dark:text-zinc-200">
-                  <span>До сплати зараз</span>
+                  <span>До сплати онлайн</span>
                   <span className="tabular-nums">{formatPrice(split.now)}</span>
                 </p>
               )}

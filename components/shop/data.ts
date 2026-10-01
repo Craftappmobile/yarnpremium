@@ -35,13 +35,13 @@ export interface CartItem extends Product {
 
 /** Formats a price in UAH with Ukrainian comma decimals, e.g. 2.08 -> "2,08 ₴". */
 export function formatPrice(value: number): string {
-  return `${value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴`
+  return `${value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\u00a0₴`
 }
 
 export type SortOption = "default" | "price-asc" | "price-desc" | "length-asc" | "length-desc" | "name-asc"
 
 export const sortOptions: { value: SortOption; label: string }[] = [
-  { value: "default", label: "За замовчуванням" },
+  { value: "default", label: "Спочатку нові" },
   { value: "price-asc", label: "Ціна: від дешевших" },
   { value: "price-desc", label: "Ціна: від дорожчих" },
   { value: "length-asc", label: "Метраж: від меншого" },
