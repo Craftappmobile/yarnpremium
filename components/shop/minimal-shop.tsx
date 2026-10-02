@@ -187,7 +187,7 @@ export default function MinimalShop({ initial, summary }: { initial: PackedCatal
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
           {/* Desktop: filters in a sidebar. Phones get them in a panel, so products come first. */}
           <div id="filters-sidebar" className="hidden lg:block lg:w-64 shrink-0">
-            <div className="lg:sticky lg:top-16">
+            <div className="lg:sticky lg:top-24">
               <FiltersSidebar
                 allProducts={products}
                 priceBounds={priceBounds}
