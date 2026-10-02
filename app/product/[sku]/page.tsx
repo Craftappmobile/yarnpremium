@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { readCatalog, readProducts } from "@/lib/catalog"
 import { SITE_URL } from "@/lib/site"
+import { fallbackSearch, matchOldProduct } from "@/lib/old-urls"
 import { formatPrice, type Product } from "@/components/shop/data"
 import { ProductDetail } from "@/components/shop/product-detail"
 
@@ -80,10 +81,27 @@ function productJsonLd(product: Product) {
   }
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ sku: string }> }) {
-  const product = await findProduct((await params).sku)
+/**
+ * No product with this SKU: maybe an address of the old WooCommerce shop
+ * (/product/<name-slug>/). Sends it to the matching product, else to a
+ * catalog search; a plain unknown SKU is "not found".
+ */
+async function resolveOldAddress(slug: string): Promise<never> {
+  const decoded = decodeURIComponent(slug)
+  const looksOld = decoded.includes("-") || /\p{Script=Cyrillic}/u.test(decoded)
+  if (looksOld) {
+    const match = matchOldProduct(slug, await readCatalog().catch(() => []))
+    if (match) permanentRedirect(productPath(match.sku))
+    redirect(fallbackSearch(slug))
+  }
   // Archived in KeyCRM (or never existed): gone for good.
-  if (!product) notFound()
+  notFound()
+}
+
+export default async function ProductPage({ params }: { params: Promise<{ sku: string }> }) {
+  const { sku } = await params
+  const product = await findProduct(sku)
+  if (!product) return resolveOldAddress(sku)
 
   const similar =
     product.stock > 0
