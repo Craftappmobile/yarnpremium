@@ -129,7 +129,10 @@ export async function createPayment(
     ["clientLastName", order.customer.lastName],
     ["clientPhone", order.customer.phone.replace(/\D/g, "")],
     ...(order.customer.email ? [["clientEmail", order.customer.email] as [string, string]] : []),
-    ["returnUrl", `${origin}/api/payments/wayforpay/return?order=${encodeURIComponent(siteOrderId)}`],
+    [
+      "returnUrl",
+      `${origin}/api/payments/wayforpay/return?order=${encodeURIComponent(siteOrderId)}&ref=${encodeURIComponent(reference)}`,
+    ],
     ["serviceUrl", `${origin}/api/payments/wayforpay/callback`],
   ]
   return { url: PAY_URL, fields }
@@ -239,6 +242,41 @@ export async function recordApprovedPayment(p: PaymentResult): Promise<boolean> 
   }
   console.log(`[wayforpay] ${ref}: ${record.amount} ₴ paid for KeyCRM order ${record.keycrmId}${record.live ? "" : " (test)"}`)
   return true
+}
+
+const STATUS_KEY = (ref: string) => `${PAYMENT_KEY(ref)}:status`
+
+/** Remembers the latest status WayForPay reported to serviceUrl, for the buyer's return. */
+export async function rememberStatus(p: PaymentResult): Promise<void> {
+  if (!p.orderReference || !p.transactionStatus) return
+  await (await redis()).set(STATUS_KEY(p.orderReference), p.transactionStatus, { EX: 30 * 86400 })
+}
+
+/**
+ * The payment's status for the buyer's return page: what serviceUrl reported,
+ * else WayForPay's own answer to CHECK_STATUS. Null when neither is known.
+ */
+export async function paymentStatus(ref: string): Promise<PaymentResult | null> {
+  const r = await redis()
+  const known = await r.get(STATUS_KEY(ref))
+  if (known) return { orderReference: ref, transactionStatus: known }
+  const raw = await r.get(PAYMENT_KEY(ref))
+  if (!raw) return null
+  const m = (JSON.parse(raw) as PaymentRecord).live ? merchant() : { ...TEST_MERCHANT, live: false }
+  const res = await fetch("https://api.wayforpay.com/api", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      transactionType: "CHECK_STATUS",
+      merchantAccount: m.account,
+      orderReference: ref,
+      merchantSignature: sign(m.secret, [m.account, ref]),
+      apiVersion: 1,
+    }),
+    signal: AbortSignal.timeout(8000),
+  })
+  const status = (await res.json()) as PaymentResult
+  return status.transactionStatus ? { ...status, orderReference: ref } : null
 }
 
 /** Reads a WayForPay POST body: JSON, sometimes sent as a form field name, or a plain form. */
