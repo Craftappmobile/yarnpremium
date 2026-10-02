@@ -34,7 +34,7 @@ export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
                   width={400}
                   height={500}
                   sizes="(min-width: 1280px) 200px, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
-                  loading={i < 6 ? "eager" : "lazy"}
+                  loading={i < 4 ? "eager" : "lazy"}
                   fetchPriority={i < 2 ? "high" : undefined}
                   className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                 />

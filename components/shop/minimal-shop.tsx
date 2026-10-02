@@ -3,23 +3,64 @@
 import { AnimatePresence } from "motion/react"
 import { SlidersHorizontal } from "lucide-react"
 import { useReturnFocus } from "./use-return-focus"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ProductGrid } from "./product-grid"
 import { CartDrawer, CategoriesModal, MobileFiltersPanel, ProductModal, usePreloadDialogs } from "./lazy-dialogs"
 import { TopBar } from "./top-bar"
 import { FiltersSidebar, type Filters } from "./filters-sidebar"
 import { Footer } from "./footer"
-import { type Product, type SortOption, sortOptions, sortProducts, getFilterBounds, categoryCounts } from "./data"
+import { type Product, type SortOption, sortOptions, sortProducts } from "./data"
 import { useCart } from "./cart-context"
 import { pluralUk } from "@/lib/utils"
 import { type PackedCatalog, unpackCatalog } from "./catalog-pack"
+import { type CatalogSummary, FIRST_SCREEN } from "./catalog-summary"
 import { matchesShade } from "./yarn-colors"
 
-/** Cards rendered at first and per "Показати ще" click; the catalog has thousands. */
+/** Cards per "Показати ще" click; the catalog has thousands. */
 const PAGE_SIZE = 60
 
-export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
-  const products = useMemo(() => unpackCatalog(catalog), [catalog])
+/**
+ * The whole catalog, loaded on the visitor's first touch, scroll or key
+ * press (or when something asks for it): the first screen doesn't need it,
+ * and unpacking thousands of products while a phone is still showing the
+ * page would hold the page up. Null until it arrives.
+ */
+function useFullCatalog(): [Product[] | null, () => void] {
+  const [full, setFull] = useState<Product[] | null>(null)
+  const requested = useRef(false)
+  const request = useCallback(() => {
+    if (requested.current) return
+    requested.current = true
+    const load = (attempt: number) =>
+      fetch("/api/catalog/packed")
+        .then((res) => (res.ok ? (res.json() as Promise<PackedCatalog>) : Promise.reject(new Error(String(res.status)))))
+        .then((packed) => setFull(unpackCatalog(packed)))
+        .catch(() => {
+          // One more try a little later; meanwhile the first screen stays usable.
+          if (attempt === 0) setTimeout(() => load(1), 3000)
+          else requested.current = false
+        })
+    load(0)
+  }, [])
+  useEffect(() => {
+    const events = ["pointerdown", "keydown", "scroll", "touchstart"] as const
+    const onFirst = () => {
+      request()
+      for (const e of events) window.removeEventListener(e, onFirst)
+    }
+    for (const e of events) window.addEventListener(e, onFirst, { passive: true, once: true })
+    return () => {
+      for (const e of events) window.removeEventListener(e, onFirst)
+    }
+  }, [request])
+  return [full, request]
+}
+
+export default function MinimalShop({ initial, summary }: { initial: PackedCatalog; summary: CatalogSummary }) {
+  const firstScreen = useMemo(() => unpackCatalog(initial), [initial])
+  const [full, requestFull] = useFullCatalog()
+  const complete = full !== null
+  const products = full ?? firstScreen
   const { cart, itemCount, addToCart } = useCart()
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isCartOpen, setIsCartOpen] = useState(false)
@@ -27,15 +68,16 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sort, setSort] = useState<SortOption>("default")
 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [visibleCount, setVisibleCount] = useState(FIRST_SCREEN)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   // Mounted on first open and kept, so the closing animation can play.
   const [filtersMounted, setFiltersMounted] = useState(false)
   const filtersReturnFocus = useReturnFocus()
   usePreloadDialogs()
 
-  const { price: priceBounds, length: lengthBounds } = useMemo(() => getFilterBounds(products), [products])
-  const popularCategories = useMemo(() => categoryCounts(products).slice(0, 8).map((c) => c.name), [products])
+  // From the summary, so the filters are right before the full catalog arrives.
+  const { priceBounds, lengthBounds } = summary
+  const popularCategories = summary.categories.slice(0, 8)
 
   const [filters, setFilters] = useState<Filters>({
     priceRange: priceBounds,
@@ -68,11 +110,14 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
     const q = params.get("q")?.trim()
     const category = params.get("category")
     if (q) setSearchQuery(q)
-    if (category && products.some((p) => p.category === category)) {
+    if (category && summary.categories.includes(category)) {
       setFilters((prev) => ({ ...prev, categories: [category] }))
     }
-    if (q || category) window.history.replaceState(null, "", window.location.pathname)
-  }, [products])
+    if (q || category) {
+      requestFull()
+      window.history.replaceState(null, "", window.location.pathname)
+    }
+  }, [summary, requestFull])
 
   const showAllCategories = () => {
     setIsCategoriesOpen(true)
@@ -102,6 +147,16 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
     (filters.priceRange[0] !== priceBounds[0] || filters.priceRange[1] !== priceBounds[1] ? 1 : 0) +
     (filters.lengthRange[0] !== lengthBounds[0] || filters.lengthRange[1] !== lengthBounds[1] ? 1 : 0)
   const shownProducts = sortedProducts.slice(0, visibleCount)
+  // Search, filters and sorting need the whole catalog: until it's here they wait.
+  const narrowed = query !== "" || activeFilterCount > 0 || sort !== "default"
+  const waiting = !complete && narrowed
+  const resultCount = complete ? sortedProducts.length : summary.total
+  // More to show: counted over the whole catalog, also before it has loaded.
+  const remaining = resultCount - shownProducts.length
+  const showMore = () => {
+    requestFull()
+    setVisibleCount((n) => n + PAGE_SIZE)
+  }
 
   // A new search, filter or sort starts from the top of the list again.
   const listKey = JSON.stringify([query, filters, sort])
@@ -150,7 +205,9 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
               open={isFiltersOpen}
               onOpenChange={setIsFiltersOpen}
               returnFocus={filtersReturnFocus}
-              resultLabel={`Показати ${sortedProducts.length} ${pluralUk(sortedProducts.length, ["товар", "товари", "товарів"])}`}
+              resultLabel={
+                waiting ? "Показати" : `Показати ${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`
+              }
             >
               <FiltersSidebar
                 allProducts={products}
@@ -183,7 +240,7 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
                   )}
                 </button>
                 <p role="status" className="text-xs tabular-nums whitespace-nowrap text-zinc-500 dark:text-zinc-400">
-                  {sortedProducts.length} {pluralUk(sortedProducts.length, ["товар", "товари", "товарів"])}
+                  {waiting ? "Шукаємо…" : `${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
                 </p>
               </div>
               <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -206,17 +263,22 @@ export default function MinimalShop({ catalog }: { catalog: PackedCatalog }) {
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">Каталог оновлюється. Зазирніть за кілька хвилин.</p>
               </div>
+            ) : waiting ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center" aria-busy="true">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Завантажуємо весь каталог…</p>
+              </div>
             ) : sortedProducts.length > 0 ? (
               <>
                 <ProductGrid products={shownProducts} onProductSelect={setSelectedProduct} />
-                {sortedProducts.length > shownProducts.length && (
+                {remaining > 0 && (
                   <div className="mt-8 flex justify-center">
                     <button
                       type="button"
-                      onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-                      className="rounded-md border border-zinc-300 dark:border-zinc-700 px-5 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      onClick={showMore}
+                      disabled={!complete && visibleCount > FIRST_SCREEN}
+                      className="rounded-md border border-zinc-300 dark:border-zinc-700 px-5 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:cursor-wait disabled:opacity-60"
                     >
-                      Показати ще ({sortedProducts.length - shownProducts.length})
+                      {!complete && visibleCount > FIRST_SCREEN ? "Завантажуємо…" : `Показати ще (${remaining})`}
                     </button>
                   </div>
                 )}
