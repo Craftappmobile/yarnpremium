@@ -5,6 +5,7 @@ import type React from "react"
 import { CartProvider } from "@/components/shop/cart-context"
 import { WishlistProvider } from "@/components/shop/wishlist-context"
 import { UtmCapture } from "@/components/shop/utm-capture"
+import { Analytics } from "@/components/shop/analytics"
 import { MotionProvider } from "@/components/shop/motion-provider"
 import { BRAND, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
 
@@ -44,6 +45,7 @@ export default function RootLayout({
           Перейти до вмісту
         </a>
         <UtmCapture />
+        <Analytics />
         <MotionProvider>
           <CartProvider>
             <WishlistProvider>{children}</WishlistProvider>
