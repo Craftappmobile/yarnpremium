@@ -80,7 +80,8 @@ export interface Order {
   subtotal: number
   total: number
   delivery: OrderDelivery
-  payment: { method: PaymentMethod; now: number; onReceipt: number }
+  /** `paid`: the online part (`now`) has been paid through WayForPay. */
+  payment: { method: PaymentMethod; now: number; onReceipt: number; paid?: boolean }
   notes: string
   createdAt: string
 }

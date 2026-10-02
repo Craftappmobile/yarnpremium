@@ -5,6 +5,7 @@ import { createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { SHOP_PHONE } from "@/lib/site"
+import { createPayment } from "@/lib/wayforpay"
 import { isValidQuantity, lineTotal, tailGrams } from "@/components/shop/data"
 import {
   effectivePaymentMethod,
@@ -137,7 +138,16 @@ export async function POST(req: NextRequest) {
       for (const i of orderItems) revalidatePath(`/product/${i.sku}`)
     }
     console.log(`[orders] KeyCRM order ${order.number} (site ${id}), ${orderItems.length} items, ${order.total} ₴`)
-    return NextResponse.json({ order })
+    // The online part is paid on WayForPay's page right away. If the form can't
+    // be made, the order still stands: the confirmation page offers to pay again.
+    const payment =
+      order.payment.now > 0
+        ? await createPayment(order, id, new URL(req.url).origin).catch((e) => {
+            console.error("[orders] payment form failed:", (e as Error).message)
+            return null
+          })
+        : null
+    return NextResponse.json({ order, payment })
   } catch (e) {
     await r.del(ORDER_KEY(id)).catch(() => {})
     console.error("[orders] failed:", (e as Error).message, (e as { body?: string }).body ?? "")

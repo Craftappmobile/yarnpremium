@@ -25,6 +25,11 @@ const PAYMENT_METHOD_ID = {
   cash: 1, // «Cash»
 }
 
+/** The KeyCRM payment the online part of an order is booked under (card in full, or the COD prepayment). */
+export function onlinePaymentMethodId(method: Order["payment"]["method"]): number {
+  return method === "cod" ? PAYMENT_METHOD_ID.prepayment : PAYMENT_METHOD_ID.card
+}
+
 /** Preview deployments share the real KeyCRM: their orders are marked and don't reserve stock. */
 export function isTestOrderEnvironment(): boolean {
   return process.env.VERCEL_ENV !== "production"

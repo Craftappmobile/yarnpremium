@@ -1,21 +1,29 @@
 import type { Order } from "@/lib/order"
 
 // The last placed order is kept for the current browser tab only, so the
-// confirmation page can show what was ordered. Cleared when the tab closes.
+// confirmation page can show what was ordered (also after the trip to the
+// payment page). Cleared when the tab closes.
 const LAST_ORDER_KEY = "sinserita:last-order"
 
-export function saveLastOrder(order: Order): void {
+/** The order and the site's id for it (needed to pay it again). */
+export interface LastOrder {
+  id: string
+  order: Order
+}
+
+export function saveLastOrder(last: LastOrder): void {
   try {
-    sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(order))
+    sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(last))
   } catch {
     // Storage unavailable — the confirmation page falls back to a generic message.
   }
 }
 
-export function loadLastOrder(): Order | null {
+export function loadLastOrder(): LastOrder | null {
   try {
     const raw = sessionStorage.getItem(LAST_ORDER_KEY)
-    return raw ? (JSON.parse(raw) as Order) : null
+    const saved = raw ? JSON.parse(raw) : null
+    return saved?.order && typeof saved.id === "string" ? (saved as LastOrder) : null
   } catch {
     return null
   }
