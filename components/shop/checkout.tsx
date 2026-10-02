@@ -23,7 +23,8 @@ import {
   type PaymentMethod,
   type StockChange,
 } from "@/lib/order"
-import { saveLastOrder } from "./last-order"
+import { type LastOrder, loadLastOrder, saveLastOrder } from "./last-order"
+import { submitPaymentForm } from "./pay"
 import { trackBeginCheckout, trackPurchase } from "./analytics"
 import { readUtm } from "./utm-capture"
 
@@ -45,6 +46,13 @@ export function Checkout() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState("")
   const [stockChanges, setStockChanges] = useState<StockChange[]>([])
+
+  // Back from the payment page without paying: the cart is already empty, so point to the order.
+  const [unpaid, setUnpaid] = useState<LastOrder | null>(null)
+  useEffect(() => {
+    const last = loadLastOrder()
+    if (last && last.order.payment.now > 0 && !last.order.payment.paid) setUnpaid(last)
+  }, [])
 
   // Reported once, when the restored cart is first seen on this page.
   const checkoutTracked = useRef(false)
@@ -80,6 +88,22 @@ export function Checkout() {
 
   // Empty cart guard
   if (cart.length === 0) {
+    if (unpaid) {
+      return (
+        <div className="mx-auto max-w-md px-4 py-24 text-center">
+          <h1 className="text-xl font-medium text-balance">Замовлення №{unpaid.order.number} чекає на оплату</h1>
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            Замовлення вже прийнято. Оплатити {formatPrice(unpaid.order.payment.now)} можна будь-коли зі сторінки замовлення.
+          </p>
+          <Link
+            href="/checkout/success"
+            className="mt-6 inline-flex items-center gap-2 rounded-md bg-zinc-900 dark:bg-white px-5 py-3 text-sm font-medium text-white dark:text-zinc-900"
+          >
+            До замовлення та оплати
+          </Link>
+        </div>
+      )
+    }
     return (
       <div className="mx-auto max-w-md px-4 py-24 text-center">
         <h1 className="text-xl font-medium">Ваш кошик порожній</h1>
@@ -146,10 +170,12 @@ export function Checkout() {
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.order) {
-        saveLastOrder(data.order as Order)
+        saveLastOrder({ id: orderId, order: data.order as Order })
         trackPurchase(data.order as Order, orderId)
         clearCart()
-        router.push("/checkout/success")
+        // Online part: straight to WayForPay; it brings the buyer back to the confirmation page.
+        if (data.payment) submitPaymentForm(data.payment)
+        else router.push("/checkout/success")
         return
       }
       if (data.changes) {
@@ -368,11 +394,15 @@ export function Checkout() {
               })}
             </div>
 
-            {/* Until online payment (WayForPay) is connected, the manager sends a payment link — update this copy then. */}
             <div className="mt-3 space-y-1 rounded-md bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-400">
-              {effectivePayment === "card" && <p>Після оформлення менеджер надішле вам посилання для оплати карткою онлайн.</p>}
+              {effectivePayment === "card" && (
+                <p>Після підтвердження відкриється захищена сторінка оплати WayForPay: картка, Apple Pay або Google Pay.</p>
+              )}
               {effectivePayment === "cod" && (
-                <p>Передоплату ви сплатите онлайн за посиланням від менеджера, решту — при отриманні у відділенні (плюс комісія перевізника за накладений платіж).</p>
+                <p>
+                  Передоплату ви сплатите одразу на захищеній сторінці WayForPay, решту — при отриманні у відділенні (плюс
+                  комісія перевізника за накладений платіж).
+                </p>
               )}
               {effectivePayment === "on_pickup" && <p>Оплата готівкою або карткою в магазині під час отримання.</p>}
               {split.now > 0 && (
@@ -433,7 +463,13 @@ export function Checkout() {
               disabled={submitting}
               className="mt-4 w-full rounded-md bg-zinc-900 dark:bg-white py-3 text-sm font-semibold uppercase tracking-wide text-white dark:text-zinc-900 transition-colors hover:bg-zinc-800 dark:hover:bg-zinc-100 disabled:opacity-60 disabled:cursor-wait"
             >
-              {submitting ? "Оформлюємо…" : "Підтвердити замовлення"}
+              {submitting
+                ? split.now > 0
+                  ? "Переходимо до оплати…"
+                  : "Оформлюємо…"
+                : split.now > 0
+                  ? `Підтвердити й оплатити ${formatPrice(split.now)}`
+                  : "Підтвердити замовлення"}
             </button>
           </div>
         </div>
