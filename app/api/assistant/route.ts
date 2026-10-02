@@ -23,7 +23,7 @@ import { TOOLS, runTool, toolStatus } from "@/lib/assistant/tools"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
-const MODEL = process.env.ASSISTANT_MODEL || "claude-opus-5-5"
+const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-5-5"
 /** Models that take `effort` and the server-side refusal fallback. */
 const CURRENT_MODEL = /^claude-(opus-5|fable-5|sonnet-5-5)/.test(MODEL)
 const MESSAGE_MAX = 1000
