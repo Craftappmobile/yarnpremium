@@ -84,8 +84,9 @@ export function Analytics() {
   if (!on) return null
   return (
     <>
-      <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
-      <Script src="https://connect.facebook.net/en_US/fbevents.js" strategy="afterInteractive" />
+      {/* After the page has loaded: they're big and nothing waits for them, events are queued meanwhile. */}
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" />
+      <Script src="https://connect.facebook.net/en_US/fbevents.js" strategy="lazyOnload" />
     </>
   )
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import MinimalShop from "@/components/shop/minimal-shop"
 import { readCatalog } from "@/lib/catalog"
 import { packCatalog } from "@/components/shop/catalog-pack"
+import { FIRST_SCREEN, summarizeCatalog } from "@/components/shop/catalog-summary"
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -16,12 +17,13 @@ export default async function Home() {
     console.error("[home] catalog unavailable:", (e as Error).message)
     return []
   })
-  // Only what can be bought is listed, packed compactly (see catalog-pack.ts);
-  // the description and gallery stay on the product page.
+  // Only what can be bought is listed. The page carries the first screen of
+  // products and a summary of the rest; the browser loads the full catalog
+  // (/api/catalog/packed) right after the page shows.
   const products = catalog.filter((p) => p.stock > 0)
   return (
     <main className="min-h-screen">
-      <MinimalShop catalog={packCatalog(products)} />
+      <MinimalShop initial={packCatalog(products.slice(0, FIRST_SCREEN))} summary={summarizeCatalog(products)} />
     </main>
   )
 }

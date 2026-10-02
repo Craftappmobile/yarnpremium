@@ -3,6 +3,11 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    // Styles go into the page itself instead of separate files the browser has
+    // to fetch before it can show anything (one round trip less on mobile).
+    inlineCss: true,
+  },
   // Product photos from KeyCRM are resized and converted to WebP by Vercel
   // (billed per transformation, so the size list is short and results are
   // cached for a month — KeyCRM gives every upload a new file name).
