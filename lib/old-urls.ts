@@ -39,6 +39,14 @@ export function skeleton(word: string): string {
     .replace(/i(?=[aeiou])/g, "")
 }
 
+function safeDecode(text: string): string {
+  try {
+    return decodeURIComponent(text)
+  } catch {
+    return text
+  }
+}
+
 /** A word of an old slug or a product name, as a skeleton. */
 interface Word {
   text: string
@@ -125,6 +133,13 @@ function matchWords(slug: string, products: Product[]): Product | null {
  * must be in the product; words and weights count for less.
  */
 export function matchOldProduct(slug: string, products: Product[]): Product | null {
+  // Old slugs often end with the SKU itself («…-shu224», «…-m813»). Only a
+  // code with letters counts: a bare number may be another colour's article.
+  const last = safeDecode(slug).toLowerCase().replace(/-\d$/, "").split(/[^\p{L}\p{N}]+/u).filter(Boolean).pop() ?? ""
+  if (/\p{L}/u.test(last) && /\d/.test(last)) {
+    const bySku = products.find((p) => p.sku.toLowerCase() === last)
+    if (bySku) return bySku
+  }
   const found = matchWords(slug, products)
   // WordPress adds "-2", "-3"… to a repeated name.
   const plain = slug.replace(/-\d$/, "")
