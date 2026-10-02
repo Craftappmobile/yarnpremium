@@ -7,6 +7,7 @@ import { WishlistProvider } from "@/components/shop/wishlist-context"
 import { UtmCapture } from "@/components/shop/utm-capture"
 import { Analytics } from "@/components/shop/analytics"
 import { MotionProvider } from "@/components/shop/motion-provider"
+import { Assistant } from "@/components/shop/assistant"
 import { BRAND, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
 
 // Inter, Latin and Cyrillic only (Google's subsets of the variable font, OFL).
@@ -74,6 +75,7 @@ export default function RootLayout({
         <MotionProvider>
           <CartProvider>
             <WishlistProvider>{children}</WishlistProvider>
+            <Assistant />
           </CartProvider>
         </MotionProvider>
       </body>
