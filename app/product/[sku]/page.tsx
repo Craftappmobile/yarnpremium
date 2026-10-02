@@ -2,7 +2,7 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { readCatalog, readProducts } from "@/lib/catalog"
 import { SITE_URL } from "@/lib/site"
-import { fallbackSearch, matchOldProduct } from "@/lib/old-urls"
+import { fallbackSearch, matchOldProduct, rankOldProduct } from "@/lib/old-urls"
 import { formatPrice, type Product } from "@/components/shop/data"
 import { ProductDetail } from "@/components/shop/product-detail"
 
@@ -90,8 +90,16 @@ async function resolveOldAddress(slug: string): Promise<never> {
   const decoded = decodeURIComponent(slug)
   const looksOld = decoded.includes("-") || /\p{Script=Cyrillic}/u.test(decoded)
   if (looksOld) {
-    const match = matchOldProduct(slug, await readCatalog().catch(() => []))
-    if (match) permanentRedirect(productPath(match.sku))
+    const catalog = await readCatalog().catch(() => [])
+    const match = matchOldProduct(slug, catalog)
+    if (match) {
+      console.log(`[old-url] ${decoded} → ${match.sku}`)
+      permanentRedirect(productPath(match.sku))
+    }
+    // For tuning the matching: the closest products that didn't make it.
+    const { candidates, possible } = rankOldProduct(slug, catalog)
+    const near = candidates.slice(0, 3).map((c) => `${c.product.sku} «${c.product.name}» ${c.score}/${possible}`)
+    console.log(`[old-url] no match for ${decoded} → ${fallbackSearch(slug)}; closest: ${near.join("; ") || "none"}`)
     redirect(fallbackSearch(slug))
   }
   // Archived in KeyCRM (or never existed): gone for good.
