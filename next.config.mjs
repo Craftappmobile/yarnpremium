@@ -14,6 +14,18 @@ const nextConfig = {
     qualities: [75],
     minimumCacheTTL: 2678400,
   },
+  // Pages of the old WooCommerce shop on this domain that have no match here.
+  // Products and categories are matched by name (app/product, app/product-category).
+  async redirects() {
+    return [
+      { source: "/shop", destination: "/", permanent: true },
+      { source: "/shop/:path*", destination: "/", permanent: true },
+      { source: "/cart", destination: "/", permanent: true },
+      { source: "/my-account", destination: "/", permanent: true },
+      { source: "/my-account/:path*", destination: "/", permanent: true },
+      { source: "/product-tag/:path*", destination: "/", permanent: true },
+    ]
+  },
 }
 
 export default nextConfig
