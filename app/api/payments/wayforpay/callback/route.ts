@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { acceptResponse, readResult, recordApprovedPayment, verifyResult } from "@/lib/wayforpay"
+import { acceptResponse, readResult, recordApprovedPayment, rememberStatus, verifyResult } from "@/lib/wayforpay"
 
 // WayForPay's serviceUrl: called server-to-server with every payment result
 // (and retried until it gets a signed "accept").
@@ -13,6 +13,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad signature" }, { status: 400 })
   }
   console.log(`[wayforpay] ${result.orderReference}: ${result.transactionStatus} ${result.reasonCode ?? ""} ${result.reason ?? ""}`)
+  await rememberStatus(result).catch((e) => console.error("[wayforpay] status not saved:", (e as Error).message))
   if (result.transactionStatus === "Approved") {
     try {
       if (!(await recordApprovedPayment(result))) console.error(`[wayforpay] ${result.orderReference}: unknown payment`)
