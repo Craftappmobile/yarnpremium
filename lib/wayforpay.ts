@@ -279,8 +279,15 @@ export async function paymentStatus(ref: string): Promise<PaymentResult | null> 
   return status.transactionStatus ? { ...status, orderReference: ref } : null
 }
 
-/** Reads a WayForPay POST body: JSON, sometimes sent as a form field name, or a plain form. */
+/**
+ * Reads a WayForPay POST body: JSON (serviceUrl, sometimes sent as a form
+ * field name) or a form — multipart for the buyer's return.
+ */
 export async function readResult(req: Request): Promise<PaymentResult> {
+  if ((req.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+    const form = await req.formData()
+    return Object.fromEntries([...form].filter(([, v]) => typeof v === "string")) as PaymentResult
+  }
   const text = await req.text()
   try {
     return JSON.parse(text)
