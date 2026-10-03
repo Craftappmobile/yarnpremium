@@ -6,7 +6,8 @@ import { redis } from "@/lib/redis"
 // Purchases made outside the site (Instagram Direct, Facebook, …) for Meta's
 // ads. A KeyCRM trigger («Зміна статусу оплати» → Сплачено / Оплачено зверх,
 // source = the messengers) sends a webhook here:
-//   /api/keycrm/purchase?token=<KEYCRM_WEBHOOK_SECRET>
+//   /api/keycrm/purchase?token=<KEYCRM_PURCHASE_SECRET>
+// (KEYCRM_WEBHOOK_SECRET, the stock webhook's, is accepted too).
 // The order is read back from KeyCRM and sent to the Conversions API as a
 // Purchase, once per order. The site's own orders are sent by the site itself
 // (lib/meta-capi.ts) and are skipped here.
@@ -17,6 +18,7 @@ export const dynamic = "force-dynamic"
 
 /** KeyCRM order source «yarnpremium» (the site), as in lib/keycrm-order.ts. */
 const SITE_SOURCE_ID = 8
+const authorized = (req: NextRequest) => webhookAuthorized(req, "KEYCRM_PURCHASE_SECRET") || webhookAuthorized(req)
 const SENT_KEY = (id: number) => `meta:crm-purchase:${id}`
 
 /** The order id in KeyCRM's webhook, wherever the payload keeps it. */
@@ -77,7 +79,7 @@ async function purchaseFor(orderId: number): Promise<{ event?: ServerEvent; skip
 
 // The check: what would be sent for ?order=<id>, without sending it.
 export async function GET(req: NextRequest) {
-  if (!webhookAuthorized(req)) return new NextResponse("Unauthorized", { status: 401 })
+  if (!authorized(req)) return new NextResponse("Unauthorized", { status: 401 })
   const orderId = Number(req.nextUrl.searchParams.get("order"))
   if (!Number.isInteger(orderId) || orderId <= 0) return new NextResponse("ok — add &order=<KeyCRM order id> to check one")
   let result: Awaited<ReturnType<typeof purchaseFor>>
@@ -97,7 +99,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!webhookAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!keycrmConfigured()) return NextResponse.json({ error: "KeyCRM is not configured" }, { status: 503 })
 
   const raw = await req.text()
