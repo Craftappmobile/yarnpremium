@@ -1,0 +1,142 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { keycrmConfigured, keycrmGet, webhookAuthorized } from "@/lib/keycrm"
+import { type ServerEvent, sendMetaEvent, userData } from "@/lib/meta-capi"
+import { redis } from "@/lib/redis"
+
+// Purchases made outside the site (Instagram Direct, Facebook, …) for Meta's
+// ads. A KeyCRM trigger («Зміна статусу оплати» → Сплачено / Оплачено зверх,
+// source = the messengers) sends a webhook here:
+//   /api/keycrm/purchase?token=<KEYCRM_WEBHOOK_SECRET>
+// The order is read back from KeyCRM and sent to the Conversions API as a
+// Purchase, once per order. The site's own orders are sent by the site itself
+// (lib/meta-capi.ts) and are skipped here.
+//
+// Check without sending: open …/api/keycrm/purchase?token=…&order=<KeyCRM order id>
+// in a browser; it shows what would go to Meta.
+export const dynamic = "force-dynamic"
+
+/** KeyCRM order source «yarnpremium» (the site), as in lib/keycrm-order.ts. */
+const SITE_SOURCE_ID = 8
+const SENT_KEY = (id: number) => `meta:crm-purchase:${id}`
+
+/** The order id in KeyCRM's webhook, wherever the payload keeps it. */
+function orderIdFrom(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null
+  const p = payload as Record<string, any>
+  for (const v of [p.order_id, p.context?.order_id, p.context?.id, p.data?.order_id, p.data?.id, p.order?.id, p.id]) {
+    const n = Number(v)
+    if (Number.isInteger(n) && n > 0) return n
+  }
+  return null
+}
+
+const num = (v: unknown) => (v === null || v === undefined || v === "" ? NaN : Number(v))
+
+/** The Purchase for a KeyCRM order, or why there is none. */
+async function purchaseFor(orderId: number): Promise<{ event?: ServerEvent; skip?: string; order: any }> {
+  const order = await keycrmGet<any>(`/order/${orderId}`, { include: "buyer,products,shipping" })
+  if (Number(order.source_id) === SITE_SOURCE_ID) return { skip: "an order from the site: the site reports it itself", order }
+  // Only when KeyCRM gives the field: an order that isn't (fully) paid is not a purchase yet.
+  if (order.payment_status && !["paid", "overpaid"].includes(order.payment_status)) {
+    return { skip: `payment status is ${order.payment_status}`, order }
+  }
+
+  const products: any[] = Array.isArray(order.products) ? order.products : []
+  const lines = products.map((p) => ({
+    id: String(p.sku || p.offer?.sku || p.offer_id || p.id || ""),
+    quantity: num(p.quantity) || 1,
+    item_price: num(p.price_sold ?? p.price) || 0,
+  }))
+  const value = num(order.grand_total ?? order.total) || lines.reduce((s, l) => s + l.quantity * l.item_price, 0)
+  if (!(value > 0)) return { skip: "no order total", order }
+
+  // KeyCRM keeps one full name; the site writes it «Прізвище Ім'я».
+  const [lastName, ...rest] = String(order.buyer?.full_name ?? "").trim().split(/\s+/)
+  const event: ServerEvent = {
+    event_name: "Purchase",
+    event_id: `crm-${orderId}`,
+    action_source: "chat",
+    user_data: userData(
+      {},
+      { phone: order.buyer?.phone, email: order.buyer?.email, lastName, firstName: rest.join(" ") || undefined },
+      order.shipping?.shipping_address_city,
+    ),
+    custom_data: {
+      currency: order.currency || "UAH",
+      value,
+      order_id: String(orderId),
+      content_type: "product",
+      content_ids: lines.map((l) => l.id).filter(Boolean),
+      contents: lines.filter((l) => l.id),
+      num_items: lines.length,
+    },
+  }
+  if (!event.user_data.ph && !event.user_data.em) return { skip: "the buyer has no phone or email to match", order }
+  return { event, order }
+}
+
+// The check: what would be sent for ?order=<id>, without sending it.
+export async function GET(req: NextRequest) {
+  if (!webhookAuthorized(req)) return new NextResponse("Unauthorized", { status: 401 })
+  const orderId = Number(req.nextUrl.searchParams.get("order"))
+  if (!Number.isInteger(orderId) || orderId <= 0) return new NextResponse("ok — add &order=<KeyCRM order id> to check one")
+  let result: Awaited<ReturnType<typeof purchaseFor>>
+  try {
+    result = await purchaseFor(orderId)
+  } catch (e) {
+    return NextResponse.json({ error: `KeyCRM order ${orderId}: ${(e as Error).message}` }, { status: 502 })
+  }
+  const { event, skip, order } = result
+  const sent = await (await redis()).get(SENT_KEY(orderId))
+  return NextResponse.json({
+    order: { id: orderId, source_id: order.source_id, payment_status: order.payment_status, grand_total: order.grand_total },
+    would_send: skip ? null : event,
+    skipped: skip ?? null,
+    already_sent: Boolean(sent),
+  })
+}
+
+export async function POST(req: NextRequest) {
+  if (!webhookAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!keycrmConfigured()) return NextResponse.json({ error: "KeyCRM is not configured" }, { status: 503 })
+
+  const raw = await req.text()
+  let payload: unknown = null
+  try {
+    payload = JSON.parse(raw)
+  } catch {
+    // Not JSON: nothing to read the order from.
+  }
+  const orderId = orderIdFrom(payload)
+  if (!orderId) {
+    // 200 so KeyCRM doesn't keep retrying; the log shows what arrived.
+    console.warn("[keycrm-purchase] no order id in:", raw.slice(0, 1000))
+    return NextResponse.json({ ok: true, sent: false })
+  }
+
+  const r = await redis()
+  // Once per order, however often its payment status changes.
+  if (!(await r.set(SENT_KEY(orderId), "1", { NX: true, EX: 60 * 86400 }))) {
+    return NextResponse.json({ ok: true, sent: false, reason: "already sent" })
+  }
+  try {
+    const { event, skip } = await purchaseFor(orderId)
+    if (!event) {
+      await r.del(SENT_KEY(orderId))
+      console.log(`[keycrm-purchase] order ${orderId} skipped: ${skip}`)
+      return NextResponse.json({ ok: true, sent: false, reason: skip })
+    }
+    if (!(await sendMetaEvent(event))) {
+      // Not sent (Meta refused it, or this isn't the live site): free the order for another try.
+      await r.del(SENT_KEY(orderId))
+      return NextResponse.json({ ok: true, sent: false, reason: "not sent to Meta, see the log" })
+    }
+    console.log(`[keycrm-purchase] order ${orderId}: Purchase ${event.custom_data?.value} ₴ sent to Meta`)
+    return NextResponse.json({ ok: true, sent: true })
+  } catch (e) {
+    await r.del(SENT_KEY(orderId))
+    console.error(`[keycrm-purchase] order ${orderId} failed:`, (e as Error).message)
+    // 5xx: KeyCRM tries again (three attempts in all).
+    return NextResponse.json({ error: "try again" }, { status: 502 })
+  }
+}

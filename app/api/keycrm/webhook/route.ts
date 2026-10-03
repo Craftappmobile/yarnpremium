@@ -1,19 +1,12 @@
-import { timingSafeEqual } from "node:crypto"
 import { type NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { applyStockUpdates, type StockUpdate } from "@/lib/catalog"
+import { webhookAuthorized as authorized } from "@/lib/keycrm"
 
 // Receives KeyCRM's stock webhook, so a sale anywhere (Instagram, the shop, the
 // site) shows on the site within seconds instead of at the next 15-minute sync.
 // KeyCRM doesn't sign webhooks: the URL carries a secret, ?token=KEYCRM_WEBHOOK_SECRET.
 export const dynamic = "force-dynamic"
-
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.KEYCRM_WEBHOOK_SECRET ?? ""
-  const token = req.nextUrl.searchParams.get("token") ?? ""
-  if (!secret || token.length !== secret.length) return false
-  return timingSafeEqual(Buffer.from(token), Buffer.from(secret))
-}
 
 const num = (v: unknown) => (v === null || v === undefined || v === "" ? NaN : Number(v))
 

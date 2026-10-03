@@ -9,6 +9,8 @@
 //                   to pay online is placed                          (event_id order-<KeyCRM order>)
 // The browser pixel sends Contact and AddPaymentInfo too, with the same
 // event_id, and Meta keeps one of each pair.
+//   Purchase        an order from Direct (or another non-site channel) is paid
+//                   in KeyCRM: app/api/keycrm/purchase   (event_id crm-<KeyCRM order>)
 //
 // Needs META_CAPI_TOKEN (Events Manager → dataset → Settings → Conversions API →
 // Generate access token). Sends only from production; META_CAPI_TEST_CODE (the
@@ -54,8 +56,16 @@ const hashed = (s: string | undefined) => {
   return v ? [sha256(v)] : undefined
 }
 
-function userData(ctx: BuyerContext, customer?: Order["customer"], city?: string) {
-  const phone = customer?.phone.replace(/\D/g, "")
+/** A buyer's contact details; any may be missing. */
+export interface Contact {
+  firstName?: string
+  lastName?: string
+  phone?: string
+  email?: string
+}
+
+export function userData(ctx: BuyerContext, customer?: Contact, city?: string) {
+  const phone = customer?.phone?.replace(/\D/g, "")
   return {
     client_ip_address: ctx.ip,
     client_user_agent: ctx.userAgent,
@@ -71,42 +81,46 @@ function userData(ctx: BuyerContext, customer?: Order["customer"], city?: string
   }
 }
 
-interface ServerEvent {
+export interface ServerEvent {
   event_name: string
   event_id: string
-  event_source_url: string
+  /** "website" unless said otherwise; "chat" for a sale made in a messenger. */
+  action_source?: "website" | "chat" | "phone_call" | "other"
+  event_source_url?: string
   user_data: ReturnType<typeof userData>
   custom_data?: Record<string, unknown>
 }
 
 /**
- * Sends one event. `test` (a payment through WayForPay's test merchant, say)
- * goes out only under META_CAPI_TEST_CODE. Never throws: a lost ad signal
- * must not fail an order or a payment.
+ * Sends one event; true when Meta accepted it. `test` (a payment through
+ * WayForPay's test merchant, say) goes out only under META_CAPI_TEST_CODE.
+ * Never throws: a lost ad signal must not fail an order or a payment.
  */
-export async function sendMetaEvent(event: ServerEvent, { test = false } = {}): Promise<void> {
+export async function sendMetaEvent(event: ServerEvent, { test = false } = {}): Promise<boolean> {
   const token = process.env.META_CAPI_TOKEN
   const testCode = process.env.META_CAPI_TEST_CODE
-  if (!token) return
-  if (!testCode && (test || process.env.VERCEL_ENV !== "production")) return
+  if (!token) return false
+  if (!testCode && (test || process.env.VERCEL_ENV !== "production")) return false
   try {
     const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${META_PIXEL_ID}/events?access_token=${encodeURIComponent(token)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        data: [{ ...event, event_time: Math.floor(Date.now() / 1000), action_source: "website" }],
+        data: [{ action_source: "website", ...event, event_time: Math.floor(Date.now() / 1000) }],
         ...(testCode ? { test_event_code: testCode } : {}),
       }),
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) console.error(`[meta capi] ${event.event_name} ${event.event_id}: ${res.status} ${(await res.text()).slice(0, 300)}`)
+    return res.ok
   } catch (e) {
     console.error(`[meta capi] ${event.event_name} ${event.event_id}:`, (e as Error).message)
+    return false
   }
 }
 
-export function sendContact(conversationId: string, ctx: BuyerContext) {
-  return sendMetaEvent({
+export async function sendContact(conversationId: string, ctx: BuyerContext): Promise<void> {
+  await sendMetaEvent({
     event_name: "Contact",
     event_id: `chat-${conversationId}`,
     event_source_url: SITE_URL,

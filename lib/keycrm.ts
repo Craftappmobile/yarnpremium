@@ -2,6 +2,8 @@
 // and never sent to the browser. KeyCRM allows 60 requests per minute per key,
 // so every call goes through a sliding-window limiter; reads also retry on 5xx.
 
+import { timingSafeEqual } from "node:crypto"
+
 const KEYCRM_URL = process.env.KEYCRM_API_URL || "https://openapi.keycrm.app/v1"
 const PAGE_LIMIT = 50
 /** Stay a little under KeyCRM's 60 requests/minute. */
@@ -138,4 +140,12 @@ export async function keycrmGetPages<T = any>(
     if (!res.next_page_url) break
   }
   return { items, total }
+}
+
+/** KeyCRM doesn't sign webhooks: their URL carries a secret, ?token=KEYCRM_WEBHOOK_SECRET. */
+export function webhookAuthorized(req: { nextUrl: URL }): boolean {
+  const secret = process.env.KEYCRM_WEBHOOK_SECRET ?? ""
+  const token = req.nextUrl.searchParams.get("token") ?? ""
+  if (!secret || token.length !== secret.length) return false
+  return timingSafeEqual(Buffer.from(token), Buffer.from(secret))
 }
