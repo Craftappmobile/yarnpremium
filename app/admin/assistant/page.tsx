@@ -1,0 +1,218 @@
+import type { Metadata } from "next"
+import Link from "next/link"
+import { notFound } from "next/navigation"
+import { redisConfigured } from "@/lib/redis"
+import { type DayStats, type StatsSummary, readStats, statsKeyValid, summarize } from "@/lib/assistant/stats"
+import { formatPrice } from "@/components/shop/data"
+import { BarChart } from "@/components/admin/bar-chart"
+
+// Whether the shopping assistant pays off, for the shop's owner:
+// /admin/assistant?key=<ASSISTANT_STATS_KEY>&days=30. The same figures as
+// /api/assistant/stats, in words, tiles, charts and a table.
+
+export const dynamic = "force-dynamic"
+export const metadata: Metadata = { title: "Статистика консультанта", robots: { index: false, follow: false } }
+
+const PERIODS = [7, 30, 90]
+/** Categorical slots 1 and 2 of the charts' palette (validated for colour blindness on white). */
+const BLUE = "#2a78d6"
+const ORANGE = "#eb6834"
+
+const usd = (n: number, digits = 2) =>
+  `$${n.toLocaleString("uk-UA", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`
+const uah = (n: number | null) => (n === null ? "—" : formatPrice(Math.round(n)).replace(/,00(?= ₴)/, ""))
+const percent = (n: number | null) => (n === null ? "—" : `${Math.round(n * 100)}%`)
+const plural = (n: number, one: string, few: string, many: string) => {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return one
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few
+  return many
+}
+
+function Verdict({ s, days }: { s: StatsSummary; days: number }) {
+  if (s.conversations === 0) {
+    return (
+      <p>
+        За {days} {plural(days, "день", "дні", "днів")} ще не було жодної розмови з консультантом. Цифри зʼявляться,
+        щойно покупці почнуть писати в чат.
+      </p>
+    )
+  }
+  const sentences = [
+    `За ${days} ${plural(days, "день", "дні", "днів")} консультант провів ${s.conversations} ${plural(s.conversations, "розмову", "розмови", "розмов")}` +
+      (s.costUsd !== null ? ` і коштував ${usd(s.costUsd)}.` : "."),
+    s.ordersAssisted > 0
+      ? `Ті, хто писав у чат, оформили ${s.ordersAssisted} ${plural(s.ordersAssisted, "замовлення", "замовлення", "замовлень")} на ${uah(s.revenueAssisted)} — це ${percent(s.assistedShare)} усіх замовлень сайту.`
+      : "Після розмов із консультантом замовлень поки не було.",
+    s.revenueFromCards > 0 && `Товари, додані в кошик прямо з карток консультанта, принесли ${uah(s.revenueFromCards)}.`,
+    s.averageOrderAssisted !== null &&
+      s.averageOrderOther !== null &&
+      s.averageOrderOther > 0 &&
+      (() => {
+        const diff = Math.round((s.averageOrderAssisted / s.averageOrderOther - 1) * 100)
+        return diff === 0
+          ? "Середній чек із чатом такий самий, як без нього."
+          : `Середній чек із чатом на ${Math.abs(diff)}% ${diff > 0 ? "вищий" : "нижчий"}, ніж без нього.`
+      })(),
+  ].filter(Boolean)
+  return <p>{sentences.join(" ")}</p>
+}
+
+function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+      <p className="text-xs text-zinc-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-zinc-900">{value}</p>
+      {note && <p className="mt-1 text-xs text-zinc-500">{note}</p>}
+    </div>
+  )
+}
+
+function DayTable({ daily }: { daily: DayStats[] }) {
+  const cols: [string, (d: DayStats) => string][] = [
+    ["Розмови", (d) => String(d.conversations)],
+    ["Повідомлення", (d) => String(d.messages)],
+    ["Картки товарів", (d) => String(d.productsShown)],
+    ["Замовлення", (d) => String(d.orders)],
+    ["З чатом", (d) => String(d.ordersAssisted)],
+    ["Виторг", (d) => uah(d.revenue)],
+    ["Виторг із чатом", (d) => uah(d.revenueAssisted)],
+    ["Витрати на ШІ", (d) => (d.costUsd === null ? "—" : usd(d.costUsd))],
+  ]
+  return (
+    <details className="rounded-2xl border border-zinc-200 bg-white">
+      <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-900">Таблиця за днями</summary>
+      <div className="overflow-x-auto border-t border-zinc-200">
+        <table className="w-full text-sm tabular-nums">
+          <thead>
+            <tr className="text-left text-xs text-zinc-500">
+              <th className="px-4 py-2 font-medium">День</th>
+              {cols.map(([name]) => (
+                <th key={name} className="whitespace-nowrap px-3 py-2 text-right font-medium">
+                  {name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {daily.map((d) => (
+              <tr key={d.day} className="border-t border-zinc-100 text-zinc-700">
+                <td className="whitespace-nowrap px-4 py-2">{d.day.split("-").reverse().join(".")}</td>
+                {cols.map(([name, cell]) => (
+                  <td key={name} className="whitespace-nowrap px-3 py-2 text-right">
+                    {cell(d)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  )
+}
+
+export default async function AssistantStatsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+  const key = typeof params.key === "string" ? params.key : ""
+  if (!statsKeyValid(key) || !redisConfigured()) notFound()
+
+  const days = PERIODS.includes(Number(params.days)) ? Number(params.days) : 30
+  const daily = await readStats(days)
+  const s = summarize(daily)
+  const chronological = [...daily].reverse()
+
+  return (
+    <main id="content" className="mx-auto max-w-5xl space-y-6 px-4 py-8 text-zinc-900">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Чи продає консультант</h1>
+          <p className="mt-1 text-sm text-zinc-500">Статистика ШІ-консультанта сайту, дні за київським часом</p>
+        </div>
+        <nav className="inline-flex rounded-xl border border-zinc-200 bg-white p-1 text-sm" aria-label="Період">
+          {PERIODS.map((p) => (
+            <Link
+              key={p}
+              href={`/admin/assistant?key=${encodeURIComponent(key)}&days=${p}`}
+              aria-current={p === days ? "page" : undefined}
+              className={`rounded-lg px-3 py-1.5 ${p === days ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}
+            >
+              {p} днів
+            </Link>
+          ))}
+        </nav>
+      </header>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-5 text-base leading-relaxed text-zinc-800">
+        <Verdict s={s} days={days} />
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Tile
+          label="Розмови"
+          value={String(s.conversations)}
+          note={s.messagesPerConversation !== null ? `≈ ${s.messagesPerConversation.toLocaleString("uk-UA")} повід. на розмову` : undefined}
+        />
+        <Tile
+          label="Замовлення з чатом"
+          value={`${s.ordersAssisted} з ${s.orders}`}
+          note={s.assistedShare !== null ? `${percent(s.assistedShare)} усіх замовлень` : "замовлень ще немає"}
+        />
+        <Tile label="Виторг із чатом" value={uah(s.revenueAssisted)} note={`з карток консультанта: ${uah(s.revenueFromCards)}`} />
+        <Tile
+          label="Витрати на ШІ"
+          value={s.costUsd === null ? "—" : usd(s.costUsd)}
+          note={s.costPerConversationUsd !== null ? `${usd(s.costPerConversationUsd, 3)} за розмову` : undefined}
+        />
+        <Tile
+          label="Конверсія чату"
+          value={s.ordersPerConversation === null ? "—" : percent(s.ordersPerConversation)}
+          note="замовлень на кожні 100 розмов"
+        />
+        <Tile label="Середній чек із чатом" value={uah(s.averageOrderAssisted)} note={`без чату: ${uah(s.averageOrderOther)}`} />
+        <Tile label="Показано карток товарів" value={String(s.productsShown)} />
+        <Tile
+          label="Збої"
+          value={String(s.errors + s.refusals)}
+          note={`помилки ${s.errors} · відмови ${s.refusals} · ліміт ${s.limited}`}
+        />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <BarChart
+          title="Розмови за днями"
+          series={[{ name: "Розмови", color: BLUE }]}
+          data={chronological.map((d) => ({ day: d.day, values: [d.conversations] }))}
+        />
+        <BarChart
+          title="Замовлення за днями"
+          series={[
+            { name: "Писали в чат", color: BLUE },
+            { name: "Без чату", color: ORANGE },
+          ]}
+          data={chronological.map((d) => ({ day: d.day, values: [d.ordersAssisted, d.orders - d.ordersAssisted] }))}
+        />
+      </section>
+
+      <DayTable daily={daily} />
+
+      <section className="space-y-2 rounded-2xl bg-zinc-100 p-5 text-sm leading-relaxed text-zinc-600">
+        <p className="font-medium text-zinc-800">Як читати ці цифри</p>
+        <p>
+          «З чатом» — замовлення від покупців, які писали консультанту протягом тижня до замовлення. Хто пише в чат,
+          той і так частіше купує, тому вища конверсія ще не доводить, що продав саме консультант. Чесну відповідь дасть
+          лише порівняння: половині відвідувачів чат показувати, половині ні.
+        </p>
+        <p>
+          Замовлення рахуються в момент оформлення, як у KeyCRM, а не після оплати. Витрати на ШІ — у доларах, за
+          цінами Anthropic. Дані почали збиратися 3 жовтня 2026 року.
+        </p>
+      </section>
+    </main>
+  )
+}

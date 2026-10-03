@@ -17,7 +17,7 @@ const ENABLED = process.env.NEXT_PUBLIC_ASSISTANT_ENABLED === "1"
 export function Assistant() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  if (!ENABLED || pathname.startsWith("/checkout")) return null
+  if (!ENABLED || pathname.startsWith("/checkout") || pathname.startsWith("/admin")) return null
   // Product pages have a buy bar along the bottom on phones: sit above it.
   const lifted = pathname.startsWith("/product/")
 

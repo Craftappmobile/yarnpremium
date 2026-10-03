@@ -11,6 +11,7 @@
 // Only the live site counts (preview deployments share Redis). Writing a
 // counter never fails the request it is counting.
 
+import { timingSafeEqual } from "node:crypto"
 import { redis } from "@/lib/redis"
 
 const KEY = (day: string) => `assistant:stats:${day}`
@@ -117,4 +118,53 @@ export async function readStats(days: number): Promise<DayStats[]> {
   const list = Array.from({ length: days }, (_, i) => kyivDay(new Date(now - i * 86400_000)))
   const hashes = await Promise.all(list.map((d) => r.hGetAll(KEY(d))))
   return list.map((d, i) => toDay(d, hashes[i] as Record<string, string>))
+}
+
+const round = (n: number, digits = 2) => Math.round(n * 10 ** digits) / 10 ** digits
+const ratio = (a: number, b: number, digits = 2) => (b > 0 ? round(a / b, digits) : null)
+
+/** Totals of a period and the figures worked out from them. */
+export function summarize(daily: DayStats[]) {
+  const sum = (f: (d: DayStats) => number) => round(daily.reduce((s, d) => s + f(d), 0))
+  const unpriced = daily.some((d) => d.costUsd === null)
+  const conversations = sum((d) => d.conversations)
+  const messages = sum((d) => d.messages)
+  const costUsd = unpriced ? null : round(daily.reduce((s, d) => s + (d.costUsd ?? 0), 0), 4)
+  const orders = sum((d) => d.orders)
+  const revenue = sum((d) => d.revenue)
+  const ordersAssisted = sum((d) => d.ordersAssisted)
+  const revenueAssisted = sum((d) => d.revenueAssisted)
+  return {
+    conversations,
+    messages,
+    messagesPerConversation: ratio(messages, conversations, 1),
+    productsShown: sum((d) => d.productsShown),
+    errors: sum((d) => d.errors),
+    refusals: sum((d) => d.refusals),
+    limited: sum((d) => d.limited),
+    costUsd,
+    costPerConversationUsd: costUsd === null ? null : ratio(costUsd, conversations, 4),
+    orders,
+    revenue,
+    ordersAssisted,
+    revenueAssisted,
+    revenueFromCards: sum((d) => d.revenueFromCards),
+    /** Share of the site's orders whose buyer wrote to the assistant. */
+    assistedShare: ratio(ordersAssisted, orders),
+    /** Assisted orders per conversation: a rough conversion rate of the chat. */
+    ordersPerConversation: ratio(ordersAssisted, conversations, 3),
+    averageOrderAssisted: ratio(revenueAssisted, ordersAssisted),
+    averageOrderOther: ratio(revenue - revenueAssisted, orders - ordersAssisted),
+  }
+}
+
+export type StatsSummary = ReturnType<typeof summarize>
+
+/** Checks the password of the statistics pages (ASSISTANT_STATS_KEY); false while it isn't set. */
+export function statsKeyValid(given: string | null | undefined): boolean {
+  const expected = process.env.ASSISTANT_STATS_KEY
+  if (!expected || !given) return false
+  const a = Buffer.from(given)
+  const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
 }

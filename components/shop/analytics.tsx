@@ -28,7 +28,11 @@ declare global {
   }
 }
 
-const enabled = () => typeof window !== "undefined" && HOSTS.includes(window.location.hostname)
+// Never on the owner's pages: their address carries the statistics password.
+const enabled = () =>
+  typeof window !== "undefined" &&
+  HOSTS.includes(window.location.hostname) &&
+  !window.location.pathname.startsWith("/admin")
 
 /**
  * Sets up both tags' command queues (the standard gtag and pixel snippets,
