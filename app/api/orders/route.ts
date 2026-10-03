@@ -1,8 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse, after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { readProducts, reserveStock } from "@/lib/catalog"
 import { type AssistantUse, createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { countStats } from "@/lib/assistant/stats"
+import { buyerContext, sendOrderPlaced } from "@/lib/meta-capi"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { SHOP_PHONE } from "@/lib/site"
@@ -141,6 +142,9 @@ export async function POST(req: NextRequest) {
         : undefined
     order.number = await createKeycrmOrder(order, id, utm, assistant)
     await r.set(ORDER_KEY(id), JSON.stringify(order), { EX: 86400 })
+    // Meta's AddPaymentInfo or Purchase from the server, once the buyer has their answer.
+    const ctx = buyerContext(req)
+    after(() => sendOrderPlaced(order, id, ctx))
 
     // Test orders don't reserve anything in KeyCRM, so they leave the site's stock alone too.
     if (!isTestOrderEnvironment()) {

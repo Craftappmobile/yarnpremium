@@ -15,6 +15,7 @@ import {
 } from "@/lib/assistant/session"
 import type { AssistantEvent } from "@/lib/assistant/events"
 import { countStats, usageCounters } from "@/lib/assistant/stats"
+import { buyerContext, sendContact } from "@/lib/meta-capi"
 import { TOOLS, runTool, toolStatus } from "@/lib/assistant/tools"
 
 // The shopping assistant: one buyer message in, the reply streamed back as
@@ -156,6 +157,8 @@ export async function POST(req: NextRequest) {
         // Counted once saved: a first message that failed is retried as a new conversation.
         if (isNew) tally({ conversations: 1 })
         send({ type: "done" })
+        // Meta's Contact for a new conversation, after the reply so it never holds it up.
+        if (isNew) await sendContact(id, buyerContext(req))
       } catch (e) {
         console.error("[assistant]", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e)
         tally({ errors: 1 })

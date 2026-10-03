@@ -23,3 +23,6 @@ export const SITE_URL = (
  * so it doesn't compete with the old site.
  */
 export const SITE_INDEXABLE = !/(\.vercel\.app|localhost)$/.test(new URL(SITE_URL).hostname)
+
+/** «KeyCRM+YanrnPremium» in Meta Business: the pixel (dataset) the shop's browser and server events go to. */
+export const META_PIXEL_ID = "1629906027721243"
