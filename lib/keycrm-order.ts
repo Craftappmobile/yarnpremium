@@ -51,12 +51,20 @@ function payments(order: Order) {
   ].filter((p) => p.amount > 0)
 }
 
+/** The buyer's use of the shopping assistant before this order. */
+export interface AssistantUse {
+  messages: number
+  /** Order lines that were added from the assistant's product cards. */
+  skus: string[]
+}
+
 /** The POST /order body. Exported for tests. */
 export function toKeycrmOrder(
   order: Order,
   siteOrderId: string,
   utm: Record<string, string> = {},
   deliveryServiceId?: number,
+  assistant?: AssistantUse,
 ) {
   const { customer: c, delivery: d } = order
   const fullName = `${c.lastName} ${c.firstName}`.trim()
@@ -73,6 +81,9 @@ export function toKeycrmOrder(
     `Оплата: ${PAYMENT_LABELS[order.payment.method]}` +
       (order.payment.onReceipt > 0 ? ` — зараз ${order.payment.now} ₴, при отриманні ${order.payment.onReceipt} ₴` : ""),
     `Номер на сайті: ${siteOrderId}`,
+    assistant &&
+      `Консультант (ШІ): ${assistant.messages} повід. до замовлення` +
+        (assistant.skus.length ? `; з його карток додано: ${assistant.skus.join(", ")}` : ""),
   ].filter(Boolean)
 
   return {
@@ -134,13 +145,18 @@ async function deliveryServiceId(method: Order["delivery"]["method"]): Promise<n
 }
 
 /** Creates the order in KeyCRM and returns its id. */
-export async function createKeycrmOrder(order: Order, siteOrderId: string, utm?: Record<string, string>): Promise<number> {
+export async function createKeycrmOrder(
+  order: Order,
+  siteOrderId: string,
+  utm?: Record<string, string>,
+  assistant?: AssistantUse,
+): Promise<number> {
   // Without the carrier the order still goes through; the manager sets it.
   const serviceId = await deliveryServiceId(order.delivery.method).catch((e) => {
     console.error("[orders] delivery services lookup failed:", (e as Error).message)
     return undefined
   })
-  const created = await keycrmSend<{ id: number }>("POST", "/order", toKeycrmOrder(order, siteOrderId, utm, serviceId))
+  const created = await keycrmSend<{ id: number }>("POST", "/order", toKeycrmOrder(order, siteOrderId, utm, serviceId, assistant))
   if (!created?.id) throw new Error("KeyCRM did not return an order id")
   return created.id
 }

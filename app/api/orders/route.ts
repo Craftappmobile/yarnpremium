@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { readProducts, reserveStock } from "@/lib/catalog"
-import { createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
+import { type AssistantUse, createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
+import { countStats } from "@/lib/assistant/stats"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { SHOP_PHONE } from "@/lib/site"
@@ -128,11 +129,30 @@ export async function POST(req: NextRequest) {
         .filter(([k]) => /^utm_(source|medium|campaign|term|content)$/.test(k))
         .map(([k, v]) => [k, text(v)]),
     )
-    order.number = await createKeycrmOrder(order, id, utm)
+    // Only lines of this order count as added from the assistant's cards.
+    const assistant: AssistantUse | undefined =
+      body.assistant && Number(body.assistant.messages) > 0
+        ? {
+            messages: Math.min(Math.floor(Number(body.assistant.messages)), 1000),
+            skus: orderItems
+              .map((i) => i.sku)
+              .filter((sku) => Array.isArray(body.assistant?.skus) && body.assistant.skus.includes(sku)),
+          }
+        : undefined
+    order.number = await createKeycrmOrder(order, id, utm, assistant)
     await r.set(ORDER_KEY(id), JSON.stringify(order), { EX: 86400 })
 
     // Test orders don't reserve anything in KeyCRM, so they leave the site's stock alone too.
     if (!isTestOrderEnvironment()) {
+      await countStats({
+        orders: 1,
+        revenue: order.total,
+        orders_assisted: assistant ? 1 : 0,
+        revenue_assisted: assistant ? order.total : 0,
+        revenue_from_cards: money(
+          orderItems.filter((i) => assistant?.skus.includes(i.sku)).reduce((sum, i) => sum + i.total, 0),
+        ),
+      })
       await reserveStock(orderItems).catch((e) => console.error("[orders] stock update failed:", e.message))
       revalidatePath("/")
       for (const i of orderItems) revalidatePath(`/product/${i.sku}`)

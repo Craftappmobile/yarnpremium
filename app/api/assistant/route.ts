@@ -14,6 +14,7 @@ import {
   saveConversation,
 } from "@/lib/assistant/session"
 import type { AssistantEvent } from "@/lib/assistant/events"
+import { countStats, usageCounters } from "@/lib/assistant/stats"
 import { TOOLS, runTool, toolStatus } from "@/lib/assistant/tools"
 
 // The shopping assistant: one buyer message in, the reply streamed back as
@@ -65,10 +66,14 @@ export async function POST(req: NextRequest) {
   if (!message || message.length > MESSAGE_MAX) return fail(`Повідомлення має бути до ${MESSAGE_MAX} символів.`, 400)
 
   const limited = await checkLimits(clientIp(req))
-  if (limited) return fail(limited, 429)
+  if (limited) {
+    await countStats({ limited: 1 })
+    return fail(limited, 429)
+  }
 
   let id: string = isConversationId(body.conversationId) ? body.conversationId : crypto.randomUUID()
   let conv = await loadConversation(id)
+  const isNew = !conv
   if (!conv) {
     // Unknown or expired: start afresh under a new id.
     id = crypto.randomUUID()
@@ -89,6 +94,11 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: AssistantEvent) => controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"))
+      // Usage and spend of this reply, recorded however it ends.
+      const stats: Record<string, number> = { messages: 1 }
+      const tally = (add: Record<string, number>) => {
+        for (const [k, n] of Object.entries(add)) stats[k] = (stats[k] ?? 0) + n
+      }
       send({ type: "conversation", id })
       try {
         for (let round = 0; ; round++) {
@@ -116,10 +126,12 @@ export async function POST(req: NextRequest) {
             }
           }
           const reply = await response.finalMessage()
+          tally(usageCounters(reply.model, reply.usage))
           // Kept whole (thinking blocks included): the history must only ever grow.
           messages.push({ role: "assistant", content: reply.content })
 
           if (reply.stop_reason === "refusal") {
+            tally({ refusals: 1 })
             send({ type: "text", text: "Вибачте, з цим я не допоможу. Запитайте, будь ласка, про пряжу чи замовлення." })
             break
           }
@@ -132,6 +144,7 @@ export async function POST(req: NextRequest) {
             calls.map(async (call): Promise<Anthropic.Beta.BetaToolResultBlockParam> => {
               const outcome = await runTool(call.name, call.input)
               if (outcome.event) send(outcome.event)
+              if (outcome.event?.type === "products") tally({ products_shown: outcome.event.items.length })
               return { type: "tool_result", tool_use_id: call.id, content: outcome.content, is_error: outcome.isError }
             }),
           )
@@ -140,13 +153,17 @@ export async function POST(req: NextRequest) {
         conv!.messages = messages
         conv!.turns++
         await saveConversation(id, conv!)
+        // Counted once saved: a first message that failed is retried as a new conversation.
+        if (isNew) tally({ conversations: 1 })
         send({ type: "done" })
       } catch (e) {
         console.error("[assistant]", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e)
+        tally({ errors: 1 })
         // The conversation isn't saved, so the buyer can simply ask again.
         send({ type: "error", message: "Не вдалося відповісти. Спробуйте ще раз або зателефонуйте нам." })
       } finally {
         await release().catch(() => {})
+        await countStats(stats)
         controller.close()
       }
     },

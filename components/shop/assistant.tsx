@@ -4,6 +4,7 @@ import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { MessageCircle } from "lucide-react"
+import { trackAssistant } from "./analytics"
 
 // Launcher of the shopping assistant, on every page but checkout. The chat
 // itself loads only when opened. Shown only while NEXT_PUBLIC_ASSISTANT_ENABLED
@@ -24,7 +25,10 @@ export function Assistant() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true)
+          trackAssistant("assistant_open")
+        }}
         aria-haspopup="dialog"
         className={`fixed right-4 z-30 inline-flex items-center gap-2 rounded-full bg-zinc-900 px-4 py-3 text-sm font-medium text-white shadow-lg transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300 ${
           lifted ? "bottom-24 md:bottom-5" : "bottom-5"
