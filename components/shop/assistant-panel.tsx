@@ -10,7 +10,7 @@ import { SHOP_PHONE, SHOP_PHONE_HREF } from "@/lib/site"
 import { readStorage, writeStorage } from "@/lib/storage"
 import { type Product, formatPrice, formatQuantity, lineTotal, quantityRules, stepQuantity } from "./data"
 import { useCart } from "./cart-context"
-import { trackAssistant } from "./analytics"
+import { trackAssistant, trackAssistantContact } from "./analytics"
 import { noteAssistantAdd, noteAssistantMessage } from "./assistant-attribution"
 import { ProductImage } from "./product-image"
 import { useReturnFocus } from "./use-return-focus"
@@ -122,7 +122,10 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
         for (const line of lines) {
           if (!line.trim()) continue
           const event = JSON.parse(line) as AssistantEvent
-          if (event.type === "conversation") setSaved((s) => ({ ...s, id: event.id }))
+          if (event.type === "conversation") {
+            if (event.id !== saved.id) trackAssistantContact(event.id)
+            setSaved((s) => ({ ...s, id: event.id }))
+          }
           else if (event.type === "status") setStatus(event.text)
           else if (event.type === "error") fail(event.message)
           else {

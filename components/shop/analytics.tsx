@@ -5,14 +5,13 @@ import { usePathname } from "next/navigation"
 import Script from "next/script"
 import { type CartItem, type Product, lineTotal } from "./data"
 import type { Order } from "@/lib/order"
+import { META_PIXEL_ID } from "@/lib/site"
 
 // Google Analytics 4 and the Meta Pixel. Both run only on the shop's own
 // domain: the *.vercel.app address (previews, tests) sends nothing, so test
 // orders never reach the reports or the ad optimisation.
 
 const GA_ID = "G-Y328SGZR2J"
-/** «KeyCRM+YanrnPremium» in Meta Business: the pixel the old site already feeds, so audiences carry over. */
-const META_PIXEL_ID = "1629906027721243"
 /** Hosts where analytics run; NEXT_PUBLIC_ANALYTICS_HOSTS (comma-separated) overrides, e.g. for a local check. */
 const HOSTS = (process.env.NEXT_PUBLIC_ANALYTICS_HOSTS || "yarnpremium.com.ua,www.yarnpremium.com.ua").split(",")
 const CURRENCY = "UAH"
@@ -110,7 +109,7 @@ function send(
   ga: string,
   meta: string,
   lines: Line[],
-  extra: { transactionId?: string; listName?: string; params?: Record<string, string> } = {},
+  extra: { transactionId?: string; listName?: string; params?: Record<string, string>; metaEventId?: string } = {},
 ) {
   if (!enabled()) return
   boot()
@@ -142,8 +141,8 @@ function send(
       contents: lines.map((l) => ({ id: l.sku, quantity: l.quantity, item_price: l.price })),
       num_items: lines.length,
     },
-    // Lets Meta merge this with the same event sent from KeyCRM's server, if it sends one.
-    extra.transactionId ? { eventID: `order-${extra.transactionId}` } : undefined,
+    // Lets Meta merge this with the same event sent from the shop's server (lib/meta-capi.ts).
+    extra.metaEventId ? { eventID: extra.metaEventId } : undefined,
   )
 }
 
@@ -166,11 +165,18 @@ export const trackAddToCart = (p: Product, quantity: number, listName?: string) 
 export const trackBeginCheckout = (cart: CartItem[]) =>
   send("begin_checkout", "InitiateCheckout", cart.map((i) => productLine(i, i.quantity)))
 
-/** `assisted`: the buyer wrote to the shopping assistant before ordering. */
-export const trackPurchase = (order: Order, fallbackId: string, assisted = false) =>
+/**
+ * A placed order. GA4 counts it as a purchase. Meta gets Purchase only when
+ * nothing is to be paid online; otherwise AddPaymentInfo, and the server sends
+ * Purchase once WayForPay confirms the payment, so ads learn from paid orders.
+ * `assisted`: the buyer wrote to the shopping assistant before ordering.
+ */
+export function trackPurchase(order: Order, fallbackId: string, assisted = false) {
+  const id = String(order.number ?? fallbackId)
+  const payLater = order.payment.now > 0
   send(
     "purchase",
-    "Purchase",
+    payLater ? "AddPaymentInfo" : "Purchase",
     order.items.map((i) => ({
       sku: i.sku,
       name: i.name,
@@ -178,8 +184,20 @@ export const trackPurchase = (order: Order, fallbackId: string, assisted = false
       quantity: i.quantity,
       total: i.total ?? i.price * i.quantity,
     })),
-    { transactionId: String(order.number ?? fallbackId), params: { assistant_used: assisted ? "yes" : "no" } },
+    {
+      transactionId: id,
+      metaEventId: `${payLater ? "pay" : "order"}-${id}`,
+      params: { assistant_used: assisted ? "yes" : "no" },
+    },
   )
+}
+
+/** First message of a conversation with the shopping assistant: Meta's Contact (the server sends it too). */
+export function trackAssistantContact(conversationId: string) {
+  if (!enabled()) return
+  boot()
+  window.fbq?.("track", "Contact", { content_name: "Консультант" }, { eventID: `chat-${conversationId}` })
+}
 
 /**
  * Use of the shopping assistant, to GA4 only: assistant_open, assistant_message,
