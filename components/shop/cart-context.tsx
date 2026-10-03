@@ -16,7 +16,8 @@ interface CartContextValue {
   total: number
   /** False until the saved cart has been restored from localStorage. */
   hydrated: boolean
-  addToCart: (product: Product, quantity?: number) => void
+  /** `listName` is reported to analytics as where the product was added from. */
+  addToCart: (product: Product, quantity?: number, listName?: string) => void
   removeFromCart: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => void
@@ -78,9 +79,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (hydrated) writeStorage(CART_KEY, cart)
   }, [cart, hydrated])
 
-  const addToCart = useCallback((product: Product, quantity = product.minQty) => {
+  const addToCart = useCallback((product: Product, quantity = product.minQty, listName?: string) => {
     if (product.stock <= 0) return
-    trackAddToCart(product, clampQuantity(product, quantity))
+    trackAddToCart(product, clampQuantity(product, quantity), listName)
     setCart((prev) => {
       const exists = prev.find((item) => item.id === product.id)
       if (exists) {

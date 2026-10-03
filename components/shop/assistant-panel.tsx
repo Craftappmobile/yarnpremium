@@ -10,6 +10,8 @@ import { SHOP_PHONE, SHOP_PHONE_HREF } from "@/lib/site"
 import { readStorage, writeStorage } from "@/lib/storage"
 import { type Product, formatPrice, formatQuantity, lineTotal, quantityRules, stepQuantity } from "./data"
 import { useCart } from "./cart-context"
+import { trackAssistant } from "./analytics"
+import { noteAssistantAdd, noteAssistantMessage } from "./assistant-attribution"
 import { ProductImage } from "./product-image"
 import { useReturnFocus } from "./use-return-focus"
 
@@ -18,6 +20,8 @@ import { useReturnFocus } from "./use-return-focus"
 
 const STORAGE_KEY = "sinserita:assistant:v1"
 const KEEP_MESSAGES = 40
+/** How additions from the chat's cards are labelled in analytics. */
+const LIST_NAME = "Консультант"
 
 type Part = { kind: "text"; text: string } | { kind: "products"; items: ProductsEvent["items"] }
 type ChatMessage = { role: "user"; text: string } | { role: "assistant"; parts: Part[]; failed?: boolean }
@@ -85,6 +89,7 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
     if (!message || busy) return
     setDraft("")
     setBusy(true)
+    trackAssistant("assistant_message", { message_number: noteAssistantMessage() })
     setStatus("Думаю…")
     setSaved((s) => ({
       ...s,
@@ -121,6 +126,7 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
           else if (event.type === "status") setStatus(event.text)
           else if (event.type === "error") fail(event.message)
           else {
+            if (event.type === "products") trackAssistant("assistant_products_shown", { count: event.items.length })
             if (event.type === "text" || event.type === "products") setStatus("")
             updateReply((m) => ({ parts: applyEvent(m.parts, event) }))
           }
@@ -259,7 +265,10 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
             {cart.length > 0 && (
               <Link
                 href="/checkout"
-                onClick={onClose}
+                onClick={() => {
+                  trackAssistant("assistant_checkout_click")
+                  onClose()
+                }}
                 className="mb-2 block text-center text-sm font-medium text-zinc-700 underline underline-offset-2 dark:text-zinc-300"
               >
                 Оформити замовлення ({cart.length} {cart.length === 1 ? "товар" : "товари"} у кошику)
@@ -367,7 +376,10 @@ function ProductCard({ product, suggested }: { product: Product; suggested: numb
             </div>
             <button
               type="button"
-              onClick={() => addToCart(product, quantity)}
+              onClick={() => {
+                addToCart(product, quantity, LIST_NAME)
+                noteAssistantAdd(product.sku)
+              }}
               className="inline-flex items-center gap-1 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
             >
               {inCart && <Check className="h-3.5 w-3.5" aria-hidden />}

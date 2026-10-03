@@ -102,7 +102,12 @@ interface Line {
   brand?: string
 }
 
-function send(ga: string, meta: string, lines: Line[], extra: { transactionId?: string } = {}) {
+function send(
+  ga: string,
+  meta: string,
+  lines: Line[],
+  extra: { transactionId?: string; listName?: string; params?: Record<string, string> } = {},
+) {
   if (!enabled()) return
   boot()
   const value = Math.round(lines.reduce((s, l) => s + l.total, 0) * 100) / 100
@@ -110,11 +115,14 @@ function send(ga: string, meta: string, lines: Line[], extra: { transactionId?: 
     currency: CURRENCY,
     value,
     ...(extra.transactionId ? { transaction_id: extra.transactionId } : {}),
+    ...(extra.listName ? { item_list_name: extra.listName } : {}),
+    ...extra.params,
     items: lines.map((l) => ({
       item_id: l.sku,
       item_name: l.name,
       item_brand: l.brand || undefined,
       item_category: l.category || undefined,
+      item_list_name: extra.listName,
       price: l.price,
       quantity: l.quantity,
     })),
@@ -147,13 +155,15 @@ const productLine = (p: Product | CartItem, quantity: number): Line => ({
 
 export const trackViewItem = (p: Product) => send("view_item", "ViewContent", [productLine(p, p.minQty)])
 
-export const trackAddToCart = (p: Product, quantity: number) =>
-  send("add_to_cart", "AddToCart", [productLine(p, quantity)])
+/** `listName` tells where the product was added from, e.g. «Консультант» for the assistant's cards. */
+export const trackAddToCart = (p: Product, quantity: number, listName?: string) =>
+  send("add_to_cart", "AddToCart", [productLine(p, quantity)], { listName })
 
 export const trackBeginCheckout = (cart: CartItem[]) =>
   send("begin_checkout", "InitiateCheckout", cart.map((i) => productLine(i, i.quantity)))
 
-export const trackPurchase = (order: Order, fallbackId: string) =>
+/** `assisted`: the buyer wrote to the shopping assistant before ordering. */
+export const trackPurchase = (order: Order, fallbackId: string, assisted = false) =>
   send(
     "purchase",
     "Purchase",
@@ -164,5 +174,15 @@ export const trackPurchase = (order: Order, fallbackId: string) =>
       quantity: i.quantity,
       total: i.total ?? i.price * i.quantity,
     })),
-    { transactionId: String(order.number ?? fallbackId) },
+    { transactionId: String(order.number ?? fallbackId), params: { assistant_used: assisted ? "yes" : "no" } },
   )
+
+/**
+ * Use of the shopping assistant, to GA4 only: assistant_open, assistant_message,
+ * assistant_products_shown, assistant_checkout_click.
+ */
+export function trackAssistant(event: string, params: Record<string, string | number> = {}) {
+  if (!enabled()) return
+  boot()
+  window.gtag?.("event", event, params)
+}

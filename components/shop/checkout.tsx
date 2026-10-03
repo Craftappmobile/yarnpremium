@@ -27,6 +27,7 @@ import { type LastOrder, loadLastOrder, saveLastOrder } from "./last-order"
 import { submitPaymentForm } from "./pay"
 import { trackBeginCheckout, trackPurchase } from "./analytics"
 import { readUtm } from "./utm-capture"
+import { clearAssistantAttribution, readAssistantAttribution } from "./assistant-attribution"
 
 export function Checkout() {
   const router = useRouter()
@@ -149,6 +150,7 @@ export function Checkout() {
     setSubmitError("")
     setStockChanges([])
 
+    const assistant = readAssistantAttribution()
     const request: OrderRequest = {
       id: orderId,
       customer,
@@ -157,6 +159,7 @@ export function Checkout() {
       payment: effectivePayment,
       notes: notes.trim(),
       utm: readUtm(),
+      assistant,
       website,
     }
     try {
@@ -171,7 +174,8 @@ export function Checkout() {
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.order) {
         saveLastOrder({ id: orderId, order: data.order as Order })
-        trackPurchase(data.order as Order, orderId)
+        trackPurchase(data.order as Order, orderId, Boolean(assistant))
+        clearAssistantAttribution()
         clearCart()
         // Online part: straight to WayForPay; it brings the buyer back to the confirmation page.
         if (data.payment) submitPaymentForm(data.payment)

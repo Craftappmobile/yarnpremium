@@ -97,6 +97,8 @@ export interface OrderRequest {
   notes: string
   /** utm_* parameters of the visit that brought the customer. */
   utm?: Record<string, string>
+  /** Present when the buyer wrote to the shopping assistant during the past week. */
+  assistant?: { messages: number; skus: string[] }
   /** Honeypot: hidden from people, filled in by bots. */
   website?: string
 }
