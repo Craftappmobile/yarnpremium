@@ -11,18 +11,20 @@ import { OldPrice } from "./promo-price"
 const SHOWN = 4
 
 /**
- * «Second colour −50%» in the cart. With one line it offers close shades that
+ * «Second colour» offer (SECOND_ITEM) in the cart. With one line it offers close shades that
  * would cost less than it, at their price as the second line; with two or
  * more it only says which line has the discount and why.
  */
 export function SecondItemOffer() {
-  const { cart } = useCart()
+  const { cart, priced } = useCart()
   if (cart.length === 0) return null
   if (cart.length > 1) {
+    // No line has it when the promotional prices are lower anyway.
+    if (!priced.some((line) => line.second)) return null
     return (
       <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-        {SECOND_ITEM.name}: знижку отримує друга за сумою позиція, від її звичайної ціни. Тому порядок, у якому ви
-        додаєте пряжу, не важливий.
+        {SECOND_ITEM.name}: знижку отримує друга за сумою позиція, від її звичайної ціни (якщо акційна ціна нижча,
+        лишається акційна). Тому порядок, у якому ви додаєте пряжу, не важливий.
       </p>
     )
   }

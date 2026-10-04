@@ -197,10 +197,11 @@ export function lineSavings(p: QuantityProduct & Pick<Product, "price" | "oldPri
 /**
  * Second-item offer: in a cart of two or more lines, the line that costs the
  * second most is sold at this share off its regular price (before any
- * promotion). The costliest line always stays at full price, so the cheaper
- * purchase gets the discount whichever order things were picked in.
+ * promotion), unless its promotional price is lower already. The costliest
+ * line always stays at its price, so the cheaper purchase gets the discount
+ * whichever order things were picked in.
  */
-export const SECOND_ITEM = { percent: 50, name: "Друга позиція −50%" }
+export const SECOND_ITEM = { percent: 10, name: "Друга позиція −10%" }
 
 type PricedProduct = QuantityProduct & Pick<Product, "price" | "oldPrice">
 
