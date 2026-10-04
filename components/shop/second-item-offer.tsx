@@ -23,8 +23,8 @@ export function SecondItemOffer() {
     if (!priced.some((line) => line.second)) return null
     return (
       <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-        {SECOND_ITEM.name}: знижку отримує друга за сумою позиція, від її звичайної ціни (якщо акційна ціна нижча,
-        лишається акційна). Тому порядок, у якому ви додаєте пряжу, не важливий.
+        {SECOND_ITEM.name}: знижку отримує друга за сумою позиція, і поверх акційної ціни теж. Тому порядок, у якому
+        ви додаєте пряжу, не важливий.
       </p>
     )
   }
@@ -68,7 +68,7 @@ function Suggestions({ first }: { first: CartItem }) {
         Другий колір — на {SECOND_ITEM.percent}% дешевше
       </h3>
       <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-        Знижка від звичайної ціни діє на другу, дешевшу позицію в кошику.
+        Знижка діє на другу, дешевшу позицію в кошику, і поверх акційної ціни теж.
       </p>
       <ul className="mt-3 space-y-2">
         {offers.map(({ p, quantity, line }) => (
