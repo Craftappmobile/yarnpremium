@@ -26,3 +26,11 @@ export const SITE_INDEXABLE = !/(\.vercel\.app|localhost)$/.test(new URL(SITE_UR
 
 /** «KeyCRM+YanrnPremium» in Meta Business: the pixel (dataset) the shop's browser and server events go to. */
 export const META_PIXEL_ID = "1629906027721243"
+
+/** Telegram channel with new colours. */
+export const TELEGRAM_URL = "https://t.me/yarnpremium"
+
+/** Instagram: tagging it shares a finished piece, a direct message reaches a manager. */
+export const INSTAGRAM_HANDLE = "yarnoncone_sincerelymerely"
+export const INSTAGRAM_URL = `https://instagram.com/${INSTAGRAM_HANDLE}`
+export const INSTAGRAM_DM_URL = `https://ig.me/m/${INSTAGRAM_HANDLE}`

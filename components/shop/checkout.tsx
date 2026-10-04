@@ -15,6 +15,7 @@ import {
   PAYMENT_LABELS,
   PICKUP_POINT,
   paymentMethodsFor,
+  normalizePhone,
   paymentSplit,
   validateOrderFields,
   type DeliveryMethod,
@@ -71,6 +72,32 @@ export function Checkout() {
     checkoutTracked.current = true
     trackBeginCheckout(cart)
   }, [hydrated, cart])
+
+  // Once a valid phone is in, the contact and cart are saved, so a checkout
+  // left unfinished can be followed up by a manager (lib/checkout-draft.ts).
+  const draftSent = useRef("")
+  useEffect(() => {
+    const normalized = normalizePhone(phone)
+    if (!hydrated || !normalized || cart.length === 0) return
+    const draft = JSON.stringify({
+      id: orderId,
+      phone: normalized,
+      name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+      email: email.trim(),
+      items: cart.map((i) => ({ sku: i.sku, quantity: i.quantity })),
+    })
+    if (draft === draftSent.current) return
+    const timer = setTimeout(() => {
+      draftSent.current = draft
+      fetch("/api/checkout-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: draft,
+        keepalive: true,
+      }).catch(() => {})
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [hydrated, phone, firstName, lastName, email, cart, orderId])
 
   const grandTotal = total
   const payments = paymentMethodsFor(delivery.method)
