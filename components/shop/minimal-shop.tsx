@@ -10,6 +10,7 @@ import { TopBar } from "./top-bar"
 import { FiltersSidebar, type Filters } from "./filters-sidebar"
 import { Footer } from "./footer"
 import { CartBar } from "./cart-bar"
+import { SubscribeCard } from "./subscribe-card"
 import { PromoCategoryHeader, PromoStrip, TrustStrip } from "./promo-blocks"
 import { type Product, type SortOption, promoDeadline, sortOptions, sortProducts } from "./data"
 import { announceOffer } from "./assistant"
@@ -318,7 +319,7 @@ export default function MinimalShop({
               </div>
             ) : sortedProducts.length > 0 ? (
               <>
-                <ProductGrid products={shownProducts} onProductSelect={setSelectedProduct} />
+                <ProductGrid products={shownProducts} onProductSelect={setSelectedProduct} insert={<SubscribeCard />} />
                 {remaining > 0 && (
                   <div className="mt-8 flex justify-center">
                     <button

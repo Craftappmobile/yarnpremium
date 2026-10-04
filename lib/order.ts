@@ -88,6 +88,8 @@ export interface Order {
     total?: number
     oldPrice?: number
     promo?: string
+    /** Photo for the confirmation page. */
+    image?: string
   }[]
   subtotal: number
   total: number

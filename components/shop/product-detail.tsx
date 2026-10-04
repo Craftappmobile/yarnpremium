@@ -26,6 +26,7 @@ import { ProductImage } from "./product-image"
 import { ProductMedia, useProductMedia } from "./product-media"
 import { OldPrice, PromoBadge } from "./promo-price"
 import { PromoStrip, TrustStrip } from "./promo-blocks"
+import { INSTAGRAM_DM_URL } from "@/lib/site"
 
 interface ProductDetailProps {
   product: Product
@@ -235,6 +236,21 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                 <Heart className={`w-4 h-4 ${wished ? "fill-rose-500 text-rose-500" : ""}`} />
                 {wished ? "У списку бажань" : "Додати до списку бажань"}
               </button>
+
+              {inStock && (
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                  Хочете відкласти цей конус?{" "}
+                  <a
+                    href={INSTAGRAM_DM_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-zinc-900 underline underline-offset-4 dark:text-zinc-50"
+                  >
+                    Напишіть нам в Instagram
+                  </a>{" "}
+                  — менеджер відкладе його для вас.
+                </p>
+              )}
 
               {sample?.kind === "video" && (
                 <div className="mt-5 flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">

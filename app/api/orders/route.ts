@@ -8,6 +8,7 @@ import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { SHOP_PHONE } from "@/lib/site"
 import { createPayment } from "@/lib/wayforpay"
+import { markOrdered } from "@/lib/checkout-draft"
 import { SECOND_ITEM, isValidQuantity, priceLines, tailGrams } from "@/components/shop/data"
 import {
   effectivePaymentMethod,
@@ -113,6 +114,7 @@ export async function POST(req: NextRequest) {
         unit: p.priceUnit,
         ...(tail > 0 ? { tail } : {}),
         total: line.total,
+        ...(p.image ? { image: p.image } : {}),
         ...(line.second
           ? { oldPrice: regular, promo: SECOND_ITEM.name }
           : p.promo && p.oldPrice
@@ -151,6 +153,8 @@ export async function POST(req: NextRequest) {
         : undefined
     order.number = await createKeycrmOrder(order, id, utm, assistant)
     await r.set(ORDER_KEY(id), JSON.stringify(order), { EX: 86400 })
+    // No «abandoned checkout» lead for a buyer who ordered.
+    await markOrdered(id, customer.phone).catch((e) => console.error("[orders] draft cleanup failed:", e.message))
     // Meta's AddPaymentInfo or Purchase from the server, once the buyer has their answer.
     const ctx = buyerContext(req)
     after(() => sendOrderPlaced(order, id, ctx))
