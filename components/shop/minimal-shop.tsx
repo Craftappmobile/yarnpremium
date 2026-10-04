@@ -11,6 +11,8 @@ import { FiltersSidebar, type Filters } from "./filters-sidebar"
 import { Footer } from "./footer"
 import { CartBar } from "./cart-bar"
 import { SubscribeCard } from "./subscribe-card"
+import { categoryPath, categoryTitle } from "@/lib/category-url"
+import { BRAND, HOME_TITLE } from "@/lib/site"
 import { CategoryHeader, PromoStrip, TrustStrip } from "./promo-blocks"
 import { type Product, type SortOption, promoDeadline, sortOptions, sortProducts } from "./data"
 import { announceOffer } from "./assistant"
@@ -66,10 +68,13 @@ function useFullCatalog(version: string): [Product[] | null, () => void] {
 export default function MinimalShop({
   initial,
   summary,
+  category: pageCategory,
   catalogVersion,
 }: {
   initial: PackedCatalog
   summary: CatalogSummary
+  /** On a category's page (/kategoriya/…): the category, open from the start. */
+  category?: string
   /** When the page was built: changes after every catalog sync, order and stock update. */
   catalogVersion: string
 }) {
@@ -98,7 +103,7 @@ export default function MinimalShop({
   const [filters, setFilters] = useState<Filters>({
     priceRange: priceBounds,
     lengthRange: lengthBounds,
-    categories: [],
+    categories: pageCategory ? [pageCategory] : [],
     colorFamilies: [],
     shade: null,
   })
@@ -128,20 +133,16 @@ export default function MinimalShop({
     setFilters((prev) => ({ ...prev, categories: [] }))
   }
 
-  // Other pages link here with ?q= (header search) or ?category= (breadcrumbs).
+  // Other pages link here with ?q= (header search). Old ?category= links are
+  // sent on to the category's page before they get here (middleware.ts).
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const q = params.get("q")?.trim()
-    const category = params.get("category")
-    if (q) setSearchQuery(q)
-    if (category && summary.categories.includes(category)) {
-      setFilters((prev) => ({ ...prev, categories: [category] }))
-    }
-    if (q || category) {
+    const q = new URLSearchParams(window.location.search).get("q")?.trim()
+    if (q) {
+      setSearchQuery(q)
       requestFull()
       window.history.replaceState(null, "", window.location.pathname)
     }
-  }, [summary, requestFull])
+  }, [requestFull])
 
   const showAllCategories = () => {
     setIsCategoriesOpen(true)
@@ -174,6 +175,13 @@ export default function MinimalShop({
   // One category picked (an ad's link opens it so): its promotion, if it has one.
   // The whole catalog, unfiltered: the biggest promotion, with a button to its category.
   const category = filters.categories.length === 1 ? filters.categories[0] : null
+  // The address follows: one category picked, its page; anything else, the catalog.
+  useEffect(() => {
+    const path = category ? categoryPath(category) : "/"
+    if (window.location.pathname === path) return
+    window.history.replaceState(null, "", path + window.location.search)
+    document.title = category ? `${categoryTitle(category)} — ${BRAND}` : HOME_TITLE
+  }, [category])
   const categoryPromo = category ? summary.promos?.find((s) => s.category === category) : undefined
   // Every category has a header; a promotion's one adds the discount.
   const group = categoryPromo ?? (category ? summary.groups?.find((s) => s.category === category) : undefined)
@@ -200,10 +208,13 @@ export default function MinimalShop({
       ? [...sorted.filter((p) => p.category === homePromo.category), ...sorted.filter((p) => p.category !== homePromo.category)]
       : sorted
   const shownProducts = sortedProducts.slice(0, visibleCount)
+  // A category's page comes with its first screen, as the home page does with the catalog's.
+  const onPageCategory =
+    !!pageCategory && category === pageCategory && activeFilterCount === 1 && query === "" && sort === "default"
   // Search, filters and sorting need the whole catalog: until it's here they wait.
-  const narrowed = query !== "" || activeFilterCount > 0 || sort !== "default"
+  const narrowed = (query !== "" || activeFilterCount > 0 || sort !== "default") && !onPageCategory
   const waiting = !complete && narrowed
-  const resultCount = complete ? sortedProducts.length : summary.total
+  const resultCount = complete ? sortedProducts.length : onPageCategory ? (group?.count ?? sortedProducts.length) : summary.total
   // More to show: counted over the whole catalog, also before it has loaded.
   const remaining = resultCount - shownProducts.length
   const showMore = () => {
@@ -237,7 +248,7 @@ export default function MinimalShop({
       {shownPromo && <PromoStrip promo={shownPromo.promo} category={shownPromo.category} />}
 
       <div className="mx-auto max-w-[1400px] px-4 pt-4 lg:pt-12 pb-16">
-        <h1 className="sr-only">SINCERITA — італійська пряжа преміум якості</h1>
+        <h1 className="sr-only">{pageCategory ? `${pageCategory} — пряжа ${BRAND}` : HOME_TITLE}</h1>
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
           {/* Desktop: filters in a sidebar. Phones get them in a panel, so products come first. */}
           <div id="filters-sidebar" className="hidden lg:block lg:w-64 shrink-0">

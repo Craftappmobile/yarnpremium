@@ -3,6 +3,7 @@ import { readCatalog } from "@/lib/catalog"
 import { getAllPosts } from "@/lib/blog"
 import { sitePages } from "@/components/shop/site-content"
 import { SITE_URL } from "@/lib/site"
+import { categoryPath } from "@/lib/category-url"
 
 // Rebuilt hourly; products come from the catalog snapshot.
 export const revalidate = 3600
@@ -12,6 +13,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const posts = getAllPosts().filter((post) => !post.draft)
   return [
     { url: `${SITE_URL}/`, changeFrequency: "hourly", priority: 1 },
+    ...[...new Set(products.map((p) => p.category).filter(Boolean))].map((category) => ({
+      url: `${SITE_URL}${categoryPath(category)}`,
+      changeFrequency: "daily" as const,
+      priority: 0.9,
+    })),
     ...products.map((p) => ({
       url: `${SITE_URL}/product/${encodeURIComponent(p.sku)}`,
       changeFrequency: "daily" as const,
