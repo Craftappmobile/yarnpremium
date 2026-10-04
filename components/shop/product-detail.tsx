@@ -15,11 +15,13 @@ import { ProductImage } from "./product-image"
 
 interface ProductDetailProps {
   product: Product
-  /** In-stock products from the same category, shown when this one is sold out. */
+  /** In-stock products of the nearest shades (lib/similar-products.ts), shown when this one is sold out. */
   similar?: Product[]
+  /** `similar` was picked by colour, not by category alone. */
+  similarByColor?: boolean
 }
 
-export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
+export function ProductDetail({ product, similar = [], similarByColor = false }: ProductDetailProps) {
   const inStock = product.stock > 0
   const images = product.images.length > 0 ? product.images : [product.image]
   const [imageIndex, setImageIndex] = useState(0)
@@ -208,7 +210,7 @@ export function ProductDetail({ product, similar = [] }: ProductDetailProps) {
           {!inStock && similar.length > 0 && (
             <section className="mt-12">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-balance text-zinc-700 dark:text-zinc-300">
-                Схожа пряжа в наявності
+                {similarByColor ? "Схожі відтінки в наявності" : "Схожа пряжа в наявності"}
               </h2>
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {similar.map((p) => (

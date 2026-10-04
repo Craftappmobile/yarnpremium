@@ -2,6 +2,7 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { readCatalog, readProducts } from "@/lib/catalog"
 import { SITE_URL } from "@/lib/site"
+import { similarProducts } from "@/lib/similar-products"
 import { fallbackSearch, matchOldProduct, rankOldProduct } from "@/lib/old-urls"
 import { formatPrice, type Product } from "@/components/shop/data"
 import { ProductDetail } from "@/components/shop/product-detail"
@@ -111,12 +112,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
   const product = await findProduct(sku)
   if (!product) return resolveOldAddress(sku)
 
-  const similar =
-    product.stock > 0
-      ? []
-      : (await readCatalog().catch(() => []))
-          .filter((p) => p.stock > 0 && p.category === product.category && p.sku !== product.sku)
-          .slice(0, 8)
+  const similar = product.stock > 0 ? null : similarProducts(product, await readCatalog().catch(() => []))
   return (
     <>
       <script
@@ -124,7 +120,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
         // "<" is escaped so product text can't close the script tag.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd(product)).replace(/</g, "\\u003c") }}
       />
-      <ProductDetail product={product} similar={similar} />
+      <ProductDetail product={product} similar={similar?.products} similarByColor={similar?.byColor} />
     </>
   )
 }

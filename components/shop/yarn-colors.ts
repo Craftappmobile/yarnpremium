@@ -97,11 +97,26 @@ export function oklchToHex({ l, c, h }: Oklch): string {
   )
 }
 
-export function hexToOklch(hex: string): Oklch | null {
+export function hexToOklab(hex: string): [number, number, number] | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex)
   if (!m) return null
   const n = parseInt(m[1], 16)
-  return oklabToOklch(rgbToOklab((n >> 16) & 255, (n >> 8) & 255, n & 255))
+  return rgbToOklab((n >> 16) & 255, (n >> 8) & 255, n & 255)
+}
+
+export function hexToOklch(hex: string): Oklch | null {
+  const lab = hexToOklab(hex)
+  return lab && oklabToOklch(lab)
+}
+
+/**
+ * How different two colours look: hue, lightness and saturation together
+ * (OKLab distance). About 0.02 is barely visible, 0.1 a clearly other shade.
+ */
+export function colorDistance(a: string, b: string): number | null {
+  const x = hexToOklab(a)
+  const y = hexToOklab(b)
+  return x && y ? Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) : null
 }
 
 /** Which of the colour groups a single colour belongs to. */
