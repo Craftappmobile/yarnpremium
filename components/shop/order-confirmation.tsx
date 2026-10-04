@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Camera, Check, CreditCard, Mail, MapPin, Package, Send, Truck, Wallet } from "lucide-react"
+import { Camera, Check, CreditCard, Mail, MapPin, Package, Truck, Wallet } from "lucide-react"
 import { formatPrice, formatQuantity } from "./data"
 import { type LastOrder, loadLastOrder, saveLastOrder } from "./last-order"
 import { payOrder } from "./pay"
 import { ProductImage } from "./product-image"
+import { TelegramButton } from "./telegram-button"
 import { PICKUP_POINT, describeDelivery } from "@/lib/order"
-import { INSTAGRAM_HANDLE, INSTAGRAM_URL, TELEGRAM_URL } from "@/lib/site"
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL } from "@/lib/site"
 
 /** What WayForPay reported when the buyer came back (?payment=ok|pending|fail), or nothing. */
 type Outcome = "ok" | "pending" | "fail" | null
@@ -156,28 +157,22 @@ export function OrderConfirmation() {
 
       {/* One offer, once nothing is left to pay. */}
       {!owes && (
-        <section className="mt-6 rounded-lg bg-zinc-900 p-5 text-white dark:bg-zinc-100 dark:text-zinc-900">
-          <p className="text-xs font-medium uppercase tracking-wider text-white/60 dark:text-zinc-500">Нові кольори</p>
+        // A light card, so the Telegram-blue button is the one colour in it.
+        <section className="mt-6 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Нові кольори</p>
           <p className="mt-2 text-xl font-semibold tracking-tight">Не пропустіть нові кольори — у Telegram</p>
-          <p className="mt-1.5 text-sm text-white/80 dark:text-zinc-600">
+          <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400">
             Кожен колір — одна партія, повторно не привозимо. Нові кольори показуємо в нашому каналі.
           </p>
           {channelOpened ? (
             <p role="status" className="mt-4 flex items-center gap-2 text-sm font-medium">
-              <Check className="h-4 w-4 shrink-0" aria-hidden />
+              <Check className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
               Канал відкрито в Telegram. Натисніть там «Підписатися».
             </p>
           ) : (
-            <a
-              href={TELEGRAM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setChannelOpened(true)}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-sm font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-white"
-            >
-              <Send className="h-4 w-4" aria-hidden />
+            <TelegramButton onClick={() => setChannelOpened(true)} className="mt-4 w-full py-3">
               Підписатися на канал
-            </a>
+            </TelegramButton>
           )}
         </section>
       )}
