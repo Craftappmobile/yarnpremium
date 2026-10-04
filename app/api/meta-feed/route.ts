@@ -28,6 +28,12 @@ const COLUMNS = [
 /** Yarn by weight is priced per gram; ads show the price of 100 g. */
 const WEIGHT_AD_GRAMS = 100
 
+/**
+ * Nothing sold by the piece costs this little: such a price is per gram with
+ * the wrong unit in KeyCRM, and an ad would show it as the price of a skein.
+ */
+const MIN_PIECE_PRICE = 10
+
 const byWeight = (p: Product) => p.priceUnit === "г"
 
 function csvField(value: string): string {
@@ -63,7 +69,9 @@ export async function GET() {
     return NextResponse.json({ error: "Catalog is not synced yet" }, { status: 503 })
   }
   // Meta rejects products without a photo or price.
-  const rows = catalog.filter((p) => p.sku && p.image && p.price > 0).map(feedRow)
+  const rows = catalog
+    .filter((p) => p.sku && p.image && p.price > 0 && (byWeight(p) || p.price >= MIN_PIECE_PRICE))
+    .map(feedRow)
   const csv = [COLUMNS.join(","), ...rows.map((r) => COLUMNS.map((c) => csvField(r[c])).join(","))].join("\n")
   return new NextResponse(`${csv}\n`, {
     headers: {
