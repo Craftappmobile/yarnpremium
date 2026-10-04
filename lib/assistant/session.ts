@@ -6,7 +6,7 @@
 // thinking blocks require.
 //
 // Redis keys:
-//   assistant:conv:<id>          JSON  { messages, turns, cartKey }  (expires a day after the last message)
+//   assistant:conv:<id>          JSON  { messages, turns, cartKey, productKey }  (expires a day after the last message)
 //   assistant:lock:<id>          lock  held while a reply is generated
 //   assistant:ip:<ip>:<hour>     count user messages from one address in an hour
 //   assistant:day:<YYYY-MM-DD>   count user messages on the whole site in a day
@@ -29,6 +29,8 @@ export interface Conversation {
   turns: number
   /** The cart last described to the model, so it is mentioned again only when it changes. */
   cartKey: string
+  /** The product page the buyer last wrote from, mentioned again only when they move to another. */
+  productKey?: string
 }
 
 const convKey = (id: string) => `assistant:conv:${id}`

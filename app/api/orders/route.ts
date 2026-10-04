@@ -156,6 +156,11 @@ export async function POST(req: NextRequest) {
         revenue_from_cards: money(
           orderItems.filter((i) => assistant?.skus.includes(i.sku)).reduce((sum, i) => sum + i.total, 0),
         ),
+        // Buyers who opened a product page with a video this week, and who watched one to the end.
+        orders_video_page: body.video?.page ? 1 : 0,
+        orders_video_review_completed: body.video?.reviewCompleted ? 1 : 0,
+        orders_video_sample_completed: body.video?.sampleCompleted ? 1 : 0,
+        revenue_video_sample_completed: body.video?.sampleCompleted ? order.total : 0,
       })
       await reserveStock(orderItems).catch((e) => console.error("[orders] stock update failed:", e.message))
       revalidatePath("/")

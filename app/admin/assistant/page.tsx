@@ -2,7 +2,15 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { redisConfigured } from "@/lib/redis"
-import { type DayStats, type StatsSummary, readStats, statsKeyValid, summarize } from "@/lib/assistant/stats"
+import {
+  type DayStats,
+  type StatsSummary,
+  type VideoSummary,
+  readStats,
+  statsKeyValid,
+  summarize,
+  summarizeVideo,
+} from "@/lib/assistant/stats"
 import { formatPrice } from "@/components/shop/data"
 import { BarChart } from "@/components/admin/bar-chart"
 
@@ -57,6 +65,56 @@ function Verdict({ s, days }: { s: StatsSummary; days: number }) {
       })(),
   ].filter(Boolean)
   return <p>{sentences.join(" ")}</p>
+}
+
+/** Orders per 100 visitors, with one decimal: these rates are a few percent. */
+const rate = (n: number | null) => (n === null ? "—" : `${(n * 100).toLocaleString("uk-UA", { maximumFractionDigits: 1 })}%`)
+
+function VideoSection({ v, days }: { v: VideoSummary; days: number }) {
+  const share = (part: number, whole: number) => (whole > 0 ? percent(part / whole) : "—")
+  let verdict: string
+  if (v.pages === 0) {
+    verdict = `За ${days} ${plural(days, "день", "дні", "днів")} ніхто ще не відкривав товар із відео. Цифри зʼявляться, щойно на картках будуть відео з Google Drive.`
+  } else if (v.sampleCompleted < 30 || v.ordersPage < 10) {
+    verdict = `Сторінки з відео відкрили ${v.pages} разів, зразок до кінця додивились ${v.sampleCompleted}. Для висновку замало: зачекайте, доки буде хоча б 30 переглядів зразка до кінця і 10 замовлень.`
+  } else if (v.conversionSample !== null && v.conversionNoSample !== null && v.conversionNoSample > 0) {
+    const times = v.conversionSample / v.conversionNoSample
+    verdict =
+      times >= 1.2
+        ? `Ті, хто додивився зразок, купують у ${times.toLocaleString("uk-UA", { maximumFractionDigits: 1 })} раза частіше за решту. Відео варто знімати й для інших товарів.`
+        : times <= 0.8
+          ? "Ті, хто додивився зразок, купують не частіше за решту. Відео поки не видно в продажах."
+          : "Ті, хто додивився зразок, купують приблизно так само часто, як решта."
+  } else {
+    verdict = "Замовлень після відео поки немає."
+  }
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Відео на картках товарів</h2>
+      <p className="rounded-2xl border border-zinc-200 bg-white p-5 text-base leading-relaxed text-zinc-800">{verdict}</p>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Tile label="Відкрили товар із відео" value={String(v.pages)} note={`замовлень після цього: ${v.ordersPage}`} />
+        <Tile
+          label="Огляд до кінця"
+          value={String(v.reviewCompleted)}
+          note={`${share(v.reviewCompleted, v.reviewStarted)} з тих, хто почав (${v.reviewStarted})`}
+        />
+        <Tile
+          label="Зразок до кінця"
+          value={String(v.sampleCompleted)}
+          note={`${share(v.sampleCompleted, v.sampleStarted)} з тих, хто почав (${v.sampleStarted})`}
+        />
+        <Tile label="Виторг після зразка" value={uah(v.revenueSampleCompleted)} note={`замовлень: ${v.ordersSampleCompleted}`} />
+        <Tile label="Купують, хто додивився зразок" value={rate(v.conversionSample)} note={`решта: ${rate(v.conversionNoSample)}`} />
+        <Tile label="Купують, хто додивився огляд" value={rate(v.conversionReview)} note={`решта: ${rate(v.conversionNoReview)}`} />
+      </div>
+      <p className="text-sm text-zinc-500">
+        «Купують» — замовлень на 100 відвідувачів. Відвідувача рахуємо раз на день, замовлення — протягом тижня після
+        перегляду, тож це оцінка. Як і з чатом, той, хто додивився до кінця, і так більше зацікавлений — різниця
+        показує, чи варто знімати відео, але не доводить, що продало саме воно.
+      </p>
+    </section>
+  )
 }
 
 function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -125,6 +183,7 @@ export default async function AssistantStatsPage({
   const days = PERIODS.includes(Number(params.days)) ? Number(params.days) : 30
   const daily = await readStats(days)
   const s = summarize(daily)
+  const video = summarizeVideo(daily)
   const chronological = [...daily].reverse()
 
   return (
@@ -200,6 +259,8 @@ export default async function AssistantStatsPage({
       </section>
 
       <DayTable daily={daily} />
+
+      <VideoSection v={video} days={days} />
 
       <section className="space-y-2 rounded-2xl bg-zinc-100 p-5 text-sm leading-relaxed text-zinc-600">
         <p className="font-medium text-zinc-800">Як читати ці цифри</p>

@@ -36,6 +36,20 @@ const SUGGESTIONS = [
   "Що замінить пряжу з мого опису?",
 ]
 
+/** The product page the chat was opened from. */
+export interface AssistantProduct {
+  sku: string
+  name: string
+}
+
+/** Ready questions about the product the chat was opened from. */
+const PRODUCT_SUGGESTIONS = [
+  "Скільки треба на светр 48 розміру?",
+  "Скільки треба на кардиган оверсайз?",
+  "Скільки треба на шапку і шарф?",
+  "У скільки ниток вʼязати і якими спицями?",
+]
+
 function readSaved(): Saved {
   const s = readStorage(STORAGE_KEY) as Saved | null
   return s && Array.isArray(s.messages) ? { id: typeof s.id === "string" ? s.id : null, messages: s.messages } : { id: null, messages: [] }
@@ -59,9 +73,11 @@ function applyEvent(parts: Part[], event: AssistantEvent): Part[] {
   }
 }
 
-export function AssistantPanel({ onClose }: { onClose: () => void }) {
+export function AssistantPanel({ onClose, product = null }: { onClose: () => void; product?: AssistantProduct | null }) {
   const { cart } = useCart()
   const [saved, setSaved] = useState<Saved>(readSaved)
+  // Opened from a product page: its questions stay offered until the buyer writes.
+  const [productChips, setProductChips] = useState(Boolean(product))
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState("")
@@ -88,6 +104,7 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
     const message = text.trim()
     if (!message || busy) return
     setDraft("")
+    setProductChips(false)
     setBusy(true)
     trackAssistant("assistant_message", { message_number: noteAssistantMessage() })
     setStatus("Думаю…")
@@ -103,6 +120,7 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({
           conversationId: saved.id,
           message,
+          product: product?.sku,
           cart: cart.map((i) => ({ sku: i.sku, quantity: i.quantity })),
         }),
       })
@@ -199,7 +217,7 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4" aria-live="polite">
-            {saved.messages.length === 0 && (
+            {saved.messages.length === 0 && !product && (
               <div className="space-y-3">
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
                   Вітаю! Допоможу підібрати пряжу, порахую, скільки її потрібно на ваш виріб, і підкажу щодо доставки та
@@ -262,6 +280,26 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
               ),
             )}
             {status && <p className="animate-pulse text-sm text-zinc-500 dark:text-zinc-400">{status}</p>}
+            {product && productChips && (
+              <div className="space-y-3">
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                  Порахую, скільки <span className="font-medium text-zinc-900 dark:text-zinc-50">{product.name}</span>{" "}
+                  потрібно на ваш виріб. Оберіть питання або напишіть своє: що вʼяжете, розмір, у скільки ниток.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {PRODUCT_SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => send(s)}
+                      className="rounded-full border border-zinc-300 px-3 py-1.5 text-left text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-zinc-200 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800">

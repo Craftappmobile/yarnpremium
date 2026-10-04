@@ -164,12 +164,27 @@ function withUrls(v: StoredVideo | undefined): ProductVideo | undefined {
   }
 }
 
-/** The product's videos, or null when it has none. */
-export async function readProductVideos(sku: string): Promise<ProductVideos | null> {
-  if (!redisConfigured() || !apiKey()) return null
-  const raw = await (await redis()).hGet(KEY_VIDEOS, sku)
+function toVideos(raw: string | null | undefined): ProductVideos | null {
   if (!raw) return null
   const stored = JSON.parse(raw) as StoredVideos
   const videos = { review: withUrls(stored.review), sample: withUrls(stored.sample) }
   return videos.review || videos.sample ? videos : null
+}
+
+/** The product's videos, or null when it has none. */
+export async function readProductVideos(sku: string): Promise<ProductVideos | null> {
+  if (!redisConfigured() || !apiKey()) return null
+  return toVideos(await (await redis()).hGet(KEY_VIDEOS, sku))
+}
+
+/** Videos of every product that has any, by SKU (for the Meta catalog feed). */
+export async function readAllProductVideos(): Promise<Map<string, ProductVideos>> {
+  if (!redisConfigured() || !apiKey()) return new Map()
+  const all = await (await redis()).hGetAll(KEY_VIDEOS)
+  return new Map(
+    Object.entries(all).flatMap(([sku, raw]) => {
+      const videos = toVideos(raw)
+      return videos ? [[sku, videos] as const] : []
+    }),
+  )
 }

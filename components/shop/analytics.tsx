@@ -226,6 +226,25 @@ export function trackAssistantContact(conversationId: string) {
 }
 
 /**
+ * A product video started or watched to the end: GA4's video_start /
+ * video_complete. Meta gets VideoComplete, so an audience of people who
+ * watched the yarn or its sample to the end can be built for ads.
+ */
+export function trackVideo(step: "start" | "complete", role: "review" | "sample", sku: string) {
+  if (!enabled()) return
+  boot()
+  window.gtag?.("event", `video_${step}`, {
+    video_title: role === "review" ? "Відеоогляд" : "Зразок",
+    video_provider: "google_drive",
+    video_type: role,
+    item_id: sku,
+  })
+  if (step === "complete") {
+    window.fbq?.("trackCustom", "VideoComplete", { content_ids: [sku], content_type: "product", video_type: role })
+  }
+}
+
+/**
  * Use of the shopping assistant, to GA4 only: assistant_open, assistant_message,
  * assistant_products_shown, assistant_checkout_click.
  */

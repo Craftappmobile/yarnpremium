@@ -1,10 +1,20 @@
 "use client"
 
 import { Minus, Plus } from "lucide-react"
-import { type Product, TAIL_DISCOUNT, formatQuantity, quantityRules, stepQuantity, tailGrams } from "./data"
+import {
+  type Product,
+  TAIL_DISCOUNT,
+  formatPriceShort,
+  formatQuantity,
+  lineTotal,
+  quantityRules,
+  stepQuantity,
+  tailGrams,
+} from "./data"
 
 interface QuantityPickerProps {
-  product: Pick<Product, "stock" | "minQty" | "step" | "priceUnit">
+  /** With `price`, yarn by weight shows what the whole spool costs. */
+  product: Pick<Product, "stock" | "minQty" | "step" | "priceUnit"> & { price?: number }
   quantity: number
   onChange: (quantity: number) => void
 }
@@ -51,7 +61,9 @@ export function QuantityPicker({ product, quantity, onChange }: QuantityPickerPr
           disabled={quantity === max}
           className="flex-1 py-2.5 px-4 text-sm font-medium rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-60 transition-colors"
         >
-          Взяти все ({formatQuantity(max, product.priceUnit)})
+          {product.priceUnit === "г" && product.price
+            ? `Уся бобіна · ${formatPriceShort(lineTotal({ ...product, price: product.price }, max))}`
+            : `Взяти все (${formatQuantity(max, product.priceUnit)})`}
         </button>
       </div>
       {tail > 0 && (

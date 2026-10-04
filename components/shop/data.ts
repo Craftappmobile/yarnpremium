@@ -30,6 +30,12 @@ export interface Product {
   brand: string
   /** Yarn model, e.g. "Patagonia" (KeyCRM custom field «Артикул»). */
   article: string
+  /**
+   * Yarn and sample details from KeyCRM custom fields named in lib/catalog.ts
+   * (SPEC_FIELDS: склад, складання, спиці, щільність, візерунок), in that order.
+   * Product page only: the listing doesn't carry them.
+   */
+  specs?: { name: string; value: string }[]
   /** Smallest quantity that can be bought and the +/− step, in `priceUnit`. */
   minQty: number
   step: number
@@ -42,6 +48,11 @@ export interface CartItem extends Product {
 /** Formats a price in UAH with Ukrainian comma decimals, e.g. 2.08 -> "2,08 ₴". */
 export function formatPrice(value: number): string {
   return `${value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\u00a0₴`
+}
+
+/** Like formatPrice, without kopecks when there are none: "405 ₴", "4,05 ₴". */
+export function formatPriceShort(value: number): string {
+  return formatPrice(value).replace(/,00(?=\u00a0₴)/, "")
 }
 
 export type SortOption = "default" | "price-asc" | "price-desc" | "length-asc" | "length-desc" | "name-asc"

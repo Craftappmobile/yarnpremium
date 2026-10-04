@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { Play, Volume2, VolumeX } from "lucide-react"
 import type { ProductVideo, ProductVideos } from "@/lib/product-videos"
 import { ProductImage } from "./product-image"
+import { trackVideo } from "./analytics"
+import { recordVideoStep } from "./video-attribution"
 
 type VideoKey = "review" | "sample"
 
@@ -45,14 +47,23 @@ export function useProductMedia(images: string[], videos: ProductVideos | null) 
 
 export type ProductMediaState = ReturnType<typeof useProductMedia>
 
-export function ProductMedia({ name, media }: { name: string; media: ProductMediaState }) {
+export function ProductMedia({ name, sku, media }: { name: string; sku: string; media: ProductMediaState }) {
   const { slides, active, show, times } = media
   const videoRef = useRef<HTMLVideoElement>(null)
+  /** Videos already reported as started on this page view. */
+  const started = useRef(new Set<VideoKey>())
   const [muted, setMuted] = useState(true)
   const [paused, setPaused] = useState(true)
   const [progress, setProgress] = useState({ current: 0, duration: 0 })
   const videoSlides = slides.filter((s) => s.kind === "video")
   const activeVideo = active.kind === "video" ? active.video : null
+  const hasVideo = videoSlides.length > 0
+
+  // Everyone who sees a product video page: the base the watchers are compared with.
+  useEffect(() => {
+    if (hasVideo) recordVideoStep("page")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sku])
 
   // `muted` set as a property: React doesn't set it on server-rendered HTML, and
   // phones only start a video by themselves while it's muted. Runs before play() below.
@@ -115,13 +126,23 @@ export function ProductMedia({ name, media }: { name: string; media: ProductMedi
               preload="metadata"
               aria-label={`${BADGE[active.key]}: ${name}`}
               className="h-full w-full bg-zinc-900 object-cover"
-              onPlay={() => setPaused(false)}
+              onPlay={() => {
+                setPaused(false)
+                if (started.current.has(active.key)) return
+                started.current.add(active.key)
+                recordVideoStep(`start_${active.key}`)
+                trackVideo("start", active.key, sku)
+              }}
               onPause={() => setPaused(true)}
               onTimeUpdate={(e) => {
                 const el = e.currentTarget
                 setProgress({ current: el.currentTime, duration: el.duration || active.video.durationMs / 1000 })
               }}
-              onEnded={next}
+              onEnded={() => {
+                recordVideoStep(`complete_${active.key}`)
+                trackVideo("complete", active.key, sku)
+                next()
+              }}
               onError={() => media.markBroken(active.key)}
             />
 

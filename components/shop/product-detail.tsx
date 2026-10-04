@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
-import { ArrowLeft, Check, X, Heart, Play, ShoppingBag } from "lucide-react"
+import { ArrowLeft, Check, X, Heart, MessageCircle, Play, ShoppingBag } from "lucide-react"
 import type { ProductVideos } from "@/lib/product-videos"
-import { type Product, clampQuantity, formatPrice, formatQuantity, lineTotal } from "./data"
+import { type Product, clampQuantity, formatPrice, formatPriceShort, formatQuantity, lineTotal } from "./data"
+import { ASSISTANT_ENABLED, openAssistant } from "./assistant"
 import { QuantityPicker } from "./quantity-picker"
 import { trackViewItem } from "./analytics"
 import { useCart } from "./cart-context"
@@ -25,8 +26,17 @@ interface ProductDetailProps {
   similarByColor?: boolean
 }
 
+/** Yarn by weight is priced per gram; the card shows the price of 100 g, which people compare. */
+const PRICE_GRAMS = 100
+/** KeyCRM fields about the yarn itself; the rest of `specs` describe the shop's knitted sample. */
+const YARN_SPECS = ["Склад"]
+
 export function ProductDetail({ product, videos = null, similar = [], similarByColor = false }: ProductDetailProps) {
   const inStock = product.stock > 0
+  const byWeight = product.priceUnit === "г"
+  const yarnSpecs = (product.specs ?? []).filter((s) => YARN_SPECS.includes(s.name))
+  const sampleSpecs = (product.specs ?? []).filter((s) => !YARN_SPECS.includes(s.name))
+  const askAssistant = () => openAssistant({ sku: product.sku, name: product.name })
   const images = product.images.length > 0 ? product.images : [product.image]
   const media = useProductMedia(images, videos)
   const sample = media.slides.find((s) => s.key === "sample" && s.kind === "video")
@@ -94,26 +104,46 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
 
           <div className="mt-4 md:mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             <div ref={mediaRef} className="scroll-mt-20">
-              <ProductMedia name={product.name} media={media} />
+              <ProductMedia name={product.name} sku={product.sku} media={media} />
             </div>
 
             <div className="flex flex-col">
+              {(product.brand || byWeight) && (
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  {[product.brand, byWeight && "Стокова партія"].filter(Boolean).join(" · ")}
+                </p>
+              )}
               <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50 text-balance">
                 {product.name}
               </h1>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                {[product.sku, product.length > 0 && `${product.length} м${byWeight ? ` / ${PRICE_GRAMS} г` : ""}`]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
 
-              <div className="mt-3 flex items-baseline gap-1">
+              <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
-                  {formatPrice(product.price)}
+                  {byWeight ? formatPriceShort(product.price * PRICE_GRAMS) : formatPrice(product.price)}
                 </span>
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">/ {product.priceUnit}</span>
+                <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                  / {byWeight ? `${PRICE_GRAMS} г` : product.priceUnit}
+                </span>
+                {byWeight && (
+                  <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {formatPriceShort(product.price)} за 1 г
+                  </span>
+                )}
               </div>
 
               <div className="mt-3">
                 {inStock ? (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-500">
-                    <Check className="w-4 h-4" />
-                    {formatQuantity(product.stock, product.priceUnit)} в наявності
+                  <span className="inline-flex items-start gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-500">
+                    <Check className="mt-0.5 w-4 h-4 shrink-0" />
+                    <span>
+                      {formatQuantity(product.stock, product.priceUnit)} в наявності
+                      {byWeight && <span className="font-normal">. Партія не повторюється</span>}
+                    </span>
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-rose-600 dark:text-rose-500">
@@ -126,6 +156,16 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               {inStock && (
                 <div className="mt-5 space-y-3">
                   <QuantityPicker product={product} quantity={quantity} onChange={setQuantity} />
+                  {byWeight && ASSISTANT_ENABLED && (
+                    <button
+                      type="button"
+                      onClick={askAssistant}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900 dark:text-zinc-300 dark:decoration-zinc-600 dark:hover:text-zinc-50"
+                    >
+                      <MessageCircle className="h-4 w-4" aria-hidden />
+                      Скільки мені треба? Порахує консультант
+                    </button>
+                  )}
 
                   <button
                     ref={buyRef}
@@ -139,6 +179,17 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                 </div>
               )}
 
+              {!inStock && ASSISTANT_ENABLED && (
+                <button
+                  type="button"
+                  onClick={askAssistant}
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-300 py-3 text-sm font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  <MessageCircle className="h-4 w-4" aria-hidden />
+                  Підібрати схожу пряжу з консультантом
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => toggleWishlist(product)}
@@ -149,12 +200,22 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               </button>
 
               {sample?.kind === "video" && (
-                <div className="mt-5 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="mt-5 flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Зразок із відео</p>
                     <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
                       {sample.video.caption || "Як ця пряжа виглядає у в'язанні"}
                     </p>
+                    {sampleSpecs.length > 0 && (
+                      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
+                        {sampleSpecs.map((s) => (
+                          <div key={s.name} className="contents">
+                            <dt className="text-zinc-500 dark:text-zinc-400">{s.name}</dt>
+                            <dd className="text-zinc-900 dark:text-zinc-100">{s.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -195,9 +256,20 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                 {product.length > 0 && (
                   <p className="text-zinc-700 dark:text-zinc-300">
                     <span className="text-zinc-500 dark:text-zinc-500">Метраж:</span> {product.length} м
+                    {byWeight && ` / ${PRICE_GRAMS} г`}
                   </p>
                 )}
+                {/* Sample details go to the sample video's card when there is one. */}
+                {[...yarnSpecs, ...(sample ? [] : sampleSpecs)].map((s) => (
+                  <p key={s.name} className="text-zinc-700 dark:text-zinc-300">
+                    <span className="text-zinc-500 dark:text-zinc-500">
+                      {YARN_SPECS.includes(s.name) ? s.name : `${s.name} (зразок)`}:
+                    </span>{" "}
+                    {s.value}
+                  </p>
+                ))}
               </div>
+
             </div>
           </div>
           {!inStock && similar.length > 0 && (
@@ -240,17 +312,27 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-base font-bold tabular-nums leading-tight">
-                  {formatPrice(lineTotal(product, quantity))}
+                  {formatPriceShort(lineTotal(product, quantity))}
                 </p>
                 <p className="text-xs text-zinc-500 tabular-nums">{formatQuantity(quantity, product.priceUnit)}</p>
               </div>
+              {ASSISTANT_ENABLED && (
+                <button
+                  type="button"
+                  onClick={askAssistant}
+                  aria-label="Запитати консультанта"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-300 text-zinc-900 dark:border-zinc-700 dark:text-zinc-50"
+                >
+                  <MessageCircle className="h-5 w-5" aria-hidden />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={addAndOpenCart}
                 className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-zinc-900 px-5 py-3 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
               >
                 <ShoppingBag className="w-4 h-4" aria-hidden />
-                Додати в кошик
+                В кошик
               </button>
             </div>
           </div>

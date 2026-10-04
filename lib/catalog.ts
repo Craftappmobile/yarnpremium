@@ -46,6 +46,12 @@ const GRAM_MIN = 100
 const CASHMERE_GRAM_MIN = 50
 const GRAM_STEP = 50
 const DESCRIPTION_MAX = 1000
+/**
+ * KeyCRM custom fields shown on the product page, when filled in. Only these:
+ * other fields may be internal. The first is about the yarn, the rest describe
+ * the knitted sample (the sample video's card shows them).
+ */
+export const SPEC_FIELDS = ["Склад", "Складання", "Спиці", "Щільність", "Візерунок"]
 
 /** Cashmere is sold from 50 g: its category says so, or for sale items its name starts with it. */
 function isCashmere(name: string, category: string): boolean {
@@ -95,6 +101,11 @@ function toProduct(offer: any, product: any, fields: Record<string, string>, cat
     length: Number.parseInt(fields["Метраж"] ?? "", 10) || 0,
     brand: fields["Виробник"] ?? "",
     article: fields["Артикул"] ?? "",
+    specs: SPEC_FIELDS.flatMap((field) => {
+      // Matched whatever the case, so «щільність» in KeyCRM counts too.
+      const value = Object.entries(fields).find(([k]) => k.trim().toLowerCase() === field.toLowerCase())?.[1]
+      return value ? [{ name: field, value: value.slice(0, 200) }] : []
+    }),
     ...quantityLimits(name, category, unit),
   }
 }
