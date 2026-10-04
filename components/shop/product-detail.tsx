@@ -84,9 +84,16 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.sku])
 
+  // «Додано ✓» on the buttons for a moment: the cart opens too, but the button itself answers the tap.
+  const [added, setAdded] = useState(false)
+  const addedTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(addedTimer.current), [])
   const addAndOpenCart = () => {
     addToCart(product, quantity)
     setIsCartOpen(true)
+    setAdded(true)
+    clearTimeout(addedTimer.current)
+    addedTimer.current = setTimeout(() => setAdded(false), 2500)
   }
 
   return (
@@ -211,8 +218,8 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                     onClick={addAndOpenCart}
                     className="w-full inline-flex items-center justify-center gap-2 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
                   >
-                    <ShoppingBag className="w-4 h-4" />
-                    Додати в кошик
+                    {added ? <Check className="w-4 h-4" aria-hidden /> : <ShoppingBag className="w-4 h-4" aria-hidden />}
+                    <span aria-live="polite">{added ? "Додано" : "Додати в кошик"}</span>
                   </button>
                 </div>
               )}
@@ -395,8 +402,8 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                 onClick={addAndOpenCart}
                 className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-zinc-900 px-5 py-3 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
               >
-                <ShoppingBag className="w-4 h-4" aria-hidden />
-                В кошик
+                {added ? <Check className="w-4 h-4" aria-hidden /> : <ShoppingBag className="w-4 h-4" aria-hidden />}
+                {added ? "Додано" : "В кошик"}
               </button>
             </div>
           </div>
