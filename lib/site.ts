@@ -2,6 +2,9 @@
 
 export const BRAND = "SINCERITA"
 
+/** Title of the home page, and the one every page falls back to. */
+export const HOME_TITLE = `${BRAND} — італійська пряжа преміум якості`
+
 /** Shop phone, shown wherever we ask people to call. */
 export const SHOP_PHONE = "+38 068 992 9059"
 export const SHOP_PHONE_HREF = "+380689929059"

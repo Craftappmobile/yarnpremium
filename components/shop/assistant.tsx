@@ -65,7 +65,7 @@ export function Assistant() {
   // Product pages have the consultant in the card and in the buy bar on phones;
   // the catalog has it in the cart bar once something is in the cart.
   const onProduct = pathname.startsWith("/product/")
-  const inCartBar = pathname === "/" && cart.length > 0
+  const inCartBar = (pathname === "/" || pathname.startsWith("/kategoriya/")) && cart.length > 0
 
   return (
     <>

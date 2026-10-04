@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     const updated = await applyStockUpdates(records)
     if (updated.length) {
       revalidatePath("/")
+      revalidatePath("/kategoriya/[slug]", "page")
       for (const sku of updated) revalidatePath(`/product/${sku}`)
     }
     console.log(`[keycrm-webhook] ${records.length} records, updated: ${updated.join(", ") || "none"}`, raw.slice(0, 300))

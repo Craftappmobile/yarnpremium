@@ -26,6 +26,7 @@ import { ProductImage } from "./product-image"
 import { ProductMedia, useProductMedia } from "./product-media"
 import { OldPrice, PromoBadge } from "./promo-price"
 import { PromoStrip, TrustStrip } from "./promo-blocks"
+import { categoryPath } from "@/lib/category-url"
 import { INSTAGRAM_DM_URL } from "@/lib/site"
 
 interface ProductDetailProps {
@@ -118,7 +119,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                   </li>
                   <li className="min-w-0">
                     <Link
-                      href={`/?category=${encodeURIComponent(product.category)}`}
+                      href={categoryPath(product.category)}
                       className="block truncate py-1 hover:text-zinc-900"
                     >
                       {product.category}

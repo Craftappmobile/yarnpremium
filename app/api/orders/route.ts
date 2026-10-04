@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
       })
       await reserveStock(orderItems).catch((e) => console.error("[orders] stock update failed:", e.message))
       revalidatePath("/")
+      revalidatePath("/kategoriya/[slug]", "page")
       for (const i of orderItems) revalidatePath(`/product/${i.sku}`)
     }
     console.log(`[orders] KeyCRM order ${order.number} (site ${id}), ${orderItems.length} items, ${order.total} ₴`)

@@ -8,7 +8,7 @@ import { UtmCapture } from "@/components/shop/utm-capture"
 import { Analytics } from "@/components/shop/analytics"
 import { MotionProvider } from "@/components/shop/motion-provider"
 import { Assistant } from "@/components/shop/assistant"
-import { BRAND, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
+import { BRAND, HOME_TITLE, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
 
 // Inter, Latin and Cyrillic only (Google's subsets of the variable font, OFL).
 // Each face is limited to its own characters, so anything else — the «₴» sign
@@ -42,7 +42,7 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: `${BRAND} — італійська пряжа преміум якості`, template: `%s — ${BRAND}` },
+  title: { default: HOME_TITLE, template: `%s — ${BRAND}` },
   description: DESCRIPTION,
   applicationName: BRAND,
   openGraph: { type: "website", siteName: BRAND, locale: "uk_UA", description: DESCRIPTION },
