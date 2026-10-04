@@ -67,6 +67,7 @@ export function toKeycrmOrder(
   assistant?: AssistantUse,
 ) {
   const { customer: c, delivery: d } = order
+  const promos = [...new Set(order.items.flatMap((i) => (i.promo ? [i.promo] : [])))]
   const fullName = `${c.lastName} ${c.firstName}`.trim()
   const address = d.address
     ? [d.address.street, d.address.house && `буд. ${d.address.house}`, d.address.flat && `кв. ${d.address.flat}`]
@@ -81,6 +82,7 @@ export function toKeycrmOrder(
     `Оплата: ${PAYMENT_LABELS[order.payment.method]}` +
       (order.payment.onReceipt > 0 ? ` — зараз ${order.payment.now} ₴, при отриманні ${order.payment.onReceipt} ₴` : ""),
     `Номер на сайті: ${siteOrderId}`,
+    promos.length > 0 && `Акція: ${promos.join(", ")} — ціни в замовленні вже зі знижкою`,
     assistant &&
       `Консультант (ШІ): ${assistant.messages} повід. до замовлення` +
         (assistant.skus.length ? `; з його карток додано: ${assistant.skus.join(", ")}` : ""),
@@ -94,7 +96,13 @@ export function toKeycrmOrder(
     manager_comment: managerNotes.join("\n"),
     // The discounted end of a spool is its own line, so the manager sees why it's cheaper.
     products: order.items.flatMap((i) => {
-      const line = { sku: i.sku, name: i.name, price: i.price, unit_type: i.unit }
+      const line = {
+        sku: i.sku,
+        name: i.name,
+        price: i.price,
+        unit_type: i.unit,
+        ...(i.promo && i.oldPrice ? { comment: `${i.promo}: звичайна ціна ${i.oldPrice} ₴ за ${i.unit}` } : {}),
+      }
       if (!i.tail) return [{ ...line, quantity: i.quantity }]
       return [
         ...(i.quantity > i.tail ? [{ ...line, quantity: i.quantity - i.tail }] : []),

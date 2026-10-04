@@ -7,8 +7,12 @@ export interface Product {
   offerId: number
   name: string
   description: string
-  /** Price per `priceUnit`. */
+  /** Price per `priceUnit` — the promotional one while a promotion covers the product. */
   price: number
+  /** While a promotion covers the product: its regular price per `priceUnit`, shown struck through. */
+  oldPrice?: number
+  /** The promotion behind `oldPrice` (lib/promo.ts). */
+  promo?: ProductPromo
   /** "г" for yarn sold by weight, "шт" for pieces. */
   priceUnit: string
   image: string
@@ -39,6 +43,14 @@ export interface Product {
   /** Smallest quantity that can be bought and the +/− step, in `priceUnit`. */
   minQty: number
   step: number
+}
+
+export interface ProductPromo {
+  /** As in the ads: "Тиждень мериносу −25%". */
+  name: string
+  percent: number
+  /** When it is over (ISO): the start of the day after its last, Kyiv time. */
+  endsAt: string
 }
 
 export interface CartItem extends Product {
@@ -100,7 +112,7 @@ export function getFilterBounds(items: Product[]): { price: [number, number]; le
   }
 }
 
-type QuantityProduct = Pick<Product, "stock" | "minQty" | "step" | "priceUnit">
+type QuantityProduct = Pick<Product, "stock" | "minQty" | "step" | "priceUnit" | "promo">
 
 /** Share of the price taken off the end of a spool that comes with a purchase so none is left behind. */
 export const TAIL_DISCOUNT = 0.1
@@ -161,10 +173,11 @@ export function stepQuantity(p: QuantityProduct, quantity: number, direction: 1 
  * been left behind, too little to sell, had the buyer stopped at the first
  * amount that leaves less than the minimum (160 g in stock: 100 g → 60 g;
  * 366 g: 300 g → 66 g). The same whether the buyer picked that amount or
- * «Взяти все», so the whole spool costs the same either way.
+ * «Взяти все», so the whole spool costs the same either way. None while a
+ * promotion covers the product: the promotional price is the only discount.
  */
 export function tailGrams(p: QuantityProduct, quantity: number): number {
-  if (!byWeight(p) || quantity !== p.stock || p.stock < p.minQty) return 0
+  if (p.promo || !byWeight(p) || quantity !== p.stock || p.stock < p.minQty) return 0
   const firstShort = p.minQty + Math.max(0, Math.ceil((p.stock - 2 * p.minQty + 1) / p.step)) * p.step
   return Math.max(0, p.stock - firstShort)
 }
@@ -173,6 +186,21 @@ export function tailGrams(p: QuantityProduct, quantity: number): number {
 export function lineTotal(p: QuantityProduct & Pick<Product, "price">, quantity: number): number {
   const total = p.price * quantity - p.price * tailGrams(p, quantity) * TAIL_DISCOUNT
   return Math.round(total * 100) / 100
+}
+
+/** What `quantity` would cost at the regular price, less what it costs now; 0 without a promotion. */
+export function lineSavings(p: QuantityProduct & Pick<Product, "price" | "oldPrice">, quantity: number): number {
+  if (!p.oldPrice) return 0
+  return Math.max(0, Math.round((p.oldPrice * quantity - lineTotal(p, quantity)) * 100) / 100)
+}
+
+/** Last day of a promotion, Kyiv time: "19 жовтня". */
+export function promoLastDay(promo: ProductPromo): string {
+  return new Date(Date.parse(promo.endsAt) - 1).toLocaleDateString("uk-UA", {
+    day: "numeric",
+    month: "long",
+    timeZone: "Europe/Kiev",
+  })
 }
 
 /** "350 г" / "3 шт". */

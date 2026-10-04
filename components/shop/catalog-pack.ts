@@ -1,4 +1,4 @@
-import type { Product } from "./data"
+import type { Product, ProductPromo } from "./data"
 import type { ColorFamily } from "./yarn-colors"
 
 // The home page ships the whole in-stock catalog to the browser so search,
@@ -25,6 +25,9 @@ type Row = [
   /** Photo colour "rrggbb" ("" = not known yet) and colour group (pool index, -1 = none). */
   colorHex: string,
   colorFamily: number,
+  /** While a promotion covers it: the regular price (0 = none) and the promotion (index into `promos`, -1 = none). */
+  oldPrice: number,
+  promo: number,
 ]
 
 export interface PackedCatalog {
@@ -37,6 +40,7 @@ export interface PackedCatalog {
     article: string[]
     colorFamily: string[]
   }
+  promos: ProductPromo[]
   rows: Row[]
 }
 
@@ -66,6 +70,8 @@ export function packCatalog(products: Product[]): PackedCatalog {
   const brand = pool()
   const article = pool()
   const colorFamily = pool()
+  const promo = pool()
+  const promos: ProductPromo[] = []
   const rows = products.map((p): Row => {
     const cut = p.image.lastIndexOf("/") + 1
     return [
@@ -85,6 +91,8 @@ export function packCatalog(products: Product[]): PackedCatalog {
       p.step,
       p.colorHex ? p.colorHex.slice(1) : "",
       p.colorFamily ? colorFamily.id(p.colorFamily) : -1,
+      p.oldPrice ?? 0,
+      p.promo ? promoId(p.promo) : -1,
     ]
   })
   return {
@@ -97,11 +105,18 @@ export function packCatalog(products: Product[]): PackedCatalog {
       article: article.values,
       colorFamily: colorFamily.values,
     },
+    promos,
     rows,
+  }
+
+  function promoId(p: ProductPromo): number {
+    const id = promo.id(JSON.stringify(p))
+    promos[id] = p
+    return id
   }
 }
 
-export function unpackCatalog({ pools, rows }: PackedCatalog): Product[] {
+export function unpackCatalog({ pools, promos = [], rows }: PackedCatalog): Product[] {
   return rows.map(
     ([
       sku,
@@ -120,6 +135,8 @@ export function unpackCatalog({ pools, rows }: PackedCatalog): Product[] {
       step,
       colorHex,
       colorFamily,
+      oldPrice,
+      promo,
     ]) => ({
       id: sku,
       offerId: 0,
@@ -140,6 +157,7 @@ export function unpackCatalog({ pools, rows }: PackedCatalog): Product[] {
       step,
       colorHex: colorHex ? `#${colorHex}` : undefined,
       colorFamily: colorFamily < 0 ? undefined : (pools.colorFamily[colorFamily] as ColorFamily),
+      ...(oldPrice && promo >= 0 && promos[promo] ? { oldPrice, promo: promos[promo] } : {}),
     }),
   )
 }

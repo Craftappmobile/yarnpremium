@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { readCatalog } from "@/lib/catalog"
 import { type ProductVideos, readAllProductVideos } from "@/lib/product-videos"
 import { BRAND, SITE_URL } from "@/lib/site"
+import { currentOrNextPromo, promoLabel, promoPrice, promoWindow } from "@/lib/promo"
 import type { Product } from "@/components/shop/data"
 
 // Product feed for the Meta catalog (Commerce Manager fetches it hourly).
@@ -13,6 +14,11 @@ import type { Product } from "@/components/shop/data"
 // then show the cone's video review, the same one the product page opens with.
 // Only Bunny Stream's copies are listed; a product whose copy isn't ready yet
 // goes without a video until it is.
+// A promotion (lib/promo.ts) is listed from the moment it is set up: `price`
+// stays the regular price, `sale_price` is the promotional one, and Meta shows
+// it only between the dates in `sale_price_effective_date`, so ads switch on
+// time even though Meta fetches the feed only once an hour. `custom_label_0`
+// carries the promotion's name, to build its product set in Commerce Manager.
 export const dynamic = "force-dynamic"
 
 const COLUMNS = [
@@ -22,6 +28,9 @@ const COLUMNS = [
   "availability",
   "condition",
   "price",
+  "sale_price",
+  "sale_price_effective_date",
+  "custom_label_0",
   "link",
   "image_link",
   "additional_image_link",
@@ -46,6 +55,26 @@ const MIN_PIECE_PRICE = 10
 
 const byWeight = (p: Product) => p.priceUnit === "г"
 
+/** "2026-10-13T00:00+03:00": a moment as Kyiv clocks show it, with their offset from UTC. */
+function kyivIso(t: number): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Kiev",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(t)
+      .map((x) => [x.type, x.value]),
+  )
+  const local = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
+  const offset = Math.round((Date.parse(`${local}Z`) - t) / 3600_000)
+  return `${local}+${String(offset).padStart(2, "0")}:00`
+}
+
 function csvField(value: string): string {
   const v = value.replace(/\s+/g, " ").trim()
   return /[",]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
@@ -58,7 +87,11 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
     videos?.sample && { url: videos.sample.src, tag: "Зразок" },
   ].filter((v): v is { url: string; tag: string } => Boolean(v))
   const weight = byWeight(p)
-  const price = weight ? p.price * WEIGHT_AD_GRAMS : p.price
+  const perAd = (unitPrice: number) => (weight ? unitPrice * WEIGHT_AD_GRAMS : unitPrice)
+  // While a promotion runs the catalog already sells at its price; the feed lists the regular one.
+  const regular = p.oldPrice ?? p.price
+  const promo = currentOrNextPromo(p.category)
+  const dates = promo && promoWindow(promo)
   const details = [p.category, p.color, p.length ? `${p.length} м` : "", p.brand].filter(Boolean).join(", ")
   const priceNote = weight ? `Ціна за ${WEIGHT_AD_GRAMS} г.` : ""
   return {
@@ -67,7 +100,11 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
     description: [p.description || details || p.name, priceNote].filter(Boolean).join(" ").slice(0, 5000),
     availability: p.stock > 0 ? "in stock" : "out of stock",
     condition: "new",
-    price: `${price.toFixed(2)} UAH`,
+    price: `${perAd(regular).toFixed(2)} UAH`,
+    sale_price: promo ? `${perAd(promoPrice(regular, p.priceUnit, promo.percent)).toFixed(2)} UAH` : "",
+    // The end is the last minute of the last day.
+    sale_price_effective_date: dates ? `${kyivIso(dates.start)}/${kyivIso(dates.end - 60_000)}` : "",
+    custom_label_0: promo ? promoLabel(promo) : "",
     link: `${SITE_URL}/product/${encodeURIComponent(p.sku)}`,
     image_link: p.image,
     additional_image_link: p.images.filter((u) => u !== p.image).slice(0, 5).join(","),

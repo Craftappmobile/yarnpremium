@@ -6,11 +6,12 @@ import { m } from "motion/react"
 import { X, Check, Heart, ShoppingBag, ExternalLink } from "lucide-react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { type Product, clampQuantity, formatPrice, formatQuantity } from "./data"
+import { type Product, clampQuantity, formatPrice, formatQuantity, promoLastDay } from "./data"
 import { QuantityPicker } from "./quantity-picker"
 import { trackViewItem } from "./analytics"
 import { useWishlist } from "./wishlist-context"
 import { ProductImage } from "./product-image"
+import { OldPrice, PromoBadge } from "./promo-price"
 
 interface ProductModalProps {
   product: Product
@@ -77,10 +78,17 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 md:p-6 flex flex-col">
             <Dialog.Title className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 text-balance">{product.name}</Dialog.Title>
 
-            <div className="mt-2 flex items-baseline gap-1">
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+              <PromoBadge product={product} className="self-center" />
               <span className="text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">{formatPrice(product.price)}</span>
+              {product.oldPrice ? <OldPrice className="text-sm">{formatPrice(product.oldPrice)}</OldPrice> : null}
               <span className="text-sm text-zinc-500 dark:text-zinc-400">/ {product.priceUnit}</span>
             </div>
+            {product.promo && (
+              <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                {product.promo.name} · до {promoLastDay(product.promo)} включно
+              </p>
+            )}
 
             {/* Наявність — приходить із KeyCRM (offer.quantity) */}
             <div className="mt-3">

@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
         unit: p.priceUnit,
         ...(tail > 0 ? { tail } : {}),
         total: lineTotal(p, l.quantity),
+        ...(p.promo && p.oldPrice ? { oldPrice: p.oldPrice, promo: p.promo.name } : {}),
       }
     })
     const subtotal = money(orderItems.reduce((sum, i) => sum + i.total, 0))

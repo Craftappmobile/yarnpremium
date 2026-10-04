@@ -10,6 +10,7 @@ import { useCart } from "./cart-context"
 import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
 import { TopBar } from "./top-bar"
 import { ProductImage } from "./product-image"
+import { OldPrice } from "./promo-price"
 
 export function WishlistView() {
   const { wishlist, removeFromWishlist, hydrated } = useWishlist()
@@ -59,7 +60,9 @@ export function WishlistView() {
                             {product.name}
                           </h3>
                           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            {formatPrice(product.price)} / {product.priceUnit}
+                            {formatPrice(product.price)}
+                            {product.oldPrice ? <OldPrice className="ml-1">{formatPrice(product.oldPrice)}</OldPrice> : null}{" "}
+                            / {product.priceUnit}
                           </p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-0.5">
                             {inStock

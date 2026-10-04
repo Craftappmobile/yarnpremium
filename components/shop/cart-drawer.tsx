@@ -8,13 +8,14 @@ import Link from "next/link"
 import { TAIL_DISCOUNT, formatPrice, formatQuantity, lineTotal, quantityRules, stepQuantity, tailGrams } from "./data"
 import { useCart } from "./cart-context"
 import { ProductImage } from "./product-image"
+import { OldPrice } from "./promo-price"
 
 interface CartDrawerProps {
   onClose: () => void
 }
 
 export function CartDrawer({ onClose }: CartDrawerProps) {
-  const { cart, total, removeFromCart, updateQuantity } = useCart()
+  const { cart, total, saved, removeFromCart, updateQuantity } = useCart()
 
   const returnFocus = useReturnFocus()
 
@@ -91,7 +92,10 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                         </button>
                       </div>
                       <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-0.5">
-                        {formatPrice(item.price)} / {item.priceUnit}
+                        {formatPrice(item.price)}
+                        {item.oldPrice ? <OldPrice className="ml-1">{formatPrice(item.oldPrice)}</OldPrice> : null} /{" "}
+                        {item.priceUnit}
+                        {item.promo && <span className="text-zinc-700 dark:text-zinc-300"> · {item.promo.name}</span>}
                       </p>
 
                       <div className="flex items-center justify-between mt-2">
@@ -135,6 +139,12 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
 
           {cart.length > 0 && (
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-zinc-200 dark:border-zinc-800">
+            {saved > 0 && (
+              <div className="flex justify-between mb-1 text-sm text-emerald-700 dark:text-emerald-500">
+                <span>Економія</span>
+                <span className="tabular-nums">{formatPrice(saved)}</span>
+              </div>
+            )}
             <div className="flex justify-between mb-4">
               <span className="text-base">Разом</span>
               <span className="text-base font-medium tabular-nums">{formatPrice(total)}</span>

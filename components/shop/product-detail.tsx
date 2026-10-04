@@ -5,7 +5,16 @@ import Link from "next/link"
 import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Check, X, Heart, MessageCircle, Play, ShoppingBag } from "lucide-react"
 import type { ProductVideos } from "@/lib/product-videos"
-import { type Product, clampQuantity, formatPrice, formatPriceShort, formatQuantity, lineTotal } from "./data"
+import {
+  type Product,
+  clampQuantity,
+  formatPrice,
+  formatPriceShort,
+  formatQuantity,
+  lineSavings,
+  lineTotal,
+  promoLastDay,
+} from "./data"
 import { ASSISTANT_ENABLED, openAssistant } from "./assistant"
 import { QuantityPicker } from "./quantity-picker"
 import { trackViewItem } from "./analytics"
@@ -15,6 +24,7 @@ import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
 import { TopBar } from "./top-bar"
 import { ProductImage } from "./product-image"
 import { ProductMedia, useProductMedia } from "./product-media"
+import { OldPrice, PromoBadge } from "./promo-price"
 
 interface ProductDetailProps {
   product: Product
@@ -42,6 +52,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
   const sample = media.slides.find((s) => s.key === "sample" && s.kind === "video")
   const mediaRef = useRef<HTMLDivElement>(null)
   const [quantity, setQuantity] = useState(() => clampQuantity(product, product.minQty))
+  const saved = lineSavings(product, quantity)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const { addToCart, itemCount } = useCart()
   const { isWishlisted, toggleWishlist } = useWishlist()
@@ -123,9 +134,15 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               </p>
 
               <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <PromoBadge product={product} className="self-center text-sm" />
                 <span className="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
                   {byWeight ? formatPriceShort(product.price * PRICE_GRAMS) : formatPrice(product.price)}
                 </span>
+                {product.oldPrice ? (
+                  <OldPrice className="text-base">
+                    {byWeight ? formatPriceShort(product.oldPrice * PRICE_GRAMS) : formatPrice(product.oldPrice)}
+                  </OldPrice>
+                ) : null}
                 <span className="text-sm text-zinc-500 dark:text-zinc-400">
                   / {byWeight ? `${PRICE_GRAMS} г` : product.priceUnit}
                 </span>
@@ -135,6 +152,11 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                   </span>
                 )}
               </div>
+              {product.promo && (
+                <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                  {product.promo.name} · до {promoLastDay(product.promo)} включно
+                </p>
+              )}
 
               <div className="mt-3">
                 {inStock ? (
@@ -156,6 +178,12 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               {inStock && (
                 <div className="mt-5 space-y-3">
                   <QuantityPicker product={product} quantity={quantity} onChange={setQuantity} />
+                  {saved > 0 && (
+                    <p className="text-sm tabular-nums text-emerald-700 dark:text-emerald-500" aria-live="polite">
+                      {formatQuantity(quantity, product.priceUnit)} за {formatPriceShort(lineTotal(product, quantity))}{" "}
+                      замість {formatPriceShort(lineTotal(product, quantity) + saved)} · економія {formatPriceShort(saved)}
+                    </p>
+                  )}
                   {byWeight && ASSISTANT_ENABLED && (
                     <button
                       type="button"
@@ -280,7 +308,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {similar.map((p) => (
                   <Link key={p.sku} href={`/product/${p.sku}`} className="group">
-                    <div className="aspect-[4/5] overflow-hidden rounded-md bg-white dark:bg-zinc-900">
+                    <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-white dark:bg-zinc-900">
                       <ProductImage
                         src={p.image}
                         alt={p.name}
@@ -289,10 +317,14 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                         sizes="(min-width: 768px) 200px, 50vw"
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
+                      <PromoBadge product={p} className="absolute left-1.5 top-1.5" />
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-xs leading-4 font-medium">{p.name}</p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {formatPrice(p.price)} / {p.priceUnit}
+                      <span className={p.oldPrice ? "font-semibold text-zinc-900 dark:text-zinc-50" : undefined}>
+                        {formatPrice(p.price)}
+                      </span>
+                      {p.oldPrice ? <OldPrice className="ml-1">{formatPrice(p.oldPrice)}</OldPrice> : null} / {p.priceUnit}
                     </p>
                   </Link>
                 ))}
@@ -314,7 +346,10 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                 <p className="text-base font-bold tabular-nums leading-tight">
                   {formatPriceShort(lineTotal(product, quantity))}
                 </p>
-                <p className="text-xs text-zinc-500 tabular-nums">{formatQuantity(quantity, product.priceUnit)}</p>
+                <p className="text-xs text-zinc-500 tabular-nums">
+                  {formatQuantity(quantity, product.priceUnit)}
+                  {saved > 0 && <span className="text-emerald-700"> · економія {formatPriceShort(saved)}</span>}
+                </p>
               </div>
               {ASSISTANT_ENABLED && (
                 <button

@@ -13,6 +13,7 @@ import { useCart } from "./cart-context"
 import { trackAssistant, trackAssistantContact } from "./analytics"
 import { noteAssistantAdd, noteAssistantMessage } from "./assistant-attribution"
 import { ProductImage } from "./product-image"
+import { OldPrice } from "./promo-price"
 import { useReturnFocus } from "./use-return-focus"
 
 // The shopping assistant's chat. The conversation itself is kept on the server
@@ -386,7 +387,13 @@ function ProductCard({ product, suggested }: { product: Product; suggested: numb
           {product.name}
         </Link>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {byWeight ? `${formatPrice(product.price * 100)} / 100 г` : formatPrice(product.price)}
+          {byWeight ? formatPrice(product.price * 100) : formatPrice(product.price)}
+          {product.oldPrice ? (
+            <OldPrice className="ml-1">
+              {byWeight ? formatPrice(product.oldPrice * 100) : formatPrice(product.oldPrice)}
+            </OldPrice>
+          ) : null}
+          {byWeight && " / 100 г"}
           {byWeight && product.length > 0 && ` · ${product.length} м / 100 г`}
           {product.stock > 0 ? ` · є ${formatQuantity(product.stock, product.priceUnit)}` : " · немає в наявності"}
         </p>
