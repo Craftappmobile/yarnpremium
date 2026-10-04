@@ -3,13 +3,17 @@ import { colorDistance } from "@/components/shop/yarn-colors"
 
 // «Схожа пряжа в наявності» on a sold-out product's page. People often land
 // there from an ad for that exact colour, so the nearest shades in stock come
-// first, whatever the yarn; the same yarn type wins between equally close ones.
+// first, whatever the yarn. Photos come out darker and greyer than the yarn, so
+// the colour group (from the colour's name in KeyCRM) counts too, and the same
+// yarn type wins between equally close ones.
 
 const LIMIT = 8
 /** Colours further apart than this aren't offered as a similar shade. */
 const CLOSE = 0.1
 /** Head start for the sold-out product's own category, in colour distance. */
 const SAME_CATEGORY = 0.02
+/** Head start for the same colour group: a pink beside pinks, not beside a greyish photo. */
+const SAME_FAMILY = 0.04
 
 export interface Similar {
   products: Product[]
@@ -47,7 +51,8 @@ export function similarProducts(product: Product, catalog: Product[]): Similar {
     picked = candidates
       .flatMap((p) => {
         const d = distance(p)
-        return d <= CLOSE ? [{ p, score: d - (sameCategory(p) ? SAME_CATEGORY : 0) }] : []
+        const sameFamily = product.colorFamily !== undefined && p.colorFamily === product.colorFamily
+        return d <= CLOSE ? [{ p, score: d - (sameCategory(p) ? SAME_CATEGORY : 0) - (sameFamily ? SAME_FAMILY : 0) }] : []
       })
       .sort((a, b) => a.score - b.score)
       .slice(0, LIMIT)

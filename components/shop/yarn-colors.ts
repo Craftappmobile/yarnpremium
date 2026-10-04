@@ -1,5 +1,6 @@
-// Colour of a yarn, worked out from its photo during the catalog sync, and the
-// colour filter built on it: 15 colour groups plus a hue wheel for a precise
+// Colour of a yarn, worked out from its photo during the catalog sync, its
+// colour group (from the colour's name in KeyCRM, else the photo), and the
+// colour filter built on them: 15 colour groups plus a hue wheel for a precise
 // shade. Everything is in OKLCH, where equal steps look equally different.
 
 export type ColorFamily =
@@ -151,6 +152,62 @@ export function classifyColor({ l, c, h }: Oklch): Exclude<ColorFamily, "multi">
   return l < 0.45 ? "burgundy" : "pink"
 }
 
+// Colour names from KeyCRM («Колір»), typed by the shop, are a surer guide to
+// the group than the photo: photos come out darker and greyer than the yarn,
+// which sent pinks to red and light beiges to grey. A name decides by its last
+// colour word: «сіро-бежевий» is beige, «оливково-зелений» green, «темно-синій
+// меланж» blue. Words are matched by their start.
+const NAME_STEMS: [Exclude<ColorFamily, "multi">, string[]][] = [
+  ["black", ["чорний", "чорна", "чорне", "чорні", "чорно"]],
+  ["white", ["біл", "молочн", "молочнй", "екрю", "айворі", "кістк", "вершк", "ваніл", "крем", "перлин"]],
+  ["grey", ["сір", "графіт", "антрацит", "срібн", "срібля", "попіл", "асфальт", "сталь", "сталев"]],
+  ["beige", ["беж", "кемел", "кемл", "пісок", "пісоч", "мигдал", "лате", "капучин", "капучін", "шампань", "глин", "пшенич", "брюле"]],
+  ["brown", ["коричн", "шоколад", "шоколвд", "кава", "кавов", "какао", "мокко", "горіх", "каштан", "трюфел", "кориц", "сепі", "тауп", "карамел", "праліне"]],
+  ["pink", ["рожев", "фукс", "малин", "пудр", "троянд", "барбі", "цикламен", "амарант", "кавун", "цукров"]],
+  ["red", ["червон", "томат", "цегл", "калин", "шипшин"]],
+  ["burgundy", ["бордо", "бордов", "бургунді", "марсал", "вин", "вишн", "ягід", "ягод"]],
+  ["orange", ["помаранч", "оранж", "апельсин", "морк", "гарбуз", "руд", "теракот", "терракот", "мідн", "абрикос", "корал", "персик", "бронз"]],
+  ["yellow", ["жовт", "лимон", "гірчи", "вохр", "соняш", "золот", "масл", "ананас"]],
+  ["green", ["зелен", "олив", "хакі", "хаккі", "полин", "хво", "смарагд", "салат", "лайм", "фісташ", "м'ят", "мят", "шавлі", "трав", "спарж", "ментол"]],
+  ["turquoise", ["бірюз", "хвил", "тіффані", "петрол"]],
+  ["blue", ["син", "блакит", "блакийт", "джин", "денім", "волошк", "електрик", "лазур", "небес", "сапфір", "кобальт", "індиго", "наві", "чорнил"]],
+  ["violet", ["фіолет", "бузк", "бузок", "лаванд", "виноград", "слив", "баклажан", "орхіде", "інжир", "аметист"]],
+]
+
+/** Whole names whose last colour word misleads. */
+const NAME_EXCEPTIONS: Record<string, ColorFamily> = {
+  "кава з молоком": "beige",
+  "пряжене молоко": "beige",
+  "малина у вершках": "pink",
+  "слива в шоколаді": "violet",
+  "рожеве золото": "pink",
+  "синя сталь": "blue",
+  "рожеві на білій основі": "pink",
+  "морська хвиля": "turquoise",
+  "чорний із золотом": "black",
+  "світло-сірий з блакитним підтоном меланж": "grey",
+}
+
+const MULTI_COLOR_NAME = /мультикол|різнокол|градієнт|^rgb$/
+
+/** The colour group a KeyCRM colour name points to; null when no colour word is recognised. */
+export function familyFromName(name: string): ColorFamily | null {
+  const n = name
+    .toLowerCase()
+    .replace(/[’ʼ`]/g, "'")
+    .replace(/\s+/g, " ")
+    .replace(/^\d+\s*-?\s*/, "")
+    .trim()
+  if (!n) return null
+  if (MULTI_COLOR_NAME.test(n)) return "multi"
+  if (NAME_EXCEPTIONS[n]) return NAME_EXCEPTIONS[n]
+  const words = n.split(/[\s\-–—,/]+/).filter(Boolean)
+  for (let i = words.length - 1; i >= 0; i--) {
+    for (const [family, stems] of NAME_STEMS) if (stems.some((s) => words[i].startsWith(s))) return family
+  }
+  return null
+}
+
 /** A point picked on the hue wheel, optionally narrowed by the lightness slider. */
 export interface Shade {
   h: number
@@ -164,22 +221,77 @@ const SHOW_L = 0.6
 /** The colour shown for a picked shade (wheel marker, swatch). */
 export const shadeHex = ({ h, l }: Shade) => oklchToHex({ l: l ?? SHOW_L, c: 0.14, h })
 
-const hueDistance = (a: number, b: number) => {
+export const hueDistance = (a: number, b: number) => {
   const d = Math.abs(a - b) % 360
   return d > 180 ? 360 - d : d
 }
 
-/** Whether a yarn's colour is close to the shade picked on the wheel. */
-export function matchesShade(hex: string, shade: Shade): boolean {
-  const color = hexToOklch(hex)
-  // Below this the yarn is grey, black or white: it has no hue to match.
-  if (!color || color.c < 0.03) return false
-  if (hueDistance(color.h, shade.h) > 25) return false
-  return shade.l === null || Math.abs(color.l - shade.l) <= 0.15
+type WheelFamily = "pink" | "red" | "orange" | "yellow" | "green" | "turquoise" | "blue" | "violet"
+
+/** Where each colour group starts on the wheel as it is drawn (clockwise); pink runs on past 0° to red. */
+const WHEEL: [from: number, family: WheelFamily][] = [
+  [18, "red"],
+  [45, "orange"],
+  [75, "yellow"],
+  [110, "green"],
+  [170, "turquoise"],
+  [230, "blue"],
+  [285, "violet"],
+  [330, "pink"],
+]
+
+function wheelFamily(h: number): WheelFamily {
+  const deg = ((h % 360) + 360) % 360
+  let family: WheelFamily = "pink"
+  for (const [from, f] of WHEEL) if (deg >= from) family = f
+  return family
 }
 
-/** Nearest group name for a hue on the wheel, for screen readers. */
+/**
+ * Groups a picked hue may show: its own, and its neighbour's when the pick is
+ * near the border. Burgundy is dark red. Photo hues of pinks and reds overlap,
+ * so without this a pink pick filled up with red yarn.
+ */
+function shadeFamilies(h: number): Set<ColorFamily> {
+  const out = new Set<ColorFamily>()
+  for (const d of [-5, 0, 5]) {
+    const f = wheelFamily(h + d)
+    out.add(f)
+    if (f === "red") out.add("burgundy")
+  }
+  return out
+}
+
+/**
+ * Photos come out darker and flatter than the yarn: white yarn reads about 0.64,
+ * black 0.32. Stretched back to how the yarn looks, to compare with the slider.
+ */
+const yarnLightness = (photoL: number) => Math.min(1, Math.max(0, 2.34 * photoL - 0.55))
+
+/** Whether a yarn is close to the shade picked on the wheel. */
+export function matchesShade(p: { colorHex?: string; colorFamily?: ColorFamily }, shade: Shade): boolean {
+  // Multicoloured yarn has no single shade; grey, black, white, beige and brown aren't on the wheel.
+  if (!p.colorHex || p.colorFamily === "multi") return false
+  if (p.colorFamily && !shadeFamilies(shade.h).has(p.colorFamily)) return false
+  const color = hexToOklch(p.colorHex)
+  if (!color) return false
+  // A greyish photo has no hue worth trusting: then the group from the colour's name is enough.
+  if (color.c >= 0.03) {
+    if (hueDistance(color.h, shade.h) > 25) return false
+  } else if (!p.colorFamily) return false
+  return shade.l === null || Math.abs(yarnLightness(color.l) - shade.l) <= 0.15
+}
+
+/** How far a yarn's photo hue is from the picked one, to show the closest first. */
+export function shadeOrder(p: { colorHex?: string }, shade: Shade): number {
+  const color = p.colorHex ? hexToOklch(p.colorHex) : null
+  if (!color || color.c < 0.03) return 180
+  return hueDistance(color.h, shade.h) + (shade.l === null ? 0 : Math.abs(yarnLightness(color.l) - shade.l) * 100)
+}
+
+/** Name of the group under a point on the wheel, as people would call it. */
 export function hueName(shade: Shade): string {
-  const family = classifyColor({ l: shade.l ?? SHOW_L, c: 0.14, h: shade.h })
-  return COLOR_FAMILIES.find((f) => f.id === family)?.label ?? ""
+  const f = wheelFamily(shade.h)
+  const family = f === "red" && shade.l !== null && shade.l < 0.45 ? "burgundy" : f
+  return COLOR_FAMILIES.find((c) => c.id === family)?.label ?? ""
 }

@@ -87,6 +87,14 @@ export default function MinimalShop({ initial, summary }: { initial: PackedCatal
     shade: null,
   })
 
+  // «Показати цей відтінок у каталозі» under the colour wheel: the panel closes
+  // on a phone, and the page goes to the products.
+  const showResults = () => {
+    setIsFiltersOpen(false)
+    // After the panel has closed and handed focus back.
+    setTimeout(() => document.getElementById("content")?.scrollIntoView({ behavior: "smooth", block: "start" }), 250)
+  }
+
   const resetFilters = () => {
     setFilters({ priceRange: priceBounds, lengthRange: lengthBounds, categories: [], colorFamilies: [], shade: null })
   }
@@ -135,7 +143,7 @@ export default function MinimalShop({ initial, summary }: { initial: PackedCatal
     const matchesColor =
       anyColor ||
       (product.colorFamily !== undefined && filters.colorFamilies.includes(product.colorFamily)) ||
-      (filters.shade !== null && product.colorHex !== undefined && matchesShade(product.colorHex, filters.shade))
+      (filters.shade !== null && matchesShade(product, filters.shade))
     return matchesSearch && matchesPrice && matchesLength && matchesCategory && matchesColor
   })
 
@@ -195,6 +203,7 @@ export default function MinimalShop({ initial, summary }: { initial: PackedCatal
                 filters={filters}
                 onChange={setFilters}
                 onReset={resetFilters}
+                onShowResults={showResults}
               />
             </div>
           </div>
@@ -216,6 +225,7 @@ export default function MinimalShop({ initial, summary }: { initial: PackedCatal
                 filters={filters}
                 onChange={setFilters}
                 onReset={resetFilters}
+                onShowResults={showResults}
                 showTitle={false}
               />
             </MobileFiltersPanel>

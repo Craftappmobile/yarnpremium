@@ -24,6 +24,8 @@ interface FiltersSidebarProps {
   onReset: () => void
   /** False where the surrounding panel already shows the "Фільтри" title. */
   showTitle?: boolean
+  /** Takes the visitor to the catalog's results (closes the panel on a phone). */
+  onShowResults?: () => void
 }
 
 export function FiltersSidebar({
@@ -34,6 +36,7 @@ export function FiltersSidebar({
   onChange,
   onReset,
   showTitle = true,
+  onShowResults,
 }: FiltersSidebarProps) {
   const [minBound, maxBound] = priceBounds
   const [minPrice, maxPrice] = filters.priceRange
@@ -140,6 +143,7 @@ export function FiltersSidebar({
           families={filters.colorFamilies}
           shade={filters.shade}
           onChange={(colorFamilies, shade) => onChange({ ...filters, colorFamilies, shade })}
+          onShowResults={onShowResults}
         />
       </div>
 
