@@ -32,10 +32,15 @@ export default async function Home() {
       return video ? { ...s, video } : s
     }),
   )
+  // The first screen shows the products of the promotion's block first, as the full list does.
+  const promoCategory = summary.promos?.[0]?.category
+  const firstScreen = promoCategory
+    ? [...products.filter((p) => p.category === promoCategory), ...products.filter((p) => p.category !== promoCategory)]
+    : products
   return (
     <main className="min-h-screen">
       <MinimalShop
-        initial={packCatalog(products.slice(0, FIRST_SCREEN))}
+        initial={packCatalog(firstScreen.slice(0, FIRST_SCREEN))}
         summary={summary}
         catalogVersion={Date.now().toString(36)}
       />

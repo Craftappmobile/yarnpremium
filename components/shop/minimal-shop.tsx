@@ -163,7 +163,7 @@ export default function MinimalShop({
     return matchesSearch && matchesPrice && matchesLength && matchesCategory && matchesColor
   })
 
-  const sortedProducts = sortProducts(filteredProducts, sort)
+  const sorted = sortProducts(filteredProducts, sort)
   const activeFilterCount =
     filters.categories.length +
     filters.colorFamilies.length +
@@ -190,6 +190,13 @@ export default function MinimalShop({
     announceOffer(offer)
     return () => announceOffer(null)
   }, [offer])
+
+  // Under the promotion's block on the home page its products come first, the
+  // rest of the catalog after them (stable: newest first within each part).
+  const sortedProducts =
+    homePromo && sort === "default"
+      ? [...sorted.filter((p) => p.category === homePromo.category), ...sorted.filter((p) => p.category !== homePromo.category)]
+      : sorted
   const shownProducts = sortedProducts.slice(0, visibleCount)
   // Search, filters and sorting need the whole catalog: until it's here they wait.
   const narrowed = query !== "" || activeFilterCount > 0 || sort !== "default"
@@ -290,7 +297,9 @@ export default function MinimalShop({
                   )}
                 </button>
                 <p role="status" className="text-xs tabular-nums whitespace-nowrap text-zinc-500 dark:text-zinc-400">
-                  {waiting ? "Шукаємо…" : `${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
+                  {waiting
+                    ? "Шукаємо…"
+                    : `${homePromo ? "Увесь каталог · " : ""}${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
                 </p>
               </div>
               <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
