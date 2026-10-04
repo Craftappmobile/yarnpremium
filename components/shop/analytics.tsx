@@ -156,11 +156,37 @@ const productLine = (p: Product | CartItem, quantity: number): Line => ({
   brand: p.brand,
 })
 
-export const trackViewItem = (p: Product) => send("view_item", "ViewContent", [productLine(p, p.minQty)])
+const randomId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+
+/**
+ * Asks the shop's server to send the same event to Meta (app/api/activity):
+ * Safari and ad blockers stop part of the pixel's events. Same eventID, so Meta
+ * counts it once. `keepalive` lets it finish when the buyer leaves the page.
+ */
+function sendFromServer(event: "ViewContent" | "AddToCart", id: string, p: Product, quantity: number) {
+  fetch("/api/activity", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, id, sku: p.sku, quantity, url: window.location.href }),
+    keepalive: true,
+  }).catch(() => {})
+}
+
+export function trackViewItem(p: Product) {
+  const metaEventId = `view-${randomId()}`
+  send("view_item", "ViewContent", [productLine(p, p.minQty)], { metaEventId })
+  if (enabled()) sendFromServer("ViewContent", metaEventId, p, p.minQty)
+}
 
 /** `listName` tells where the product was added from, e.g. «Консультант» for the assistant's cards. */
-export const trackAddToCart = (p: Product, quantity: number, listName?: string) =>
-  send("add_to_cart", "AddToCart", [productLine(p, quantity)], { listName })
+export function trackAddToCart(p: Product, quantity: number, listName?: string) {
+  const metaEventId = `cart-${randomId()}`
+  send("add_to_cart", "AddToCart", [productLine(p, quantity)], { listName, metaEventId })
+  if (enabled()) sendFromServer("AddToCart", metaEventId, p, quantity)
+}
 
 export const trackBeginCheckout = (cart: CartItem[]) =>
   send("begin_checkout", "InitiateCheckout", cart.map((i) => productLine(i, i.quantity)))

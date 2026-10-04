@@ -3,12 +3,15 @@
 // lose them and Meta can recognise the buyer by their (hashed) phone and email.
 //
 // Funnel sent to the «KeyCRM+YanrnPremium» dataset:
+//   ViewContent     a product card is opened                         (event_id view-<random>)
+//   AddToCart       a product goes into the cart                     (event_id cart-<random>)
+//                   both passed on by app/api/activity
 //   Contact         first message to the site's shopping assistant   (event_id chat-<conversation>)
 //   AddPaymentInfo  order placed with something to pay online        (event_id pay-<KeyCRM order>)
 //   Purchase        the online part is paid, or an order with nothing
 //                   to pay online is placed                          (event_id order-<KeyCRM order>)
-// The browser pixel sends Contact and AddPaymentInfo too, with the same
-// event_id, and Meta keeps one of each pair.
+// The browser pixel sends ViewContent, AddToCart, Contact and AddPaymentInfo
+// too, with the same event_id, and Meta keeps one of each pair.
 //   Purchase        an order from Direct (or another non-site channel) is paid
 //                   in KeyCRM: app/api/keycrm/purchase   (event_id crm-<KeyCRM order>)
 //
@@ -126,6 +129,32 @@ export async function sendContact(conversationId: string, ctx: BuyerContext): Pr
     event_source_url: SITE_URL,
     user_data: userData(ctx),
     custom_data: { content_name: "Консультант" },
+  })
+}
+
+/** Products browsed on the site: a card opened (ViewContent) or added to the cart (AddToCart). */
+export type BrowseEventName = "ViewContent" | "AddToCart"
+
+export async function sendBrowseEvent(
+  name: BrowseEventName,
+  eventId: string,
+  url: string,
+  line: { sku: string; quantity: number; price: number; total: number },
+  ctx: BuyerContext,
+): Promise<void> {
+  await sendMetaEvent({
+    event_name: name,
+    event_id: eventId,
+    event_source_url: url,
+    user_data: userData(ctx),
+    custom_data: {
+      currency: "UAH",
+      value: line.total,
+      content_type: "product",
+      content_ids: [line.sku],
+      contents: [{ id: line.sku, quantity: line.quantity, item_price: line.price }],
+      num_items: 1,
+    },
   })
 }
 
