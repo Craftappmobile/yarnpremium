@@ -87,7 +87,7 @@ export default function MinimalShop({ initial, summary }: { initial: PackedCatal
     shade: null,
   })
 
-  // «Показати цей відтінок у каталозі» under the colour wheel: the panel closes
+  // «Показати» under the colour wheel: the panel closes
   // on a phone, and the page goes to the products.
   const showResults = () => {
     setIsFiltersOpen(false)
