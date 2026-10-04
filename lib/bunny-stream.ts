@@ -203,22 +203,35 @@ const readyCache = new Map<string, { at: number; urls: { src: string; poster: st
 
 /**
  * A video uploaded to the library by hand (an ad, say): its MP4 and first
- * frame once Bunny has finished it, or null. `ref` is its id, or any Bunny link
- * that contains it. Asked again at most every 10 minutes.
+ * frame once Bunny has finished it, or null. `ref` is its id, any Bunny link
+ * that contains it, or its title as Bunny shows it (the newest finished video
+ * whose title contains it). Asked again at most every 10 minutes.
  */
 export async function libraryVideo(ref: string): Promise<{ src: string; poster: string } | null> {
-  const guid = ref.match(GUID)?.[0]?.toLowerCase()
-  if (!guid || !bunnyConfigured()) return null
-  const cached = readyCache.get(guid)
+  const key = ref.trim().toLowerCase()
+  if (!key || !bunnyConfigured()) return null
+  const cached = readyCache.get(key)
   if (cached && Date.now() - cached.at < 10 * 60_000) return cached.urls
   let urls: { src: string; poster: string } | null = null
   try {
-    const v = await api<BunnyVideo>("GET", `/videos/${guid}`)
-    const file = v.status === FINISHED ? mp4File(v) : undefined
-    if (file) urls = bunnyUrls({ guid, file, thumbnail: v.thumbnailFileName || "thumbnail.jpg", length: v.length })
+    const guid = ref.match(GUID)?.[0]?.toLowerCase()
+    const video = guid ? await api<BunnyVideo>("GET", `/videos/${guid}`) : await findByTitle(ref.trim())
+    const file = video && video.status === FINISHED ? mp4File(video) : undefined
+    if (video && file) {
+      urls = bunnyUrls({ guid: video.guid, file, thumbnail: video.thumbnailFileName || "thumbnail.jpg", length: video.length })
+    }
   } catch (e) {
     console.error("[bunny] library video:", (e as Error).message)
   }
-  readyCache.set(guid, { at: Date.now(), urls })
+  readyCache.set(key, { at: Date.now(), urls })
   return urls
+}
+
+async function findByTitle(title: string): Promise<BunnyVideo | undefined> {
+  const res = await api<{ items: BunnyVideo[] }>(
+    "GET",
+    `/videos?page=1&itemsPerPage=20&orderBy=date&search=${encodeURIComponent(title)}`,
+  )
+  const wanted = title.toLowerCase()
+  return (res.items ?? []).find((v) => v.status === FINISHED && v.title.toLowerCase().includes(wanted))
 }

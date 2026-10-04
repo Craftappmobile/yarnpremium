@@ -25,7 +25,7 @@ export interface PromoConfig {
   /** What is on sale, as the strip and the header name it, when the category's name doesn't say it ("Акційний товар"). */
   title?: string
   /**
-   * The ad's video in Bunny Stream (its id, or a Bunny link that contains it),
+   * The ad's video in Bunny Stream (its id, a Bunny link that contains it, or its title),
    * played in the header so people from the ad see what they clicked on. No
    * video, or not ready yet: the header goes without.
    */
