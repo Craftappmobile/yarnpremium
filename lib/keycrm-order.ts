@@ -82,6 +82,7 @@ export function toKeycrmOrder(
     `Оплата: ${PAYMENT_LABELS[order.payment.method]}` +
       (order.payment.onReceipt > 0 ? ` — зараз ${order.payment.now} ₴, при отриманні ${order.payment.onReceipt} ₴` : ""),
     `Номер на сайті: ${siteOrderId}`,
+    order.newsletter && "Погодилась отримувати нові кольори на пошту",
     promos.length > 0 && `Акція: ${promos.join(", ")} — ціни в замовленні вже зі знижкою`,
     assistant &&
       `Консультант (ШІ): ${assistant.messages} повід. до замовлення` +

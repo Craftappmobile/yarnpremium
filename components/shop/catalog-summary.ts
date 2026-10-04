@@ -25,6 +25,8 @@ export interface PromoSummary {
   count: number
   /** Lowest price of 100 g and the regular price struck through beside it (yarn by weight, not marked). */
   from?: { price: number; oldPrice: number }
+  /** The ad's video (lib/promo.ts), when it has one. */
+  video?: { src: string; poster: string }
 }
 
 /** Marked products (defects, flaws) don't set the «від» price an ad would quote. */

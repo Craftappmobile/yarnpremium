@@ -97,6 +97,8 @@ export interface Order {
   /** `paid`: the online part (`now`) has been paid through WayForPay. */
   payment: { method: PaymentMethod; now: number; onReceipt: number; paid?: boolean }
   notes: string
+  /** The buyer asked for new-colour letters (lib/newsletter.ts). */
+  newsletter?: boolean
   createdAt: string
 }
 
@@ -109,6 +111,8 @@ export interface OrderRequest {
   delivery: OrderDelivery
   payment: PaymentMethod
   notes: string
+  /** «Надсилати мені нові кольори» ticked. */
+  newsletter?: boolean
   /** utm_* parameters of the visit that brought the customer. */
   utm?: Record<string, string>
   /** Present when the buyer wrote to the shopping assistant during the past week. */

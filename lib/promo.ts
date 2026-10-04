@@ -24,6 +24,12 @@ export interface PromoConfig {
   category: string
   /** What is on sale, as the strip and the header name it, when the category's name doesn't say it ("Акційний товар"). */
   title?: string
+  /**
+   * The ad's video in Bunny Stream (its id, or a Bunny link that contains it),
+   * played in the header so people from the ad see what they clicked on. No
+   * video, or not ready yet: the header goes without.
+   */
+  video?: string
   /** Percent off the regular price. */
   percent: number
   /** Which price KeyCRM holds for the category's products (see the top of this file). */

@@ -47,6 +47,7 @@ export function Checkout() {
   const [lastName, setLastName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
+  const [newsletter, setNewsletter] = useState(false)
   const [notes, setNotes] = useState("")
   const [delivery, setDelivery] = useState<OrderDelivery>({ method: "np_warehouse" })
   const [payment, setPayment] = useState<PaymentMethod>("card")
@@ -190,6 +191,7 @@ export function Checkout() {
     const request: OrderRequest = {
       id: orderId,
       customer,
+      newsletter,
       items: cart.map((i) => ({ sku: i.sku, quantity: i.quantity })),
       delivery,
       payment: effectivePayment,
@@ -286,6 +288,15 @@ export function Checkout() {
             </label>
             <input id="email" name="email" maxLength={200} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" spellCheck={false} placeholder="name@example.com" {...fieldA11y("email")} className={`${inputBase} ${errCls("email")}`} />
             <FieldError id="email" error={errors.email} />
+            <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                checked={newsletter}
+                onChange={(e) => setNewsletter(e.target.checked)}
+                className="mt-0.5 accent-zinc-900 dark:accent-white"
+              />
+              <span>Надсилати мені нові кольори на пошту. Відписатися можна в кожному листі.</span>
+            </label>
           </div>
 
           <h2 className="mt-10 text-lg font-semibold uppercase tracking-wide">Доставка</h2>
