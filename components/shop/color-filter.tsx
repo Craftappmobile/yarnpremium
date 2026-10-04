@@ -188,9 +188,10 @@ export function ColorFilter({ products, families, shade, onChange, onShowResults
                       onChange([], shade)
                       onShowResults()
                     }}
-                    className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                    aria-label="Показати цей відтінок у каталозі"
+                    className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold uppercase tracking-wide text-white hover:bg-zinc-800"
                   >
-                    Показати цей відтінок у каталозі
+                    Показати
                   </button>
                 )}
               </div>

@@ -25,14 +25,17 @@ const PAGE_SIZE = 60
  * and unpacking thousands of products while a phone is still showing the
  * page would hold the page up. Null until it arrives.
  */
-function useFullCatalog(): [Product[] | null, () => void] {
+function useFullCatalog(version: string): [Product[] | null, () => void] {
   const [full, setFull] = useState<Product[] | null>(null)
   const requested = useRef(false)
   const request = useCallback(() => {
     if (requested.current) return
     requested.current = true
     const load = (attempt: number) =>
-      fetch("/api/catalog/packed")
+      // The page's build time in the address: the CDN keeps each address for a
+      // few minutes, so a page rebuilt after a catalog sync gets the new catalog
+      // right away instead of the copy cached before it.
+      fetch(`/api/catalog/packed?v=${encodeURIComponent(version)}`)
         .then((res) => (res.ok ? (res.json() as Promise<PackedCatalog>) : Promise.reject(new Error(String(res.status)))))
         .then((packed) => setFull(unpackCatalog(packed)))
         .catch(() => {
@@ -41,7 +44,7 @@ function useFullCatalog(): [Product[] | null, () => void] {
           else requested.current = false
         })
     load(0)
-  }, [])
+  }, [version])
   useEffect(() => {
     const events = ["pointerdown", "keydown", "scroll", "touchstart"] as const
     const onFirst = () => {
@@ -56,9 +59,18 @@ function useFullCatalog(): [Product[] | null, () => void] {
   return [full, request]
 }
 
-export default function MinimalShop({ initial, summary }: { initial: PackedCatalog; summary: CatalogSummary }) {
+export default function MinimalShop({
+  initial,
+  summary,
+  catalogVersion,
+}: {
+  initial: PackedCatalog
+  summary: CatalogSummary
+  /** When the page was built: changes after every catalog sync, order and stock update. */
+  catalogVersion: string
+}) {
   const firstScreen = useMemo(() => unpackCatalog(initial), [initial])
-  const [full, requestFull] = useFullCatalog()
+  const [full, requestFull] = useFullCatalog(catalogVersion)
   const complete = full !== null
   const products = full ?? firstScreen
   const { cart, itemCount, addToCart } = useCart()
@@ -87,7 +99,7 @@ export default function MinimalShop({ initial, summary }: { initial: PackedCatal
     shade: null,
   })
 
-  // «Показати цей відтінок у каталозі» under the colour wheel: the panel closes
+  // «Показати» under the colour wheel: the panel closes
   // on a phone, and the page goes to the products.
   const showResults = () => {
     setIsFiltersOpen(false)
