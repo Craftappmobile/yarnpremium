@@ -29,23 +29,26 @@ export function PromoCategoryHeader({ summary, onShow }: { summary: PromoSummary
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {promo.name.replace(/\s*−\d+%$/, "")} · {promoDeadline(promo)}
       </p>
-      <h2 className="mt-1 text-2xl font-semibold tracking-tight text-balance lg:text-3xl">
-        {promo.title ?? category} <span className="whitespace-nowrap">−{promo.percent}%</span>
-      </h2>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-        {count} {pluralUk(count, ["колір", "кольори", "кольорів"])} в наявності
-        {from && (
-          <>
-            {" "}
-            ·{" "}
-            <span className="whitespace-nowrap">
-              від <span className="font-semibold text-zinc-900 dark:text-zinc-50">{formatPriceShort(from.price)}</span>{" "}
-              <OldPrice>{formatPriceShort(from.oldPrice)}</OldPrice> / 100 г
-            </span>
-          </>
-        )}
+      {/* The discount is the one accent: black like the shop's buttons, not a sale red that would fight the yarn. */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="rounded-md bg-zinc-900 px-2.5 py-1 text-lg font-bold tabular-nums text-white dark:bg-white dark:text-zinc-900">
+          −{promo.percent}%
+        </span>
+        <h2 className="text-2xl font-semibold tracking-tight text-balance lg:text-3xl">{promo.title ?? category}</h2>
+      </div>
+      {from && (
+        <p className="mt-3 flex flex-wrap items-baseline gap-x-2 tabular-nums">
+          <span className="text-sm text-zinc-600 dark:text-zinc-300">від</span>
+          <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">{formatPriceShort(from.price)}</span>
+          <OldPrice className="text-base">{formatPriceShort(from.oldPrice)}</OldPrice>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">/ 100 г</span>
+        </p>
+      )}
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+        Знижка вже в цінах · {count} {pluralUk(count, ["товар", "товари", "товарів"])} в наявності
       </p>
-      {onShow ? (
+      {onShow && (
         <button
           type="button"
           onClick={onShow}
@@ -54,11 +57,6 @@ export function PromoCategoryHeader({ summary, onShow }: { summary: PromoSummary
           Дивитись усі кольори
           <ArrowRight className="h-4 w-4" aria-hidden />
         </button>
-      ) : (
-        <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium">
-          <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
-          Знижка вже в цінах нижче
-        </p>
       )}
     </section>
   )
