@@ -24,6 +24,8 @@ export interface PromoConfig {
   category: string
   /** What is on sale, as the strip and the header name it, when the category's name doesn't say it ("Акційний товар"). */
   title?: string
+  /** The short line over the header's name; without it, the promotion's name and how long it lasts. */
+  tagline?: string
   /**
    * The ad's video in Bunny Stream (its id, a Bunny link that contains it, or its title),
    * played in the header so people from the ad see what they clicked on. No
@@ -49,10 +51,10 @@ export const PROMOS: PromoConfig[] = [
     name: "Лімітована партія",
     category: "Акційний товар",
     title: "Меринос 100%",
+    // The strip above already carries «Лімітована партія … встигніть, поки є».
+    tagline: "Італійський сток",
     percent: 50,
     keycrm: "promo",
-    // The Reels ad («❤️‍🔥135грн-100г😍Саме той меринос, який ви постійно питаєте й чекаєте!…»), found by its title.
-    video: "Саме той меринос",
   },
 ]
 
@@ -129,6 +131,7 @@ export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Produc
     name: promoLabel(promo),
     percent: promo.percent,
     ...(promo.title ? { title: promo.title } : {}),
+    ...(promo.tagline ? { tagline: promo.tagline } : {}),
     ...(Number.isFinite(end) ? { endsAt: new Date(end).toISOString() } : {}),
   }
   return promo.keycrm === "promo"

@@ -234,7 +234,7 @@ export default function MinimalShop({
       />
       {shownPromo && <PromoStrip promo={shownPromo.promo} category={shownPromo.category} />}
 
-      <div className="mx-auto max-w-[1400px] px-4 pt-6 lg:pt-12 pb-16">
+      <div className="mx-auto max-w-[1400px] px-4 pt-4 lg:pt-12 pb-16">
         <h1 className="sr-only">SINCERITA — італійська пряжа преміум якості</h1>
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
           {/* Desktop: filters in a sidebar. Phones get them in a panel, so products come first. */}
@@ -280,7 +280,8 @@ export default function MinimalShop({
             {homePromo && <PromoCategoryHeader summary={homePromo} onShow={() => openPromo(homePromo.category)} />}
             <TrustStrip compact />
             <h2 className="sr-only">Товари</h2>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            {/* Filters and sorting share one row, the count goes under them: the products start sooner. */}
+            <div className="flex items-center justify-between gap-x-4">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -296,11 +297,6 @@ export default function MinimalShop({
                     <span className="rounded-full bg-zinc-900 px-1.5 text-xs tabular-nums text-white">{activeFilterCount}</span>
                   )}
                 </button>
-                <p role="status" className="text-xs tabular-nums whitespace-nowrap text-zinc-500 dark:text-zinc-400">
-                  {waiting
-                    ? "Шукаємо…"
-                    : `${homePromo ? "Увесь каталог · " : ""}${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
-                </p>
               </div>
               <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <span className="hidden sm:inline">Сортувати:</span>
@@ -318,6 +314,11 @@ export default function MinimalShop({
                 </select>
               </label>
             </div>
+            <p role="status" className="mb-3 mt-1.5 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              {waiting
+                ? "Шукаємо…"
+                : `${homePromo ? "Увесь каталог · " : ""}${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
+            </p>
             {products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">Каталог оновлюється. Зазирніть за кілька хвилин.</p>

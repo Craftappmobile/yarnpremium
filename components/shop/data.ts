@@ -51,6 +51,8 @@ export interface ProductPromo {
   percent: number
   /** What is on sale, where the category's name doesn't say it: "Меринос 100%". */
   title?: string
+  /** The short line over the promotion's header: "Італійський сток". */
+  tagline?: string
   /** When it is over (ISO): the start of the day after its last, Kyiv time. None: while stock lasts. */
   endsAt?: string
 }
