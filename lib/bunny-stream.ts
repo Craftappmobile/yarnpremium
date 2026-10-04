@@ -3,8 +3,8 @@
 // Employees keep putting videos into Google Drive (lib/product-videos.ts); the
 // catalog sync asks Bunny Stream to fetch each new one from Drive. Bunny
 // converts it (any phone's format, iPhone HEVC included) to MP4 that plays
-// everywhere, smaller than the original, and serves it from its CDN. Once a
-// copy is ready the shop plays it from there; until then, from Drive.
+// everywhere, smaller than the original, and serves it from its CDN. The shop
+// shows a video once its copy is ready; until then the product has its photos.
 //
 // Settings: BUNNY_STREAM_LIBRARY_ID, BUNNY_STREAM_API_KEY (the library's API
 // key) and BUNNY_STREAM_CDN_HOST (its CDN hostname, vz-….b-cdn.net). The

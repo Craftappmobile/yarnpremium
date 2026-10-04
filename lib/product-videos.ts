@@ -8,11 +8,11 @@
 // («Зразок у 2 нитки · спиці 3 мм»). Both folders are shared "anyone with the
 // link can view", so GOOGLE_DRIVE_API_KEY can list them and fetch the files.
 //
-// The catalog sync lists both folders and keeps the matches in Redis
-// (catalog:videos, sku -> StoredVideos JSON); a product without a match simply
-// has no video on its page. When Bunny Stream is set up (lib/bunny-stream.ts),
-// the sync copies each video there and the site plays the copy; Drive serves
-// a video only until its copy is ready.
+// The catalog sync lists both folders, keeps the matches in Redis
+// (catalog:videos, sku -> StoredVideos JSON) and copies each video to Bunny
+// Stream (lib/bunny-stream.ts). Pages and the Meta feed get only Bunny's
+// copies: a video appears once its copy is ready. Drive is never played from,
+// so its download limits don't matter and the API key never leaves the server.
 
 import { redis, redisConfigured } from "@/lib/redis"
 import { type BunnyRef, type BunnyReport, bunnyConfigured, bunnyUrls, syncBunnyCopies } from "@/lib/bunny-stream"
@@ -40,7 +40,7 @@ interface StoredVideos {
 
 export interface ProductVideo extends StoredVideo {
   src: string
-  /** A frame of the video, full size and for the thumbnail strip. Drive may have none for a fresh upload. */
+  /** A frame of the video, full size and for the thumbnail strip. */
   poster: string
   thumb: string
 }
@@ -219,21 +219,11 @@ export async function matchDriveVideos(skus: string[]): Promise<{ videos: Map<st
   return { videos, report }
 }
 
+/** Bunny's copy, converted to MP4 that plays on every phone and served from its CDN; none until it's ready. */
 function withUrls(v: StoredVideo | undefined): ProductVideo | undefined {
-  if (!v) return undefined
-  // Bunny's copy: converted to MP4 that plays on every phone, from a CDN.
-  if (v.bunny && bunnyConfigured()) {
-    const { src, poster } = bunnyUrls(v.bunny)
-    return { ...v, src, poster, thumb: poster }
-  }
-  const id = encodeURIComponent(v.id)
-  return {
-    ...v,
-    // Drive serves the file itself with range requests, so the video can start before it's all loaded.
-    src: driveFileUrl(v.id),
-    poster: `https://drive.google.com/thumbnail?id=${id}&sz=w1000`,
-    thumb: `https://drive.google.com/thumbnail?id=${id}&sz=w200`,
-  }
+  if (!v?.bunny || !bunnyConfigured()) return undefined
+  const { src, poster } = bunnyUrls(v.bunny)
+  return { ...v, src, poster, thumb: poster }
 }
 
 function toVideos(raw: string | null | undefined): ProductVideos | null {
@@ -245,13 +235,13 @@ function toVideos(raw: string | null | undefined): ProductVideos | null {
 
 /** The product's videos, or null when it has none. */
 export async function readProductVideos(sku: string): Promise<ProductVideos | null> {
-  if (!redisConfigured() || !apiKey()) return null
+  if (!redisConfigured() || !bunnyConfigured()) return null
   return toVideos(await (await redis()).hGet(KEY_VIDEOS, sku))
 }
 
 /** Videos of every product that has any, by SKU (for the Meta catalog feed). */
 export async function readAllProductVideos(): Promise<Map<string, ProductVideos>> {
-  if (!redisConfigured() || !apiKey()) return new Map()
+  if (!redisConfigured() || !bunnyConfigured()) return new Map()
   const all = await (await redis()).hGetAll(KEY_VIDEOS)
   return new Map(
     Object.entries(all).flatMap(([sku, raw]) => {

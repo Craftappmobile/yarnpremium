@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { redisConfigured } from "@/lib/redis"
+import { type SyncReport, readCatalogMeta } from "@/lib/catalog"
 import {
   type DayStats,
   type StatsSummary,
@@ -70,7 +71,45 @@ function Verdict({ s, days }: { s: StatsSummary; days: number }) {
 /** Orders per 100 visitors, with one decimal: these rates are a few percent. */
 const rate = (n: number | null) => (n === null ? "—" : `${(n * 100).toLocaleString("uk-UA", { maximumFractionDigits: 1 })}%`)
 
-function VideoSection({ v, days }: { v: VideoSummary; days: number }) {
+/** Where the videos stand after the last catalog sync: found in Drive, copies in Bunny. */
+function VideoSync({ report }: { report: SyncReport["videos"] | undefined }) {
+  let text: string
+  let problem = false
+  if (!report) {
+    text = "Відео не налаштовані: у Vercel немає ключа Google Drive або папок."
+    problem = true
+  } else if ("error" in report) {
+    text = `Google Drive не прочитався: ${report.error}. Відео на сайті лишились з попередньої синхронізації.`
+    problem = true
+  } else {
+    const b = report.bunny
+    const found = `На Drive знайдено оглядів: ${report.review}, зразків: ${report.sample}.`
+    const unmatched = report.unmatched.length
+      ? ` Без товару (перевірте артикул у назві): ${report.unmatched.slice(0, 10).join(", ")}${report.unmatched.length > 10 ? "…" : ""}.`
+      : ""
+    if (!b) {
+      text = `${found} Bunny Stream не налаштований, тож на сайті відео не показуються.${unmatched}`
+      problem = true
+    } else if ("error" in b) {
+      text = `${found} Bunny Stream не відповів: ${b.error}. Готові відео й далі показуються, нові чекають.${unmatched}`
+      problem = true
+    } else {
+      text =
+        `${found} У Bunny готово: ${b.ready}, конвертується: ${b.processing}` +
+        (b.failed ? `, не вдалося: ${b.failed} (спробуємо ще раз через добу)` : "") +
+        (b.noMp4 ? `. ${b.noMp4} без MP4: увімкніть «MP4 fallback» у бібліотеці Bunny` : "") +
+        `.${unmatched}`
+      problem = b.failed > 0 || b.noMp4 > 0 || unmatched !== ""
+    }
+  }
+  return (
+    <p className={`rounded-2xl border p-4 text-sm ${problem ? "border-amber-300 bg-amber-50 text-amber-900" : "border-zinc-200 bg-white text-zinc-700"}`}>
+      {text}
+    </p>
+  )
+}
+
+function VideoSection({ v, days, sync }: { v: VideoSummary; days: number; sync: SyncReport["videos"] | undefined }) {
   const share = (part: number, whole: number) => (whole > 0 ? percent(part / whole) : "—")
   let verdict: string
   if (v.pages === 0) {
@@ -91,6 +130,7 @@ function VideoSection({ v, days }: { v: VideoSummary; days: number }) {
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">Відео на картках товарів</h2>
+      <VideoSync report={sync} />
       <p className="rounded-2xl border border-zinc-200 bg-white p-5 text-base leading-relaxed text-zinc-800">{verdict}</p>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Відкрили товар із відео" value={String(v.pages)} note={`замовлень після цього: ${v.ordersPage}`} />
@@ -184,6 +224,7 @@ export default async function AssistantStatsPage({
   const daily = await readStats(days)
   const s = summarize(daily)
   const video = summarizeVideo(daily)
+  const catalogMeta = await readCatalogMeta().catch(() => null)
   const chronological = [...daily].reverse()
 
   return (
@@ -260,7 +301,7 @@ export default async function AssistantStatsPage({
 
       <DayTable daily={daily} />
 
-      <VideoSection v={video} days={days} />
+      <VideoSection v={video} days={days} sync={catalogMeta?.videos} />
 
       <section className="space-y-2 rounded-2xl bg-zinc-100 p-5 text-sm leading-relaxed text-zinc-600">
         <p className="font-medium text-zinc-800">Як читати ці цифри</p>
