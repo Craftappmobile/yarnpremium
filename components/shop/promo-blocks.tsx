@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { ArrowRight, Check, Clock, CreditCard, RotateCcw, Truck } from "lucide-react"
 import { type ProductPromo, formatPriceShort, promoDeadline } from "./data"
-import type { PromoSummary } from "./catalog-summary"
+import type { GroupSummary, PromoSummary } from "./catalog-summary"
 import { OldPrice } from "./promo-price"
 import { PromoVideo } from "./promo-video"
 import { pluralUk } from "@/lib/utils"
@@ -20,33 +20,42 @@ export function PromoStrip({ promo, category }: { promo: ProductPromo; category:
 }
 
 /**
- * Header of a promotion: the offer, how many colours are left and the lowest
- * price of 100 g. Over its category the products follow at once; on the home
- * page `onShow` adds the button that opens the category.
+ * Header over a category: what it is, the lowest price and how many are in
+ * stock, all worked out from the catalog (catalog-summary.ts). Under a
+ * promotion it adds the discount and the regular price struck through; over
+ * its category the products follow at once, on the home page `onShow` adds
+ * the button that opens the category.
  */
-export function PromoCategoryHeader({ summary, onShow }: { summary: PromoSummary; onShow?: () => void }) {
-  const { promo, category, count, from, video } = summary
+export function CategoryHeader({ summary, onShow }: { summary: GroupSummary | PromoSummary; onShow?: () => void }) {
+  const { category, count, from, composition } = summary
+  const promo = "promo" in summary ? summary.promo : undefined
+  const video = "video" in summary ? summary.video : undefined
+  const inStock = `${count} ${pluralUk(count, ["товар", "товари", "товарів"])} в наявності`
   return (
     <section className="mb-3 flex gap-4 rounded-xl border border-zinc-200 bg-white p-4 lg:mb-5 lg:gap-6 lg:p-6 dark:border-zinc-800 dark:bg-zinc-900">
-      {video && <PromoVideo src={video.src} poster={video.poster} label={`Відео: ${promo.title ?? category}`} />}
+      {video && <PromoVideo src={video.src} poster={video.poster} label={`Відео: ${promo?.title ?? category}`} />}
       <div className="min-w-0 flex-1">
         {/* Phones skip it: the first row of yarn has to fit on the first screen. */}
-        <p className="hidden text-xs font-medium uppercase tracking-wide text-zinc-500 sm:block dark:text-zinc-400">
-          {promo.tagline ?? `${promo.name.replace(/\s*−\d+%$/, "")} · ${promoDeadline(promo)}`}
-        </p>
+        {promo && (
+          <p className="hidden text-xs font-medium uppercase tracking-wide text-zinc-500 sm:block dark:text-zinc-400">
+            {promo.tagline ?? `${promo.name.replace(/\s*−\d+%$/, "")} · ${promoDeadline(promo)}`}
+          </p>
+        )}
         {/* The discount is the one accent: black like the shop's buttons, not a sale red that would fight the yarn. */}
-        <div className="flex flex-wrap items-center gap-2 sm:mt-2">
-          <span className="rounded-md bg-zinc-900 px-2.5 py-1 text-lg font-bold tabular-nums text-white dark:bg-white dark:text-zinc-900">
-            −{promo.percent}%
-          </span>
-          <h2 className="text-2xl font-semibold tracking-tight text-balance lg:text-3xl">{promo.title ?? category}</h2>
+        <div className={`flex flex-wrap items-center gap-2 ${promo ? "sm:mt-2" : ""}`}>
+          {promo && (
+            <span className="rounded-md bg-zinc-900 px-2.5 py-1 text-lg font-bold tabular-nums text-white dark:bg-white dark:text-zinc-900">
+              −{promo.percent}%
+            </span>
+          )}
+          <h2 className="text-2xl font-semibold tracking-tight text-balance lg:text-3xl">{promo?.title ?? category}</h2>
         </div>
         {from && (
           <p className="mt-2 flex flex-wrap items-baseline gap-x-2 tabular-nums">
             <span className="text-sm text-zinc-600 dark:text-zinc-300">від</span>
             <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">{formatPriceShort(from.price)}</span>
-            <OldPrice className="text-base">{formatPriceShort(from.oldPrice)}</OldPrice>
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">/ 100 г</span>
+            {from.oldPrice && <OldPrice className="text-base">{formatPriceShort(from.oldPrice)}</OldPrice>}
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">/ {from.per}</span>
           </p>
         )}
         {onShow ? (
@@ -56,13 +65,19 @@ export function PromoCategoryHeader({ summary, onShow }: { summary: PromoSummary
             onClick={onShow}
             className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
           >
-            Дивитись {count} {pluralUk(count, ["товар", "товари", "товарів"])} зі знижкою
+            Дивитись {count} {pluralUk(count, ["товар", "товари", "товарів"])}
+            {promo && " зі знижкою"}
             <ArrowRight className="h-4 w-4" aria-hidden />
           </button>
-        ) : (
+        ) : promo ? (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
             <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
-            Знижка вже в цінах · {count} {pluralUk(count, ["товар", "товари", "товарів"])} в наявності
+            Знижка вже в цінах · {inStock}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+            {composition && <>{composition} · </>}
+            {inStock}
           </p>
         )}
       </div>

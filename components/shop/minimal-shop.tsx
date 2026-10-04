@@ -11,7 +11,7 @@ import { FiltersSidebar, type Filters } from "./filters-sidebar"
 import { Footer } from "./footer"
 import { CartBar } from "./cart-bar"
 import { SubscribeCard } from "./subscribe-card"
-import { PromoCategoryHeader, PromoStrip, TrustStrip } from "./promo-blocks"
+import { CategoryHeader, PromoStrip, TrustStrip } from "./promo-blocks"
 import { type Product, type SortOption, promoDeadline, sortOptions, sortProducts } from "./data"
 import { announceOffer } from "./assistant"
 import { useCart } from "./cart-context"
@@ -175,6 +175,8 @@ export default function MinimalShop({
   // The whole catalog, unfiltered: the biggest promotion, with a button to its category.
   const category = filters.categories.length === 1 ? filters.categories[0] : null
   const categoryPromo = category ? summary.promos?.find((s) => s.category === category) : undefined
+  // Every category has a header; a promotion's one adds the discount.
+  const group = categoryPromo ?? (category ? summary.groups?.find((s) => s.category === category) : undefined)
   const homePromo = query === "" && activeFilterCount === 0 ? summary.promos?.[0] : undefined
   const shownPromo = categoryPromo ?? homePromo
   const openPromo = (promoCategory: string) => {
@@ -276,8 +278,8 @@ export default function MinimalShop({
           )}
 
           <div id="content" className="flex-1 min-w-0 scroll-mt-20">
-            {categoryPromo && <PromoCategoryHeader summary={categoryPromo} />}
-            {homePromo && <PromoCategoryHeader summary={homePromo} onShow={() => openPromo(homePromo.category)} />}
+            {group && <CategoryHeader summary={group} />}
+            {homePromo && <CategoryHeader summary={homePromo} onShow={() => openPromo(homePromo.category)} />}
             <TrustStrip compact />
             <h2 className="sr-only">Товари</h2>
             {/* Filters and sorting share one row, the count goes under them: the products start sooner. */}
