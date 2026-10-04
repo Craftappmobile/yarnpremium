@@ -215,7 +215,7 @@ export async function libraryVideo(ref: string): Promise<{ src: string; poster: 
   let urls: { src: string; poster: string } | null = null
   try {
     const guid = ref.match(GUID)?.[0]?.toLowerCase()
-    const video = guid ? await api<BunnyVideo>("GET", `/videos/${guid}`) : await findByTitle(ref.trim())
+    const video = guid ? await cachedGet<BunnyVideo>(`/videos/${guid}`) : await findByTitle(ref.trim())
     const file = video && video.status === FINISHED ? mp4File(video) : undefined
     if (video && file) {
       urls = bunnyUrls({ guid: video.guid, file, thumbnail: video.thumbnailFileName || "thumbnail.jpg", length: video.length })
@@ -227,9 +227,22 @@ export async function libraryVideo(ref: string): Promise<{ src: string; poster: 
   return urls
 }
 
+/**
+ * A GET for pages: kept by Next's data cache for 10 minutes. `api()` reads with
+ * no-store, which would turn the home page into one rendered on every visit.
+ */
+async function cachedGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${API}/library/${encodeURIComponent(library())}${path}`, {
+    headers: { AccessKey: process.env.BUNNY_STREAM_API_KEY ?? "", Accept: "application/json" },
+    next: { revalidate: 600 },
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!res.ok) throw new Error(`Bunny Stream GET ${path}: ${res.status}`)
+  return (await res.json()) as T
+}
+
 async function findByTitle(title: string): Promise<BunnyVideo | undefined> {
-  const res = await api<{ items: BunnyVideo[] }>(
-    "GET",
+  const res = await cachedGet<{ items: BunnyVideo[] }>(
     `/videos?page=1&itemsPerPage=20&orderBy=date&search=${encodeURIComponent(title)}`,
   )
   const wanted = title.toLowerCase()
