@@ -6,7 +6,7 @@ import { m } from "motion/react"
 import { X, Check, Heart, ShoppingBag, ExternalLink } from "lucide-react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { type Product, clampQuantity, formatPrice, formatQuantity, promoLastDay } from "./data"
+import { type Product, clampQuantity, formatPrice, formatQuantity, promoDeadline } from "./data"
 import { QuantityPicker } from "./quantity-picker"
 import { trackViewItem } from "./analytics"
 import { useWishlist } from "./wishlist-context"
@@ -86,7 +86,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             </div>
             {product.promo && (
               <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                {product.promo.name} · до {promoLastDay(product.promo)} включно
+                {product.promo.name} · {promoDeadline(product.promo)}
               </p>
             )}
 

@@ -69,7 +69,7 @@ function productJsonLd(product: Product) {
       priceCurrency: "UAH",
       price: product.price,
       // The promotional price holds through its last day.
-      priceValidUntil: product.promo
+      priceValidUntil: product.promo?.endsAt
         ? new Date(Date.parse(product.promo.endsAt) - 1).toLocaleDateString("sv-SE", { timeZone: "Europe/Kiev" })
         : undefined,
       availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/SoldOut",

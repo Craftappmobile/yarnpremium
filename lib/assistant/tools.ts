@@ -4,7 +4,7 @@
 
 import type Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
-import { type Product, clampQuantity, formatPrice, lineTotal, promoLastDay } from "@/components/shop/data"
+import { type Product, clampQuantity, formatPrice, lineTotal, promoDeadline } from "@/components/shop/data"
 import { COLOR_FAMILIES, type ColorFamily } from "@/components/shop/yarn-colors"
 import { readCatalog, readProducts } from "@/lib/catalog"
 import type { ProductsEvent } from "@/lib/assistant/events"
@@ -151,7 +151,7 @@ function brief(p: Product) {
     // `price` is already the promotional one.
     promo:
       p.promo && p.oldPrice
-        ? `${p.promo.name} до ${promoLastDay(p.promo)} включно; звичайна ціна ${priceLabel(p, p.oldPrice)}`
+        ? `${p.promo.name}, ${promoDeadline(p.promo)}; звичайна ціна ${priceLabel(p, p.oldPrice)}`
         : undefined,
     in_stock: p.stock > 0 ? `${p.stock} ${p.priceUnit}` : "немає",
   }

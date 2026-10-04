@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { readCatalog } from "@/lib/catalog"
 import { type ProductVideos, readAllProductVideos } from "@/lib/product-videos"
 import { BRAND, SITE_URL } from "@/lib/site"
-import { currentOrNextPromo, promoLabel, promoPrice, promoWindow } from "@/lib/promo"
+import { type PromoConfig, currentOrNextPromo, promoLabel, promoPrice, promoWindow, regularPrice } from "@/lib/promo"
 import type { Product } from "@/components/shop/data"
 
 // Product feed for the Meta catalog (Commerce Manager fetches it hourly).
@@ -15,10 +15,11 @@ import type { Product } from "@/components/shop/data"
 // Only Bunny Stream's copies are listed; a product whose copy isn't ready yet
 // goes without a video until it is.
 // A promotion (lib/promo.ts) is listed from the moment it is set up: `price`
-// stays the regular price, `sale_price` is the promotional one, and Meta shows
-// it only between the dates in `sale_price_effective_date`, so ads switch on
-// time even though Meta fetches the feed only once an hour. `custom_label_0`
-// carries the promotion's name, to build its product set in Commerce Manager.
+// is the regular price, `sale_price` the promotional one. A promotion with
+// dates has them in `sale_price_effective_date`, and Meta shows the sale price
+// only between them, so ads switch on time even though Meta fetches the feed
+// only once an hour. `custom_label_0` carries the promotion's name, to build
+// its product set in Commerce Manager.
 export const dynamic = "force-dynamic"
 
 const COLUMNS = [
@@ -55,6 +56,28 @@ const MIN_PIECE_PRICE = 10
 
 const byWeight = (p: Product) => p.priceUnit === "г"
 
+/** Regular and promotional price per unit: of the promotion running now, or of the next one ahead. */
+function prices(p: Product, promo: PromoConfig | undefined): { regular: number; sale?: number } {
+  // A running promotion is already applied by the catalog.
+  if (p.promo && p.oldPrice) return { regular: p.oldPrice, sale: p.price }
+  if (!promo) return { regular: p.price }
+  return promo.keycrm === "promo"
+    ? { regular: regularPrice(p.price, p.priceUnit, promo.percent), sale: p.price }
+    : { regular: p.price, sale: promoPrice(p.price, p.priceUnit, promo.percent) }
+}
+
+const YEAR_MS = 365 * 24 * 3600_000
+
+/** `sale_price_effective_date`: empty for a promotion without dates (the sale price then always applies). */
+function effectiveDates(promo: PromoConfig): string {
+  const { start, end } = promoWindow(promo)
+  if (!Number.isFinite(start) && !Number.isFinite(end)) return ""
+  const from = Number.isFinite(start) ? start : Date.now()
+  // The end is the last minute of the last day.
+  const to = Number.isFinite(end) ? end - 60_000 : from + YEAR_MS
+  return `${kyivIso(from)}/${kyivIso(to)}`
+}
+
 /** "2026-10-13T00:00+03:00": a moment as Kyiv clocks show it, with their offset from UTC. */
 function kyivIso(t: number): string {
   const parts = Object.fromEntries(
@@ -88,10 +111,8 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
   ].filter((v): v is { url: string; tag: string } => Boolean(v))
   const weight = byWeight(p)
   const perAd = (unitPrice: number) => (weight ? unitPrice * WEIGHT_AD_GRAMS : unitPrice)
-  // While a promotion runs the catalog already sells at its price; the feed lists the regular one.
-  const regular = p.oldPrice ?? p.price
   const promo = currentOrNextPromo(p.category)
-  const dates = promo && promoWindow(promo)
+  const { regular, sale } = prices(p, promo)
   const details = [p.category, p.color, p.length ? `${p.length} м` : "", p.brand].filter(Boolean).join(", ")
   const priceNote = weight ? `Ціна за ${WEIGHT_AD_GRAMS} г.` : ""
   return {
@@ -101,9 +122,8 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
     availability: p.stock > 0 ? "in stock" : "out of stock",
     condition: "new",
     price: `${perAd(regular).toFixed(2)} UAH`,
-    sale_price: promo ? `${perAd(promoPrice(regular, p.priceUnit, promo.percent)).toFixed(2)} UAH` : "",
-    // The end is the last minute of the last day.
-    sale_price_effective_date: dates ? `${kyivIso(dates.start)}/${kyivIso(dates.end - 60_000)}` : "",
+    sale_price: sale !== undefined ? `${perAd(sale).toFixed(2)} UAH` : "",
+    sale_price_effective_date: promo ? effectiveDates(promo) : "",
     custom_label_0: promo ? promoLabel(promo) : "",
     link: `${SITE_URL}/product/${encodeURIComponent(p.sku)}`,
     image_link: p.image,

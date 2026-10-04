@@ -13,7 +13,7 @@ import {
   formatQuantity,
   lineSavings,
   lineTotal,
-  promoLastDay,
+  promoDeadline,
 } from "./data"
 import { ASSISTANT_ENABLED, openAssistant } from "./assistant"
 import { QuantityPicker } from "./quantity-picker"
@@ -154,7 +154,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               </div>
               {product.promo && (
                 <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {product.promo.name} · до {promoLastDay(product.promo)} включно
+                  {product.promo.name} · {promoDeadline(product.promo)}
                 </p>
               )}
 

@@ -46,11 +46,11 @@ export interface Product {
 }
 
 export interface ProductPromo {
-  /** As in the ads: "Тиждень мериносу −25%". */
+  /** As in the ads: "Лімітована партія −25%". */
   name: string
   percent: number
-  /** When it is over (ISO): the start of the day after its last, Kyiv time. */
-  endsAt: string
+  /** When it is over (ISO): the start of the day after its last, Kyiv time. None: while stock lasts. */
+  endsAt?: string
 }
 
 export interface CartItem extends Product {
@@ -194,13 +194,15 @@ export function lineSavings(p: QuantityProduct & Pick<Product, "price" | "oldPri
   return Math.max(0, Math.round((p.oldPrice * quantity - lineTotal(p, quantity)) * 100) / 100)
 }
 
-/** Last day of a promotion, Kyiv time: "19 жовтня". */
-export function promoLastDay(promo: ProductPromo): string {
-  return new Date(Date.parse(promo.endsAt) - 1).toLocaleDateString("uk-UA", {
+/** How long a promotion lasts, for people: "до 19 жовтня включно", or "встигніть, поки є" without an end date. */
+export function promoDeadline(promo: ProductPromo): string {
+  if (!promo.endsAt) return "встигніть, поки є"
+  const lastDay = new Date(Date.parse(promo.endsAt) - 1).toLocaleDateString("uk-UA", {
     day: "numeric",
     month: "long",
     timeZone: "Europe/Kiev",
   })
+  return `до ${lastDay} включно`
 }
 
 /** "350 г" / "3 шт". */
