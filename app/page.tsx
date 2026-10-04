@@ -23,7 +23,11 @@ export default async function Home() {
   const products = catalog.filter((p) => p.stock > 0)
   return (
     <main className="min-h-screen">
-      <MinimalShop initial={packCatalog(products.slice(0, FIRST_SCREEN))} summary={summarizeCatalog(products)} />
+      <MinimalShop
+        initial={packCatalog(products.slice(0, FIRST_SCREEN))}
+        summary={summarizeCatalog(products)}
+        catalogVersion={Date.now().toString(36)}
+      />
     </main>
   )
 }
