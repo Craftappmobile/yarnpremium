@@ -11,6 +11,7 @@
 //   catalog:stock_at   hash  sku -> ms timestamp of the last webhook stock update
 //   catalog:offer_sku  hash  KeyCRM offer id -> sku (webhooks may name offers by id only)
 //   catalog:image_color hash photo URL -> yarn colour worked out from it (kept across syncs)
+//   catalog:videos     hash  sku -> videos from Google Drive (lib/product-videos.ts)
 //   catalog:meta       JSON  report of the last sync
 //   catalog:lock       lock  held while a sync runs
 
@@ -19,6 +20,7 @@ import type { YarnColor } from "@/lib/image-color"
 import { familyFromName } from "@/components/shop/yarn-colors"
 import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
+import { type DriveVideoReport, KEY_VIDEOS, driveVideosConfigured, matchDriveVideos } from "@/lib/product-videos"
 
 const KEY_PRODUCTS = "catalog:products"
 const KEY_STOCK = "catalog:stock"
@@ -115,6 +117,8 @@ export interface SyncReport {
   stockCheck?: { compared: number; quantityMismatches: number; reserveMismatches: number; examples: unknown[] }
   /** Photo colours: known after this sync, worked out now, unreadable, left for the next sync. */
   colors?: { known: number; computed: number; failed: number; pending: number }
+  /** Product videos found in Google Drive, or why they couldn't be read (the previous ones are kept then). */
+  videos?: DriveVideoReport | { error: string }
 }
 
 /**
@@ -214,6 +218,12 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       catalog.push(toProduct({ ...offer, sku }, product, customFields(productById.get(offer.product_id)), category))
     }
 
+    // Read alongside the photo colours below. Videos are optional: if Drive can't
+    // be read, the ones found by the last sync stay.
+    const videosRead = driveVideosConfigured()
+      ? matchDriveVideos(catalog.map((p) => p.sku)).catch((e: Error) => ({ error: e.message }))
+      : Promise.resolve(null)
+
     const offerById = new Map<number, any>(offers.map((o: any) => [o.id, o]))
     const compared = stocksPage.items.filter((s: any) => offerById.has(s.id))
     const quantityOff = compared.filter((s: any) => Number(s.quantity) !== Number(offerById.get(s.id).quantity))
@@ -243,6 +253,8 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       else p.colorFamily = familyFromName(p.color) ?? color?.family
     }
 
+    const videos = await videosRead
+
     // A stock webhook that landed while we were reading KeyCRM is newer than our data: keep it.
     const stockAt = await r.hGetAll(KEY_STOCK_AT)
     const newer = catalog.filter((p) => Number(stockAt[p.sku] ?? 0) > started).map((p) => p.sku)
@@ -255,6 +267,13 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       tx.hSet(KEY_PRODUCTS, Object.fromEntries(catalog.map((p) => [p.sku, JSON.stringify(p)])))
       tx.hSet(KEY_STOCK, Object.fromEntries(catalog.map((p) => [p.sku, liveStock.get(p.sku) ?? String(p.stock)])))
     }
+    if (!videos) tx.del(KEY_VIDEOS)
+    else if ("videos" in videos) {
+      tx.del(KEY_VIDEOS)
+      if (videos.videos.size) {
+        tx.hSet(KEY_VIDEOS, Object.fromEntries([...videos.videos].map(([sku, v]) => [sku, JSON.stringify(v)])))
+      }
+    }
     const report: SyncReport = {
       ran: true,
       startedAt: new Date(started).toISOString(),
@@ -264,6 +283,7 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       skipped: { ...skipped, noSku: skipped.noSku.slice(0, 100) },
       stockCheck,
       colors: colorReport,
+      videos: videos ? ("videos" in videos ? videos.report : videos) : undefined,
     }
     tx.set(KEY_META, JSON.stringify({ ...report, finishedAt: new Date().toISOString() }))
     await tx.exec()

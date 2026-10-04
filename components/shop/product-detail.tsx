@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
-import { ArrowLeft, Check, X, Heart, ShoppingBag } from "lucide-react"
+import { ArrowLeft, Check, X, Heart, Play, ShoppingBag } from "lucide-react"
+import type { ProductVideos } from "@/lib/product-videos"
 import { type Product, clampQuantity, formatPrice, formatQuantity, lineTotal } from "./data"
 import { QuantityPicker } from "./quantity-picker"
 import { trackViewItem } from "./analytics"
@@ -12,19 +13,24 @@ import { useWishlist } from "./wishlist-context"
 import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
 import { TopBar } from "./top-bar"
 import { ProductImage } from "./product-image"
+import { ProductMedia, useProductMedia } from "./product-media"
 
 interface ProductDetailProps {
   product: Product
+  /** Video review and sample video from Google Drive (lib/product-videos.ts), if the product has any. */
+  videos?: ProductVideos | null
   /** In-stock products of the nearest shades (lib/similar-products.ts), shown when this one is sold out. */
   similar?: Product[]
   /** `similar` was picked by colour, not by category alone. */
   similarByColor?: boolean
 }
 
-export function ProductDetail({ product, similar = [], similarByColor = false }: ProductDetailProps) {
+export function ProductDetail({ product, videos = null, similar = [], similarByColor = false }: ProductDetailProps) {
   const inStock = product.stock > 0
   const images = product.images.length > 0 ? product.images : [product.image]
-  const [imageIndex, setImageIndex] = useState(0)
+  const media = useProductMedia(images, videos)
+  const sample = media.slides.find((s) => s.key === "sample" && s.kind === "video")
+  const mediaRef = useRef<HTMLDivElement>(null)
   const [quantity, setQuantity] = useState(() => clampQuantity(product, product.minQty))
   const [isCartOpen, setIsCartOpen] = useState(false)
   const { addToCart, itemCount } = useCart()
@@ -87,45 +93,8 @@ export function ProductDetail({ product, similar = [], similarByColor = false }:
           </nav>
 
           <div className="mt-4 md:mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            <div>
-              <div className="aspect-[4/5] bg-white dark:bg-zinc-900 rounded-xl overflow-hidden">
-                <ProductImage
-                  src={images[imageIndex]}
-                  alt={product.name}
-                  width={800}
-                  height={1000}
-                  sizes="(min-width: 1024px) 480px, (min-width: 768px) 50vw, 100vw"
-                  priority
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              {images.length > 1 && (
-                <div className="mt-2 flex gap-2 overflow-x-auto">
-                  {images.map((src, i) => (
-                    <button
-                      type="button"
-                      key={src}
-                      onClick={() => setImageIndex(i)}
-                      aria-label={`Фото ${i + 1}`}
-                      aria-current={i === imageIndex}
-                      className={`h-16 w-14 shrink-0 overflow-hidden rounded-md border-2 ${
-                        i === imageIndex
-                          ? "border-zinc-900 dark:border-zinc-100"
-                          : "border-transparent hover:border-zinc-300"
-                      }`}
-                    >
-                      <ProductImage
-                        src={src}
-                        alt=""
-                        width={56}
-                        height={64}
-                        sizes="56px"
-                        className="h-full w-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div ref={mediaRef} className="scroll-mt-20">
+              <ProductMedia name={product.name} media={media} />
             </div>
 
             <div className="flex flex-col">
@@ -178,6 +147,30 @@ export function ProductDetail({ product, similar = [], similarByColor = false }:
                 <Heart className={`w-4 h-4 ${wished ? "fill-rose-500 text-rose-500" : ""}`} />
                 {wished ? "У списку бажань" : "Додати до списку бажань"}
               </button>
+
+              {sample?.kind === "video" && (
+                <div className="mt-5 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Зразок із відео</p>
+                    <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+                      {sample.video.caption || "Як ця пряжа виглядає у в'язанні"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      media.show("sample")
+                      // Phones: the gallery is above, out of sight by now.
+                      const el = mediaRef.current
+                      if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: "smooth" })
+                    }}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-800"
+                  >
+                    <Play className="h-3.5 w-3.5 fill-current" aria-hidden />
+                    Дивитись
+                  </button>
+                </div>
+              )}
 
               <div className="mt-6 pt-5 border-t border-zinc-200 dark:border-zinc-800 space-y-2 text-sm">
                 {product.description && (
