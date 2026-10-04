@@ -11,6 +11,8 @@ import type { Product } from "@/components/shop/data"
 // them out of ads but keeps their history, and they return once restocked.
 // Products with videos (lib/product-videos.ts) carry them too: catalog ads can
 // then show the cone's video review, the same one the product page opens with.
+// Only Bunny Stream's copies are listed; a product whose copy isn't ready yet
+// goes without a video until it is.
 export const dynamic = "force-dynamic"
 
 const COLUMNS = [
