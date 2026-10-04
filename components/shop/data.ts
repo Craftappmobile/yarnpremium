@@ -196,10 +196,10 @@ export function lineSavings(p: QuantityProduct & Pick<Product, "price" | "oldPri
 
 /**
  * Second-item offer: in a cart of two or more lines, the line that costs the
- * second most is sold at this share off its regular price (before any
- * promotion), unless its promotional price is lower already. The costliest
- * line always stays at its price, so the cheaper purchase gets the discount
- * whichever order things were picked in.
+ * second most is sold at this share off its price on the site, a
+ * promotional price included (merino at 135 ₴ / 100 г → 121,50 ₴). The
+ * costliest line always stays at its price, so the cheaper purchase gets the
+ * discount whichever order things were picked in.
  */
 export const SECOND_ITEM = { percent: 10, name: "Друга позиція −10%" }
 
@@ -224,9 +224,9 @@ export function priceLines(lines: { product: PricedProduct; quantity: number }[]
   return lines.map(({ product, quantity }, i) => {
     const regular = product.oldPrice ?? product.price
     if (i === secondIndex) {
-      const unitPrice = Math.round(regular * (1 - SECOND_ITEM.percent / 100) * 10000) / 10000
+      const unitPrice = Math.round(product.price * (1 - SECOND_ITEM.percent / 100) * 10000) / 10000
       const total = Math.round(unitPrice * quantity * 100) / 100
-      // Never dearer than without the offer (a promotion could one day take off more).
+      // Never dearer than without the offer (the spool-end discount can take off as much).
       if (total < usual[i]) {
         return { unitPrice, total, saved: Math.round((regular * quantity - total) * 100) / 100, second: true }
       }
