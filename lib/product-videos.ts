@@ -6,14 +6,16 @@
 //   GOOGLE_DRIVE_SAMPLE_FOLDER   the knitted sample            «MER1124.mov»
 // The file's description in Drive, if any, is shown as the caption
 // («Зразок у 2 нитки · спиці 3 мм»). Both folders are shared "anyone with the
-// link can view", so GOOGLE_DRIVE_API_KEY can list them and the browser can
-// play the files straight from Drive.
+// link can view", so GOOGLE_DRIVE_API_KEY can list them and fetch the files.
 //
 // The catalog sync lists both folders and keeps the matches in Redis
 // (catalog:videos, sku -> StoredVideos JSON); a product without a match simply
-// has no video on its page.
+// has no video on its page. When Bunny Stream is set up (lib/bunny-stream.ts),
+// the sync copies each video there and the site plays the copy; Drive serves
+// a video only until its copy is ready.
 
 import { redis, redisConfigured } from "@/lib/redis"
+import { type BunnyRef, type BunnyReport, bunnyConfigured, bunnyUrls, syncBunnyCopies } from "@/lib/bunny-stream"
 
 export const KEY_VIDEOS = "catalog:videos"
 
@@ -27,6 +29,8 @@ interface StoredVideo {
   width: number
   height: number
   caption: string
+  /** The ready copy in Bunny Stream, played instead of the Drive file. */
+  bunny?: BunnyRef
 }
 
 interface StoredVideos {
@@ -36,7 +40,7 @@ interface StoredVideos {
 
 export interface ProductVideo extends StoredVideo {
   src: string
-  /** A frame from Drive, full size and for the thumbnail strip. May be missing for a fresh upload. */
+  /** A frame of the video, full size and for the thumbnail strip. Drive may have none for a fresh upload. */
   poster: string
   thumb: string
 }
@@ -113,7 +117,11 @@ export interface DriveVideoReport {
   sample: number
   /** File names that match no SKU on sale: a typo, or a product that's gone. */
   unmatched: string[]
+  /** Copies in Bunny Stream, or why they couldn't be updated (videos then play from Drive). */
+  bunny?: BunnyReport | { error: string }
 }
+
+const driveFileUrl = (id: string) => `${DRIVE_FILES}/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(apiKey())}`
 
 /**
  * Videos for the given SKUs, read from both Drive folders. Where a folder holds
@@ -149,16 +157,55 @@ export async function matchDriveVideos(skus: string[]): Promise<{ videos: Map<st
     }
   })
   report.unmatched = report.unmatched.slice(0, 100)
+
+  if (bunnyConfigured()) {
+    const ROLE_TITLE = { review: "огляд", sample: "зразок" }
+    const wanted = [...videos].flatMap(([sku, entry]) =>
+      (["review", "sample"] as const).flatMap((role) => {
+        const v = entry[role]
+        return v ? [{ id: v.id, title: `${sku} · ${ROLE_TITLE[role]}`, url: driveFileUrl(v.id) }] : []
+      }),
+    )
+    try {
+      const { ready, report: bunny } = await syncBunnyCopies(wanted)
+      for (const entry of videos.values()) {
+        for (const v of [entry.review, entry.sample]) {
+          const copy = v && ready.get(v.id)
+          if (!copy) continue
+          v.bunny = copy
+          if (!v.durationMs && copy.length) v.durationMs = Math.round(copy.length * 1000)
+        }
+      }
+      report.bunny = bunny
+    } catch (e) {
+      report.bunny = { error: (e as Error).message }
+      // Bunny unreachable for a moment: the copies already ready keep playing.
+      const before = await (await redis()).hGetAll(KEY_VIDEOS).catch(() => ({}) as Record<string, string>)
+      const known = new Map<string, BunnyRef>()
+      for (const raw of Object.values(before)) {
+        const old = JSON.parse(raw) as StoredVideos
+        for (const v of [old.review, old.sample]) if (v?.bunny) known.set(v.id, v.bunny)
+      }
+      for (const entry of videos.values()) {
+        for (const v of [entry.review, entry.sample]) if (v && known.has(v.id)) v.bunny = known.get(v.id)
+      }
+    }
+  }
   return { videos, report }
 }
 
 function withUrls(v: StoredVideo | undefined): ProductVideo | undefined {
   if (!v) return undefined
+  // Bunny's copy: converted to MP4 that plays on every phone, from a CDN.
+  if (v.bunny && bunnyConfigured()) {
+    const { src, poster } = bunnyUrls(v.bunny)
+    return { ...v, src, poster, thumb: poster }
+  }
   const id = encodeURIComponent(v.id)
   return {
     ...v,
     // Drive serves the file itself with range requests, so the video can start before it's all loaded.
-    src: `${DRIVE_FILES}/${id}?alt=media&key=${encodeURIComponent(apiKey())}`,
+    src: driveFileUrl(v.id),
     poster: `https://drive.google.com/thumbnail?id=${id}&sz=w1000`,
     thumb: `https://drive.google.com/thumbnail?id=${id}&sz=w200`,
   }
