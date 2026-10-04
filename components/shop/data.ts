@@ -194,6 +194,46 @@ export function lineSavings(p: QuantityProduct & Pick<Product, "price" | "oldPri
   return Math.max(0, Math.round((p.oldPrice * quantity - lineTotal(p, quantity)) * 100) / 100)
 }
 
+/**
+ * Second-item offer: in a cart of two or more lines, the line that costs the
+ * second most is sold at this share off its regular price (before any
+ * promotion). The costliest line always stays at full price, so the cheaper
+ * purchase gets the discount whichever order things were picked in.
+ */
+export const SECOND_ITEM = { percent: 50, name: "Друга позиція −50%" }
+
+type PricedProduct = QuantityProduct & Pick<Product, "price" | "oldPrice">
+
+export interface PricedLine {
+  /** Price per unit for this line. */
+  unitPrice: number
+  total: number
+  /** Regular price of the line less `total`. */
+  saved: number
+  /** This line has the second-item offer. */
+  second: boolean
+}
+
+/** Every cart line priced, offers included, in the order given. */
+export function priceLines(lines: { product: PricedProduct; quantity: number }[]): PricedLine[] {
+  const usual = lines.map(({ product, quantity }) => lineTotal(product, quantity))
+  // Second costliest by what it would cost otherwise; a tie goes to the line added later.
+  const ranked = usual.map((total, i) => ({ total, i })).sort((a, b) => b.total - a.total || a.i - b.i)
+  const secondIndex = lines.length >= 2 ? ranked[1].i : -1
+  return lines.map(({ product, quantity }, i) => {
+    const regular = product.oldPrice ?? product.price
+    if (i === secondIndex) {
+      const unitPrice = Math.round(regular * (1 - SECOND_ITEM.percent / 100) * 10000) / 10000
+      const total = Math.round(unitPrice * quantity * 100) / 100
+      // Never dearer than without the offer (a promotion could one day take off more).
+      if (total < usual[i]) {
+        return { unitPrice, total, saved: Math.round((regular * quantity - total) * 100) / 100, second: true }
+      }
+    }
+    return { unitPrice: product.price, total: usual[i], saved: lineSavings(product, quantity), second: false }
+  })
+}
+
 /** How long a promotion lasts, for people: "до 19 жовтня включно", or "встигніть, поки є" without an end date. */
 export function promoDeadline(promo: ProductPromo): string {
   if (!promo.endsAt) return "встигніть, поки є"

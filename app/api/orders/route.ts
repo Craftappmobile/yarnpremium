@@ -8,7 +8,7 @@ import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { SHOP_PHONE } from "@/lib/site"
 import { createPayment } from "@/lib/wayforpay"
-import { isValidQuantity, lineTotal, tailGrams } from "@/components/shop/data"
+import { SECOND_ITEM, isValidQuantity, priceLines, tailGrams } from "@/components/shop/data"
 import {
   effectivePaymentMethod,
   normalizePhone,
@@ -97,19 +97,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Поки ви оформлювали, змінилася наявність.", changes }, { status: 409 })
     }
 
-    const orderItems = lines.map((l) => {
+    // Promotions and the second-item offer, worked out here as in the cart.
+    const priced = priceLines(lines.map((l) => ({ product: products.get(l.sku)!, quantity: l.quantity })))
+    const orderItems = lines.map((l, i) => {
       const p = products.get(l.sku)!
-      const tail = tailGrams(p, l.quantity)
+      const line = priced[i]
+      const tail = line.second ? 0 : tailGrams(p, l.quantity)
+      const regular = p.oldPrice ?? p.price
       return {
         id: p.id,
         sku: p.sku,
         name: p.name,
-        price: p.price,
+        price: line.unitPrice,
         quantity: l.quantity,
         unit: p.priceUnit,
         ...(tail > 0 ? { tail } : {}),
-        total: lineTotal(p, l.quantity),
-        ...(p.promo && p.oldPrice ? { oldPrice: p.oldPrice, promo: p.promo.name } : {}),
+        total: line.total,
+        ...(line.second
+          ? { oldPrice: regular, promo: SECOND_ITEM.name }
+          : p.promo && p.oldPrice
+            ? { oldPrice: p.oldPrice, promo: p.promo.name }
+            : {}),
       }
     })
     const subtotal = money(orderItems.reduce((sum, i) => sum + i.total, 0))

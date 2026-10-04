@@ -15,7 +15,7 @@ import {
   lineTotal,
   promoDeadline,
 } from "./data"
-import { ASSISTANT_ENABLED, openAssistant } from "./assistant"
+import { ASSISTANT_ENABLED, announceOffer, openAssistant } from "./assistant"
 import { QuantityPicker } from "./quantity-picker"
 import { trackViewItem } from "./analytics"
 import { useCart } from "./cart-context"
@@ -25,6 +25,7 @@ import { TopBar } from "./top-bar"
 import { ProductImage } from "./product-image"
 import { ProductMedia, useProductMedia } from "./product-media"
 import { OldPrice, PromoBadge } from "./promo-price"
+import { PromoStrip, TrustStrip } from "./promo-blocks"
 
 interface ProductDetailProps {
   product: Product
@@ -70,6 +71,12 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
     return () => io.disconnect()
   }, [])
 
+  const offer = product.promo ? `${product.promo.name} на цю пряжу — ${promoDeadline(product.promo)}` : null
+  useEffect(() => {
+    announceOffer(offer)
+    return () => announceOffer(null)
+  }, [offer])
+
   useEffect(() => {
     if (inStock) trackViewItem(product)
     // Once per product page.
@@ -85,6 +92,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
     <>
       {/* Same header as the catalog: people often land here straight from Instagram. */}
       <TopBar cartItemCount={itemCount} onCartClick={() => setIsCartOpen(true)} />
+      {product.promo && product.category && <PromoStrip promo={product.promo} category={product.category} />}
       <main id="content" className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <div className={`mx-auto max-w-5xl px-4 pt-4 md:pt-6 ${inStock ? "pb-28 md:pb-10" : "pb-10"}`}>
           <nav aria-label="Навігація">
@@ -106,6 +114,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                       className="block truncate py-1 hover:text-zinc-900"
                     >
                       {product.category}
+                      {product.promo && ` −${product.promo.percent}%`}
                     </Link>
                   </li>
                 </>
@@ -296,6 +305,10 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                     {s.value}
                   </p>
                 ))}
+              </div>
+
+              <div className="mt-6">
+                <TrustStrip />
               </div>
 
             </div>

@@ -1,7 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
-import { type Product, type CartItem, clampQuantity, lineSavings, lineTotal } from "./data"
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react"
+import { type Product, type CartItem, type PricedLine, clampQuantity, priceLines } from "./data"
 import { isProductLike, lookupProducts } from "./catalog-client"
 import { trackAddToCart } from "./analytics"
 import { readStorage, writeStorage, parseStorageEvent } from "@/lib/storage"
@@ -11,10 +11,12 @@ const CART_KEY = "sinserita:cart:v2"
 
 interface CartContextValue {
   cart: CartItem[]
+  /** Price of each cart line, offers included, in the same order as `cart`. */
+  priced: PricedLine[]
   /** Number of cart lines (quantities are grams for yarn, so they aren't summed). */
   itemCount: number
   total: number
-  /** What a promotion takes off the cart's regular price. */
+  /** What promotions and offers take off the cart's regular price. */
   saved: number
   /** False until the saved cart has been restored from localStorage. */
   hydrated: boolean
@@ -116,12 +118,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const itemCount = cart.length
-  const total = cart.reduce((sum, item) => sum + lineTotal(item, item.quantity), 0)
-  const saved = cart.reduce((sum, item) => sum + lineSavings(item, item.quantity), 0)
+  const priced = useMemo(() => priceLines(cart.map((item) => ({ product: item, quantity: item.quantity }))), [cart])
+  const total = priced.reduce((sum, line) => sum + line.total, 0)
+  const saved = priced.reduce((sum, line) => sum + line.saved, 0)
 
   return (
     <CartContext.Provider
-      value={{ cart, itemCount, total, saved, hydrated, addToCart, removeFromCart, updateQuantity, clearCart, refresh }}
+      value={{ cart, priced, itemCount, total, saved, hydrated, addToCart, removeFromCart, updateQuantity, clearCart, refresh }}
     >
       {children}
     </CartContext.Provider>

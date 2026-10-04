@@ -74,7 +74,16 @@ function applyEvent(parts: Part[], event: AssistantEvent): Part[] {
   }
 }
 
-export function AssistantPanel({ onClose, product = null }: { onClose: () => void; product?: AssistantProduct | null }) {
+export function AssistantPanel({
+  onClose,
+  product = null,
+  offer = null,
+}: {
+  onClose: () => void
+  product?: AssistantProduct | null
+  /** The page's promotion, said first in the greeting. */
+  offer?: string | null
+}) {
   const { cart } = useCart()
   const [saved, setSaved] = useState<Saved>(readSaved)
   // Opened from a product page: its questions stay offered until the buyer writes.
@@ -218,6 +227,11 @@ export function AssistantPanel({ onClose, product = null }: { onClose: () => voi
           </div>
 
           <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4" aria-live="polite">
+            {saved.messages.length === 0 && offer && (
+              <p className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100">
+                {offer}. Порахую, скільки треба, вже за акційною ціною.
+              </p>
+            )}
             {saved.messages.length === 0 && !product && (
               <div className="space-y-3">
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
