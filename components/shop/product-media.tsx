@@ -281,7 +281,6 @@ function VideoThumb({ video, fallback }: { video: ProductVideo; fallback?: strin
       src={video.thumb}
       alt=""
       loading="lazy"
-      referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
       className="h-full w-full object-cover"
     />
