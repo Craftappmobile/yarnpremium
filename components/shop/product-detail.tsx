@@ -5,8 +5,17 @@ import Link from "next/link"
 import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Check, X, Heart, MessageCircle, Play, ShoppingBag } from "lucide-react"
 import type { ProductVideos } from "@/lib/product-videos"
-import { type Product, clampQuantity, formatPrice, formatPriceShort, formatQuantity, lineTotal } from "./data"
-import { ASSISTANT_ENABLED, openAssistant } from "./assistant"
+import {
+  type Product,
+  clampQuantity,
+  formatPrice,
+  formatPriceShort,
+  formatQuantity,
+  lineSavings,
+  lineTotal,
+  promoDeadline,
+} from "./data"
+import { ASSISTANT_ENABLED, announceOffer, openAssistant } from "./assistant"
 import { QuantityPicker } from "./quantity-picker"
 import { trackViewItem } from "./analytics"
 import { useCart } from "./cart-context"
@@ -15,6 +24,8 @@ import { CartDrawer, usePreloadDialogs } from "./lazy-dialogs"
 import { TopBar } from "./top-bar"
 import { ProductImage } from "./product-image"
 import { ProductMedia, useProductMedia } from "./product-media"
+import { OldPrice, PromoBadge } from "./promo-price"
+import { PromoStrip, TrustStrip } from "./promo-blocks"
 
 interface ProductDetailProps {
   product: Product
@@ -42,6 +53,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
   const sample = media.slides.find((s) => s.key === "sample" && s.kind === "video")
   const mediaRef = useRef<HTMLDivElement>(null)
   const [quantity, setQuantity] = useState(() => clampQuantity(product, product.minQty))
+  const saved = lineSavings(product, quantity)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const { addToCart, itemCount } = useCart()
   const { isWishlisted, toggleWishlist } = useWishlist()
@@ -59,6 +71,12 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
     return () => io.disconnect()
   }, [])
 
+  const offer = product.promo ? `${product.promo.name} на цю пряжу — ${promoDeadline(product.promo)}` : null
+  useEffect(() => {
+    announceOffer(offer)
+    return () => announceOffer(null)
+  }, [offer])
+
   useEffect(() => {
     if (inStock) trackViewItem(product)
     // Once per product page.
@@ -74,6 +92,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
     <>
       {/* Same header as the catalog: people often land here straight from Instagram. */}
       <TopBar cartItemCount={itemCount} onCartClick={() => setIsCartOpen(true)} />
+      {product.promo && product.category && <PromoStrip promo={product.promo} category={product.category} />}
       <main id="content" className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <div className={`mx-auto max-w-5xl px-4 pt-4 md:pt-6 ${inStock ? "pb-28 md:pb-10" : "pb-10"}`}>
           <nav aria-label="Навігація">
@@ -95,6 +114,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                       className="block truncate py-1 hover:text-zinc-900"
                     >
                       {product.category}
+                      {product.promo && ` −${product.promo.percent}%`}
                     </Link>
                   </li>
                 </>
@@ -123,9 +143,15 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               </p>
 
               <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <PromoBadge product={product} className="self-center text-sm" />
                 <span className="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
                   {byWeight ? formatPriceShort(product.price * PRICE_GRAMS) : formatPrice(product.price)}
                 </span>
+                {product.oldPrice ? (
+                  <OldPrice className="text-base">
+                    {byWeight ? formatPriceShort(product.oldPrice * PRICE_GRAMS) : formatPrice(product.oldPrice)}
+                  </OldPrice>
+                ) : null}
                 <span className="text-sm text-zinc-500 dark:text-zinc-400">
                   / {byWeight ? `${PRICE_GRAMS} г` : product.priceUnit}
                 </span>
@@ -135,6 +161,11 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                   </span>
                 )}
               </div>
+              {product.promo && (
+                <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                  {product.promo.name} · {promoDeadline(product.promo)}
+                </p>
+              )}
 
               <div className="mt-3">
                 {inStock ? (
@@ -156,6 +187,12 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               {inStock && (
                 <div className="mt-5 space-y-3">
                   <QuantityPicker product={product} quantity={quantity} onChange={setQuantity} />
+                  {saved > 0 && (
+                    <p className="text-sm tabular-nums text-emerald-700 dark:text-emerald-500" aria-live="polite">
+                      {formatQuantity(quantity, product.priceUnit)} за {formatPriceShort(lineTotal(product, quantity))}{" "}
+                      замість {formatPriceShort(lineTotal(product, quantity) + saved)} · економія {formatPriceShort(saved)}
+                    </p>
+                  )}
                   {byWeight && ASSISTANT_ENABLED && (
                     <button
                       type="button"
@@ -270,6 +307,10 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                 ))}
               </div>
 
+              <div className="mt-6">
+                <TrustStrip />
+              </div>
+
             </div>
           </div>
           {!inStock && similar.length > 0 && (
@@ -280,7 +321,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {similar.map((p) => (
                   <Link key={p.sku} href={`/product/${p.sku}`} className="group">
-                    <div className="aspect-[4/5] overflow-hidden rounded-md bg-white dark:bg-zinc-900">
+                    <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-white dark:bg-zinc-900">
                       <ProductImage
                         src={p.image}
                         alt={p.name}
@@ -289,10 +330,14 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                         sizes="(min-width: 768px) 200px, 50vw"
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
+                      <PromoBadge product={p} className="absolute left-1.5 top-1.5" />
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-xs leading-4 font-medium">{p.name}</p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {formatPrice(p.price)} / {p.priceUnit}
+                      <span className={p.oldPrice ? "font-semibold text-zinc-900 dark:text-zinc-50" : undefined}>
+                        {formatPrice(p.price)}
+                      </span>
+                      {p.oldPrice ? <OldPrice className="ml-1">{formatPrice(p.oldPrice)}</OldPrice> : null} / {p.priceUnit}
                     </p>
                   </Link>
                 ))}
@@ -314,7 +359,10 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
                 <p className="text-base font-bold tabular-nums leading-tight">
                   {formatPriceShort(lineTotal(product, quantity))}
                 </p>
-                <p className="text-xs text-zinc-500 tabular-nums">{formatQuantity(quantity, product.priceUnit)}</p>
+                <p className="text-xs text-zinc-500 tabular-nums">
+                  {formatQuantity(quantity, product.priceUnit)}
+                  {saved > 0 && <span className="text-emerald-700"> · економія {formatPriceShort(saved)}</span>}
+                </p>
               </div>
               {ASSISTANT_ENABLED && (
                 <button

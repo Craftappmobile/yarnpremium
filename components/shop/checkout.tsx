@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, MapPin, Clock } from "lucide-react"
 import { useCart } from "./cart-context"
-import { formatPrice, formatQuantity, TAIL_DISCOUNT, lineTotal, tailGrams } from "./data"
+import { SECOND_ITEM, formatPrice, formatQuantity, TAIL_DISCOUNT, lineTotal, tailGrams } from "./data"
+import { OldPrice } from "./promo-price"
 import { NovaPoshtaFields } from "./nova-poshta-fields"
 import { UkrposhtaFields } from "./ukrposhta-fields"
 import {
@@ -32,7 +33,7 @@ import { clearVideoAttribution, readVideoAttribution } from "./video-attribution
 
 export function Checkout() {
   const router = useRouter()
-  const { cart, total, clearCart, hydrated, refresh } = useCart()
+  const { cart, priced, total, saved, clearCart, hydrated, refresh } = useCart()
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -338,25 +339,45 @@ export function Checkout() {
             </div>
 
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {cart.map((item) => (
+              {cart.map((item, index) => {
+                const line = priced[index]
+                return (
                 <li key={item.id} className="flex justify-between gap-3 py-3 text-sm">
                   <span className="text-zinc-600 dark:text-zinc-300">
                     {item.name} <span className="whitespace-nowrap text-zinc-500">× {formatQuantity(item.quantity, item.priceUnit)}</span>
-                    {tailGrams(item, item.quantity) > 0 && (
+                    {line?.second ? (
+                      <span className="block text-xs text-emerald-700">{SECOND_ITEM.name}</span>
+                    ) : (
+                      item.promo && <span className="block text-xs text-emerald-700">{item.promo.name}</span>
+                    )}
+                    {!line?.second && tailGrams(item, item.quantity) > 0 && (
                       <span className="block text-xs text-emerald-700">
                         З них {formatQuantity(tailGrams(item, item.quantity), item.priceUnit)} — залишок бобіни зі знижкою {TAIL_DISCOUNT * 100}%
                       </span>
                     )}
                   </span>
-                  <span className="whitespace-nowrap tabular-nums">{formatPrice(lineTotal(item, item.quantity))}</span>
+                  <span className="whitespace-nowrap text-right tabular-nums">
+                    {formatPrice(line?.total ?? lineTotal(item, item.quantity))}
+                    {line && line.saved > 0 ? (
+                      <OldPrice className="block text-xs">{formatPrice(line.total + line.saved)}</OldPrice>
+                    ) : null}
+                  </span>
                 </li>
-              ))}
+                )
+              })}
             </ul>
 
             <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 py-3 text-sm font-medium">
               <span>Товари</span>
               <span className="tabular-nums">{formatPrice(total)}</span>
             </div>
+
+            {saved > 0 && (
+              <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 py-3 text-sm text-emerald-700 dark:text-emerald-500">
+                <span>Економія</span>
+                <span className="tabular-nums">{formatPrice(saved)}</span>
+              </div>
+            )}
 
             <div className="flex justify-between gap-3 border-t border-zinc-200 dark:border-zinc-800 py-3 text-sm">
               <span className="font-medium">Доставка</span>

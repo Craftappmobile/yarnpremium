@@ -9,7 +9,10 @@ import { CartDrawer, CategoriesModal, MobileFiltersPanel, ProductModal, usePrelo
 import { TopBar } from "./top-bar"
 import { FiltersSidebar, type Filters } from "./filters-sidebar"
 import { Footer } from "./footer"
-import { type Product, type SortOption, sortOptions, sortProducts } from "./data"
+import { CartBar } from "./cart-bar"
+import { PromoCategoryHeader, PromoStrip, TrustStrip } from "./promo-blocks"
+import { type Product, type SortOption, promoDeadline, sortOptions, sortProducts } from "./data"
+import { announceOffer } from "./assistant"
 import { useCart } from "./cart-context"
 import { pluralUk } from "@/lib/utils"
 import { type PackedCatalog, unpackCatalog } from "./catalog-pack"
@@ -159,6 +162,17 @@ export default function MinimalShop({
     return matchesSearch && matchesPrice && matchesLength && matchesCategory && matchesColor
   })
 
+  // One category picked (an ad's link opens it so): its promotion, if it has one.
+  const category = filters.categories.length === 1 ? filters.categories[0] : null
+  const categoryProducts = category ? products.filter((p) => p.category === category) : []
+  const categoryPromo = categoryProducts.find((p) => p.promo && p.stock > 0)?.promo
+
+  const offer = category && categoryPromo ? `${categoryPromo.name} на «${category}» — ${promoDeadline(categoryPromo)}` : null
+  useEffect(() => {
+    announceOffer(offer)
+    return () => announceOffer(null)
+  }, [offer])
+
   const sortedProducts = sortProducts(filteredProducts, sort)
   const activeFilterCount =
     filters.categories.length +
@@ -201,6 +215,7 @@ export default function MinimalShop({
           onShowAll: showAllCategories,
         }}
       />
+      {category && categoryPromo && <PromoStrip promo={categoryPromo} category={category} />}
 
       <div className="mx-auto max-w-[1400px] px-4 pt-6 lg:pt-12 pb-16">
         <h1 className="sr-only">SINCERITA — італійська пряжа преміум якості</h1>
@@ -244,6 +259,8 @@ export default function MinimalShop({
           )}
 
           <div id="content" className="flex-1 min-w-0 scroll-mt-20">
+            {category && categoryPromo && <PromoCategoryHeader category={category} products={categoryProducts} />}
+            <TrustStrip compact />
             <h2 className="sr-only">Товари</h2>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <div className="flex items-center gap-3">
@@ -322,6 +339,9 @@ export default function MinimalShop({
       </div>
 
       <Footer />
+      {/* Room for the cart bar, so it never covers the footer's last line. */}
+      {cart.length > 0 && <div aria-hidden className="h-20" />}
+      <CartBar onOpenCart={() => setIsCartOpen(true)} />
 
       <AnimatePresence>
         {selectedProduct && (

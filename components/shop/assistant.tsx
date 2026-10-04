@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { MessageCircle } from "lucide-react"
 import { trackAssistant } from "./analytics"
 import type { AssistantProduct } from "./assistant-panel"
+import { useCart } from "./cart-context"
 
 // Launcher of the shopping assistant, on every page but checkout. The chat
 // itself loads only when opened. Shown only while NEXT_PUBLIC_ASSISTANT_ENABLED
@@ -16,6 +17,18 @@ const AssistantPanel = dynamic(() => import("./assistant-panel").then((m) => m.A
 export const ASSISTANT_ENABLED = process.env.NEXT_PUBLIC_ASSISTANT_ENABLED === "1"
 
 const OPEN_EVENT = "sinserita:assistant-open"
+const OFFER_EVENT = "sinserita:assistant-offer"
+
+/**
+ * The promotion of the page being viewed, for the chat's greeting; null when
+ * the page has none. Pages call it on mount and again with null on unmount.
+ */
+let pageOffer: string | null = null
+export function announceOffer(offer: string | null) {
+  // Kept as well: the page's effects can run before the launcher listens.
+  pageOffer = offer
+  window.dispatchEvent(new CustomEvent(OFFER_EVENT, { detail: offer }))
+}
 
 /**
  * Opens the chat from anywhere on the page. With a product, the chat is about
@@ -30,19 +43,29 @@ export function Assistant() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [product, setProduct] = useState<AssistantProduct | null>(null)
+  const { cart } = useCart()
+  const [offer, setOffer] = useState<string | null>(null)
 
   useEffect(() => {
     const onOpen = (e: Event) => {
       setProduct((e as CustomEvent<AssistantProduct | null>).detail)
       setOpen(true)
     }
+    const onOffer = (e: Event) => setOffer((e as CustomEvent<string | null>).detail)
     window.addEventListener(OPEN_EVENT, onOpen)
-    return () => window.removeEventListener(OPEN_EVENT, onOpen)
+    window.addEventListener(OFFER_EVENT, onOffer)
+    setOffer(pageOffer)
+    return () => {
+      window.removeEventListener(OPEN_EVENT, onOpen)
+      window.removeEventListener(OFFER_EVENT, onOffer)
+    }
   }, [])
 
   if (!ASSISTANT_ENABLED || pathname.startsWith("/checkout") || pathname.startsWith("/admin")) return null
-  // Product pages have the consultant in the card and in the buy bar on phones.
+  // Product pages have the consultant in the card and in the buy bar on phones;
+  // the catalog has it in the cart bar once something is in the cart.
   const onProduct = pathname.startsWith("/product/")
+  const inCartBar = pathname === "/" && cart.length > 0
 
   return (
     <>
@@ -55,13 +78,13 @@ export function Assistant() {
         }}
         aria-haspopup="dialog"
         className={`fixed bottom-5 right-4 z-30 items-center gap-2 rounded-full bg-zinc-900 px-4 py-3 text-sm font-medium text-white shadow-lg transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300 ${
-          onProduct ? "hidden md:inline-flex" : "inline-flex"
+          inCartBar ? "hidden" : onProduct ? "hidden md:inline-flex" : "inline-flex"
         }`}
       >
         <MessageCircle className="h-5 w-5" aria-hidden />
         <span>Консультант</span>
       </button>
-      {open && <AssistantPanel product={product} onClose={() => setOpen(false)} />}
+      {open && <AssistantPanel product={product} offer={offer} onClose={() => setOpen(false)} />}
     </>
   )
 }

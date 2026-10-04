@@ -7,8 +7,12 @@ export interface Product {
   offerId: number
   name: string
   description: string
-  /** Price per `priceUnit`. */
+  /** Price per `priceUnit` — the promotional one while a promotion covers the product. */
   price: number
+  /** While a promotion covers the product: its regular price per `priceUnit`, shown struck through. */
+  oldPrice?: number
+  /** The promotion behind `oldPrice` (lib/promo.ts). */
+  promo?: ProductPromo
   /** "г" for yarn sold by weight, "шт" for pieces. */
   priceUnit: string
   image: string
@@ -39,6 +43,14 @@ export interface Product {
   /** Smallest quantity that can be bought and the +/− step, in `priceUnit`. */
   minQty: number
   step: number
+}
+
+export interface ProductPromo {
+  /** As in the ads: "Лімітована партія −25%". */
+  name: string
+  percent: number
+  /** When it is over (ISO): the start of the day after its last, Kyiv time. None: while stock lasts. */
+  endsAt?: string
 }
 
 export interface CartItem extends Product {
@@ -100,7 +112,7 @@ export function getFilterBounds(items: Product[]): { price: [number, number]; le
   }
 }
 
-type QuantityProduct = Pick<Product, "stock" | "minQty" | "step" | "priceUnit">
+type QuantityProduct = Pick<Product, "stock" | "minQty" | "step" | "priceUnit" | "promo">
 
 /** Share of the price taken off the end of a spool that comes with a purchase so none is left behind. */
 export const TAIL_DISCOUNT = 0.1
@@ -161,10 +173,11 @@ export function stepQuantity(p: QuantityProduct, quantity: number, direction: 1 
  * been left behind, too little to sell, had the buyer stopped at the first
  * amount that leaves less than the minimum (160 g in stock: 100 g → 60 g;
  * 366 g: 300 g → 66 g). The same whether the buyer picked that amount or
- * «Взяти все», so the whole spool costs the same either way.
+ * «Взяти все», so the whole spool costs the same either way. None while a
+ * promotion covers the product: the promotional price is the only discount.
  */
 export function tailGrams(p: QuantityProduct, quantity: number): number {
-  if (!byWeight(p) || quantity !== p.stock || p.stock < p.minQty) return 0
+  if (p.promo || !byWeight(p) || quantity !== p.stock || p.stock < p.minQty) return 0
   const firstShort = p.minQty + Math.max(0, Math.ceil((p.stock - 2 * p.minQty + 1) / p.step)) * p.step
   return Math.max(0, p.stock - firstShort)
 }
@@ -173,6 +186,64 @@ export function tailGrams(p: QuantityProduct, quantity: number): number {
 export function lineTotal(p: QuantityProduct & Pick<Product, "price">, quantity: number): number {
   const total = p.price * quantity - p.price * tailGrams(p, quantity) * TAIL_DISCOUNT
   return Math.round(total * 100) / 100
+}
+
+/** What `quantity` would cost at the regular price, less what it costs now; 0 without a promotion. */
+export function lineSavings(p: QuantityProduct & Pick<Product, "price" | "oldPrice">, quantity: number): number {
+  if (!p.oldPrice) return 0
+  return Math.max(0, Math.round((p.oldPrice * quantity - lineTotal(p, quantity)) * 100) / 100)
+}
+
+/**
+ * Second-item offer: in a cart of two or more lines, the line that costs the
+ * second most is sold at this share off its regular price (before any
+ * promotion), unless its promotional price is lower already. The costliest
+ * line always stays at its price, so the cheaper purchase gets the discount
+ * whichever order things were picked in.
+ */
+export const SECOND_ITEM = { percent: 10, name: "Друга позиція −10%" }
+
+type PricedProduct = QuantityProduct & Pick<Product, "price" | "oldPrice">
+
+export interface PricedLine {
+  /** Price per unit for this line. */
+  unitPrice: number
+  total: number
+  /** Regular price of the line less `total`. */
+  saved: number
+  /** This line has the second-item offer. */
+  second: boolean
+}
+
+/** Every cart line priced, offers included, in the order given. */
+export function priceLines(lines: { product: PricedProduct; quantity: number }[]): PricedLine[] {
+  const usual = lines.map(({ product, quantity }) => lineTotal(product, quantity))
+  // Second costliest by what it would cost otherwise; a tie goes to the line added later.
+  const ranked = usual.map((total, i) => ({ total, i })).sort((a, b) => b.total - a.total || a.i - b.i)
+  const secondIndex = lines.length >= 2 ? ranked[1].i : -1
+  return lines.map(({ product, quantity }, i) => {
+    const regular = product.oldPrice ?? product.price
+    if (i === secondIndex) {
+      const unitPrice = Math.round(regular * (1 - SECOND_ITEM.percent / 100) * 10000) / 10000
+      const total = Math.round(unitPrice * quantity * 100) / 100
+      // Never dearer than without the offer (a promotion could one day take off more).
+      if (total < usual[i]) {
+        return { unitPrice, total, saved: Math.round((regular * quantity - total) * 100) / 100, second: true }
+      }
+    }
+    return { unitPrice: product.price, total: usual[i], saved: lineSavings(product, quantity), second: false }
+  })
+}
+
+/** How long a promotion lasts, for people: "до 19 жовтня включно", or "встигніть, поки є" without an end date. */
+export function promoDeadline(promo: ProductPromo): string {
+  if (!promo.endsAt) return "встигніть, поки є"
+  const lastDay = new Date(Date.parse(promo.endsAt) - 1).toLocaleDateString("uk-UA", {
+    day: "numeric",
+    month: "long",
+    timeZone: "Europe/Kiev",
+  })
+  return `до ${lastDay} включно`
 }
 
 /** "350 г" / "3 шт". */

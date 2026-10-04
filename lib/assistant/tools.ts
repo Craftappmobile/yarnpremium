@@ -4,7 +4,7 @@
 
 import type Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
-import { type Product, clampQuantity, formatPrice, lineTotal } from "@/components/shop/data"
+import { type Product, clampQuantity, formatPrice, lineTotal, promoDeadline } from "@/components/shop/data"
 import { COLOR_FAMILIES, type ColorFamily } from "@/components/shop/yarn-colors"
 import { readCatalog, readProducts } from "@/lib/catalog"
 import type { ProductsEvent } from "@/lib/assistant/events"
@@ -133,8 +133,8 @@ export interface ToolOutcome {
 
 const byWeight = (p: Product) => p.priceUnit === "г"
 
-function priceLabel(p: Product): string {
-  return byWeight(p) ? `${formatPrice(p.price * 100)} за 100 г` : `${formatPrice(p.price)} за ${p.priceUnit}`
+function priceLabel(p: Product, price = p.price): string {
+  return byWeight(p) ? `${formatPrice(price * 100)} за 100 г` : `${formatPrice(price)} за ${p.priceUnit}`
 }
 
 /** The fields the model needs to compare products, without the long description. */
@@ -148,6 +148,11 @@ function brief(p: Product) {
     color: p.color || undefined,
     meters_per_100g: byWeight(p) && p.length > 0 ? p.length : undefined,
     price: priceLabel(p),
+    // `price` is already the promotional one.
+    promo:
+      p.promo && p.oldPrice
+        ? `${p.promo.name}, ${promoDeadline(p.promo)}; звичайна ціна ${priceLabel(p, p.oldPrice)}`
+        : undefined,
     in_stock: p.stock > 0 ? `${p.stock} ${p.priceUnit}` : "немає",
   }
 }

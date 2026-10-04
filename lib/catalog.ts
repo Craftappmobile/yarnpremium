@@ -21,6 +21,7 @@ import { familyFromName } from "@/components/shop/yarn-colors"
 import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { type DriveVideoReport, KEY_VIDEOS, driveVideosConfigured, matchDriveVideos } from "@/lib/product-videos"
+import { withPromo } from "@/lib/promo"
 
 const KEY_PRODUCTS = "catalog:products"
 const KEY_STOCK = "catalog:stock"
@@ -305,14 +306,16 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
 }
 
 /**
- * Live stock. Yarn by weight with less than its minimum left (a mistake in the
- * warehouse, or crumbs after reserves) isn't sold: it counts as sold out.
+ * Live stock and the price of the day. Yarn by weight with less than its
+ * minimum left (a mistake in the warehouse, or crumbs after reserves) isn't
+ * sold: it counts as sold out.
  */
 function withLiveStock(p: Product, stock: string | null | undefined): Product {
   const live = stock === null || stock === undefined ? p.stock : Number(stock)
-  // Recomputed on read, so a change to the rules applies at once, not after the next sync.
+  // Recomputed on read, so a change to the rules, or a promotion starting or
+  // ending, applies at once, not after the next sync.
   const limits = quantityLimits(p.name, p.category, p.priceUnit)
-  return { ...p, ...limits, stock: p.priceUnit === "г" && live < limits.minQty ? 0 : live }
+  return withPromo({ ...p, ...limits, stock: p.priceUnit === "г" && live < limits.minQty ? 0 : live })
 }
 
 /** Every non-archived product, sold-out ones included, newest first. Empty until the first sync. */

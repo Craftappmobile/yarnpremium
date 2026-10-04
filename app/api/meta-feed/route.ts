@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { readCatalog } from "@/lib/catalog"
 import { type ProductVideos, readAllProductVideos } from "@/lib/product-videos"
 import { BRAND, SITE_URL } from "@/lib/site"
+import { type PromoConfig, currentOrNextPromo, promoLabel, promoPrice, promoWindow, regularPrice } from "@/lib/promo"
 import type { Product } from "@/components/shop/data"
 
 // Product feed for the Meta catalog (Commerce Manager fetches it hourly).
@@ -13,6 +14,12 @@ import type { Product } from "@/components/shop/data"
 // then show the cone's video review, the same one the product page opens with.
 // Only Bunny Stream's copies are listed; a product whose copy isn't ready yet
 // goes without a video until it is.
+// A promotion (lib/promo.ts) is listed from the moment it is set up: `price`
+// is the regular price, `sale_price` the promotional one. A promotion with
+// dates has them in `sale_price_effective_date`, and Meta shows the sale price
+// only between them, so ads switch on time even though Meta fetches the feed
+// only once an hour. `custom_label_0` carries the promotion's name, to build
+// its product set in Commerce Manager.
 export const dynamic = "force-dynamic"
 
 const COLUMNS = [
@@ -22,6 +29,9 @@ const COLUMNS = [
   "availability",
   "condition",
   "price",
+  "sale_price",
+  "sale_price_effective_date",
+  "custom_label_0",
   "link",
   "image_link",
   "additional_image_link",
@@ -46,6 +56,48 @@ const MIN_PIECE_PRICE = 10
 
 const byWeight = (p: Product) => p.priceUnit === "г"
 
+/** Regular and promotional price per unit: of the promotion running now, or of the next one ahead. */
+function prices(p: Product, promo: PromoConfig | undefined): { regular: number; sale?: number } {
+  // A running promotion is already applied by the catalog.
+  if (p.promo && p.oldPrice) return { regular: p.oldPrice, sale: p.price }
+  if (!promo) return { regular: p.price }
+  return promo.keycrm === "promo"
+    ? { regular: regularPrice(p.price, p.priceUnit, promo.percent), sale: p.price }
+    : { regular: p.price, sale: promoPrice(p.price, p.priceUnit, promo.percent) }
+}
+
+const YEAR_MS = 365 * 24 * 3600_000
+
+/** `sale_price_effective_date`: empty for a promotion without dates (the sale price then always applies). */
+function effectiveDates(promo: PromoConfig): string {
+  const { start, end } = promoWindow(promo)
+  if (!Number.isFinite(start) && !Number.isFinite(end)) return ""
+  const from = Number.isFinite(start) ? start : Date.now()
+  // The end is the last minute of the last day.
+  const to = Number.isFinite(end) ? end - 60_000 : from + YEAR_MS
+  return `${kyivIso(from)}/${kyivIso(to)}`
+}
+
+/** "2026-10-13T00:00+03:00": a moment as Kyiv clocks show it, with their offset from UTC. */
+function kyivIso(t: number): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Kiev",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(t)
+      .map((x) => [x.type, x.value]),
+  )
+  const local = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
+  const offset = Math.round((Date.parse(`${local}Z`) - t) / 3600_000)
+  return `${local}+${String(offset).padStart(2, "0")}:00`
+}
+
 function csvField(value: string): string {
   const v = value.replace(/\s+/g, " ").trim()
   return /[",]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
@@ -58,7 +110,9 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
     videos?.sample && { url: videos.sample.src, tag: "Зразок" },
   ].filter((v): v is { url: string; tag: string } => Boolean(v))
   const weight = byWeight(p)
-  const price = weight ? p.price * WEIGHT_AD_GRAMS : p.price
+  const perAd = (unitPrice: number) => (weight ? unitPrice * WEIGHT_AD_GRAMS : unitPrice)
+  const promo = currentOrNextPromo(p.category)
+  const { regular, sale } = prices(p, promo)
   const details = [p.category, p.color, p.length ? `${p.length} м` : "", p.brand].filter(Boolean).join(", ")
   const priceNote = weight ? `Ціна за ${WEIGHT_AD_GRAMS} г.` : ""
   return {
@@ -67,7 +121,10 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
     description: [p.description || details || p.name, priceNote].filter(Boolean).join(" ").slice(0, 5000),
     availability: p.stock > 0 ? "in stock" : "out of stock",
     condition: "new",
-    price: `${price.toFixed(2)} UAH`,
+    price: `${perAd(regular).toFixed(2)} UAH`,
+    sale_price: sale !== undefined ? `${perAd(sale).toFixed(2)} UAH` : "",
+    sale_price_effective_date: promo ? effectiveDates(promo) : "",
+    custom_label_0: promo ? promoLabel(promo) : "",
     link: `${SITE_URL}/product/${encodeURIComponent(p.sku)}`,
     image_link: p.image,
     additional_image_link: p.images.filter((u) => u !== p.image).slice(0, 5).join(","),

@@ -5,16 +5,27 @@ import { useReturnFocus } from "./use-return-focus"
 import { m } from "motion/react"
 import { X, Minus, Plus } from "lucide-react"
 import Link from "next/link"
-import { TAIL_DISCOUNT, formatPrice, formatQuantity, lineTotal, quantityRules, stepQuantity, tailGrams } from "./data"
+import {
+  SECOND_ITEM,
+  TAIL_DISCOUNT,
+  formatPrice,
+  formatQuantity,
+  lineTotal,
+  quantityRules,
+  stepQuantity,
+  tailGrams,
+} from "./data"
 import { useCart } from "./cart-context"
 import { ProductImage } from "./product-image"
+import { OldPrice } from "./promo-price"
+import { SecondItemOffer } from "./second-item-offer"
 
 interface CartDrawerProps {
   onClose: () => void
 }
 
 export function CartDrawer({ onClose }: CartDrawerProps) {
-  const { cart, total, removeFromCart, updateQuantity } = useCart()
+  const { cart, priced, total, saved, removeFromCart, updateQuantity } = useCart()
 
   const returnFocus = useReturnFocus()
 
@@ -66,7 +77,8 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
-              {cart.map((item) => {
+              {cart.map((item, index) => {
+                const line = priced[index]
                 const { min, max } = quantityRules(item)
                 const atMax = item.quantity >= max
                 return (
@@ -91,7 +103,10 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                         </button>
                       </div>
                       <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-0.5">
-                        {formatPrice(item.price)} / {item.priceUnit}
+                        {formatPrice(item.price)}
+                        {item.oldPrice ? <OldPrice className="ml-1">{formatPrice(item.oldPrice)}</OldPrice> : null} /{" "}
+                        {item.priceUnit}
+                        {item.promo && !line?.second && <span className="text-zinc-700 dark:text-zinc-300"> · {item.promo.name}</span>}
                       </p>
 
                       <div className="flex items-center justify-between mt-2">
@@ -116,11 +131,19 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <p className="text-base font-medium tabular-nums">{formatPrice(lineTotal(item, item.quantity))}</p>
+                        <p className="text-right text-base font-medium tabular-nums">
+                          {formatPrice(line?.total ?? lineTotal(item, item.quantity))}
+                          {line && line.saved > 0 && (
+                            <OldPrice className="block text-xs font-normal">{formatPrice(line.total + line.saved)}</OldPrice>
+                          )}
+                        </p>
                       </div>
 
+                      {line?.second && (
+                        <p className="mt-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-500">{SECOND_ITEM.name}</p>
+                      )}
                       <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1.5">
-                        {tailGrams(item, item.quantity) > 0
+                        {!line?.second && tailGrams(item, item.quantity) > 0
                           ? `З них ${formatQuantity(tailGrams(item, item.quantity), item.priceUnit)} — залишок бобіни зі знижкою ${TAIL_DISCOUNT * 100}%`
                           : atMax
                             ? `Максимум на складі: ${formatQuantity(item.stock, item.priceUnit)}`
@@ -130,11 +153,18 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                   </div>
                 )
               })}
+              <SecondItemOffer />
             </div>
           )}
 
           {cart.length > 0 && (
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-zinc-200 dark:border-zinc-800">
+            {saved > 0 && (
+              <div className="flex justify-between mb-1 text-sm text-emerald-700 dark:text-emerald-500">
+                <span>Економія</span>
+                <span className="tabular-nums">{formatPrice(saved)}</span>
+              </div>
+            )}
             <div className="flex justify-between mb-4">
               <span className="text-base">Разом</span>
               <span className="text-base font-medium tabular-nums">{formatPrice(total)}</span>

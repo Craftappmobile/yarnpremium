@@ -75,8 +75,20 @@ export interface Order {
   /**
    * `quantity` is in `unit` (grams for yarn sold by weight); `price` is per unit.
    * `tail`: grams of it at TAIL_DISCOUNT (end of a spool taken whole); `total` is the line price.
+   * `promo`: the promotion `price` comes from, and `oldPrice` the regular price per unit.
    */
-  items: { id: string; sku: string; name: string; price: number; quantity: number; unit: string; tail?: number; total?: number }[]
+  items: {
+    id: string
+    sku: string
+    name: string
+    price: number
+    quantity: number
+    unit: string
+    tail?: number
+    total?: number
+    oldPrice?: number
+    promo?: string
+  }[]
   subtotal: number
   total: number
   delivery: OrderDelivery
