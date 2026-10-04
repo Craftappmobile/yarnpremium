@@ -142,9 +142,12 @@ export async function keycrmGetPages<T = any>(
   return { items, total }
 }
 
-/** KeyCRM doesn't sign webhooks: their URL carries a secret, ?token=KEYCRM_WEBHOOK_SECRET. */
-export function webhookAuthorized(req: { nextUrl: URL }): boolean {
-  const secret = process.env.KEYCRM_WEBHOOK_SECRET ?? ""
+/**
+ * KeyCRM doesn't sign webhooks: their URL carries a secret, ?token=<secret>,
+ * by default KEYCRM_WEBHOOK_SECRET.
+ */
+export function webhookAuthorized(req: { nextUrl: URL }, secretVar = "KEYCRM_WEBHOOK_SECRET"): boolean {
+  const secret = process.env[secretVar] ?? ""
   const token = req.nextUrl.searchParams.get("token") ?? ""
   if (!secret || token.length !== secret.length) return false
   return timingSafeEqual(Buffer.from(token), Buffer.from(secret))
