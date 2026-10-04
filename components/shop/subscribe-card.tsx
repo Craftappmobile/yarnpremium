@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Send, X } from "lucide-react"
+import { Check, Send, X } from "lucide-react"
 import { readStorage, writeStorage } from "@/lib/storage"
 import { TELEGRAM_URL } from "@/lib/site"
 
@@ -15,6 +15,8 @@ const KEY = "sinserita:subscribe-card:v1"
 export function SubscribeCard({ className = "" }: { className?: string }) {
   // Hidden until the browser says it hasn't been dismissed: no flash for those who have.
   const [shown, setShown] = useState(false)
+  // After «Підписатися» the card stays for this visit with a confirmation; next time it's gone.
+  const [opened, setOpened] = useState(false)
   useEffect(() => {
     setShown(readStorage(KEY) === null)
   }, [])
@@ -22,7 +24,17 @@ export function SubscribeCard({ className = "" }: { className?: string }) {
 
   const dismiss = (reason: "subscribed" | "closed") => {
     writeStorage(KEY, reason)
-    setShown(false)
+    if (reason === "subscribed") setOpened(true)
+    else setShown(false)
+  }
+
+  if (opened) {
+    return (
+      <p role="status" className={`flex items-center gap-2 rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900 ${className}`}>
+        <Check className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+        Канал відкрито в Telegram. Натисніть там «Підписатися», щоб бачити нові кольори.
+      </p>
+    )
   }
 
   return (

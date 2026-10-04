@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Camera, Check, CreditCard, MapPin, Package, Send, Truck, Wallet } from "lucide-react"
+import { Camera, Check, CreditCard, Mail, MapPin, Package, Send, Truck, Wallet } from "lucide-react"
 import { formatPrice, formatQuantity } from "./data"
 import { type LastOrder, loadLastOrder, saveLastOrder } from "./last-order"
 import { payOrder } from "./pay"
@@ -20,6 +20,7 @@ export function OrderConfirmation() {
   const [outcome, setOutcome] = useState<Outcome>(null)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState("")
+  const [channelOpened, setChannelOpened] = useState(false)
   const order = last?.order ?? null
 
   useEffect(() => {
@@ -144,6 +145,11 @@ export function OrderConfirmation() {
                 </Step>
               </>
             )}
+            {order.newsletter && order.customer.email && (
+              <Step Icon={Mail} title="Ви підписані на нові кольори">
+                Листи прийдуть на {order.customer.email}. Відписатися можна в кожному листі.
+              </Step>
+            )}
           </ol>
         </section>
       )}
@@ -156,15 +162,23 @@ export function OrderConfirmation() {
           <p className="mt-1.5 text-sm text-white/80 dark:text-zinc-600">
             Кожен колір — одна партія, повторно не привозимо. Нові кольори показуємо в нашому каналі.
           </p>
-          <a
-            href={TELEGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-sm font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-white"
-          >
-            <Send className="h-4 w-4" aria-hidden />
-            Підписатися на канал
-          </a>
+          {channelOpened ? (
+            <p role="status" className="mt-4 flex items-center gap-2 text-sm font-medium">
+              <Check className="h-4 w-4 shrink-0" aria-hidden />
+              Канал відкрито в Telegram. Натисніть там «Підписатися».
+            </p>
+          ) : (
+            <a
+              href={TELEGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setChannelOpened(true)}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-sm font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-white"
+            >
+              <Send className="h-4 w-4" aria-hidden />
+              Підписатися на канал
+            </a>
+          )}
         </section>
       )}
 

@@ -545,7 +545,7 @@ export function Checkout() {
               {submitting
                 ? split.now > 0
                   ? "Переходимо до оплати…"
-                  : "Оформлюємо…"
+                  : "Оформлюємо замовлення…"
                 : split.now > 0
                   ? `Підтвердити й оплатити ${formatPrice(split.now)}`
                   : "Підтвердити замовлення"}
