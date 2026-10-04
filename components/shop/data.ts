@@ -46,7 +46,7 @@ export interface Product {
 }
 
 export interface ProductPromo {
-  /** As in the ads: "Лімітована партія −25%". */
+  /** As in the ads: "Лімітована партія −50%". */
   name: string
   percent: number
   /** What is on sale, where the category's name doesn't say it: "Меринос 100%". */
