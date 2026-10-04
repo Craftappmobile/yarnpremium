@@ -9,6 +9,7 @@ import { redis, redisConfigured } from "@/lib/redis"
 import { SHOP_PHONE } from "@/lib/site"
 import { createPayment } from "@/lib/wayforpay"
 import { markOrdered } from "@/lib/checkout-draft"
+import { subscribe } from "@/lib/newsletter"
 import { SECOND_ITEM, isValidQuantity, priceLines, tailGrams } from "@/components/shop/data"
 import {
   effectivePaymentMethod,
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
       delivery,
       payment: { method, now: money(split.now), onReceipt: money(split.onReceipt) },
       notes: text(body.notes, 1000),
+      ...(body.newsletter === true ? { newsletter: true } : {}),
       createdAt: new Date().toISOString(),
     }
 
@@ -158,6 +160,11 @@ export async function POST(req: NextRequest) {
     // Meta's AddPaymentInfo or Purchase from the server, once the buyer has their answer.
     const ctx = buyerContext(req)
     after(() => sendOrderPlaced(order, id, ctx))
+    if (order.newsletter && !isTestOrderEnvironment()) {
+      after(() =>
+        subscribe(order.customer).catch((e) => console.error("[orders] newsletter failed:", (e as Error).message)),
+      )
+    }
 
     // Test orders don't reserve anything in KeyCRM, so they leave the site's stock alone too.
     if (!isTestOrderEnvironment()) {

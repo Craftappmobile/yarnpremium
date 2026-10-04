@@ -24,6 +24,12 @@ export interface PromoConfig {
   category: string
   /** What is on sale, as the strip and the header name it, when the category's name doesn't say it ("Акційний товар"). */
   title?: string
+  /**
+   * The ad's video in Bunny Stream (its id, a Bunny link that contains it, or its title),
+   * played in the header so people from the ad see what they clicked on. No
+   * video, or not ready yet: the header goes without.
+   */
+  video?: string
   /** Percent off the regular price. */
   percent: number
   /** Which price KeyCRM holds for the category's products (see the top of this file). */
@@ -39,7 +45,15 @@ export interface PromoConfig {
 
 export const PROMOS: PromoConfig[] = [
   // The merino already sold at its promotional price is filed under «Акційний товар» in KeyCRM.
-  { name: "Лімітована партія", category: "Акційний товар", title: "Меринос 100%", percent: 50, keycrm: "promo" },
+  {
+    name: "Лімітована партія",
+    category: "Акційний товар",
+    title: "Меринос 100%",
+    percent: 50,
+    keycrm: "promo",
+    // The Reels ad («❤️‍🔥135грн-100г😍Саме той меринос, який ви постійно питаєте й чекаєте!…»), found by its title.
+    video: "Саме той меринос",
+  },
 ]
 
 const KYIV = "Europe/Kiev"

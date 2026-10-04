@@ -197,3 +197,41 @@ export function bunnyUrls(ref: BunnyRef): { src: string; poster: string } {
   const base = `https://${cdnHost()}/${encodeURIComponent(ref.guid)}`
   return { src: `${base}/${ref.file}`, poster: `${base}/${ref.thumbnail}` }
 }
+
+const GUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+const readyCache = new Map<string, { at: number; urls: { src: string; poster: string } | null }>()
+
+/**
+ * A video uploaded to the library by hand (an ad, say): its MP4 and first
+ * frame once Bunny has finished it, or null. `ref` is its id, any Bunny link
+ * that contains it, or its title as Bunny shows it (the newest finished video
+ * whose title contains it). Asked again at most every 10 minutes.
+ */
+export async function libraryVideo(ref: string): Promise<{ src: string; poster: string } | null> {
+  const key = ref.trim().toLowerCase()
+  if (!key || !bunnyConfigured()) return null
+  const cached = readyCache.get(key)
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.urls
+  let urls: { src: string; poster: string } | null = null
+  try {
+    const guid = ref.match(GUID)?.[0]?.toLowerCase()
+    const video = guid ? await api<BunnyVideo>("GET", `/videos/${guid}`) : await findByTitle(ref.trim())
+    const file = video && video.status === FINISHED ? mp4File(video) : undefined
+    if (video && file) {
+      urls = bunnyUrls({ guid: video.guid, file, thumbnail: video.thumbnailFileName || "thumbnail.jpg", length: video.length })
+    }
+  } catch (e) {
+    console.error("[bunny] library video:", (e as Error).message)
+  }
+  readyCache.set(key, { at: Date.now(), urls })
+  return urls
+}
+
+async function findByTitle(title: string): Promise<BunnyVideo | undefined> {
+  const res = await api<{ items: BunnyVideo[] }>(
+    "GET",
+    `/videos?page=1&itemsPerPage=20&orderBy=date&search=${encodeURIComponent(title)}`,
+  )
+  const wanted = title.toLowerCase()
+  return (res.items ?? []).find((v) => v.status === FINISHED && v.title.toLowerCase().includes(wanted))
+}
