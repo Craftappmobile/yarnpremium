@@ -81,6 +81,31 @@ export function skuKey(value: string): string {
     .replace(/[авеікмнорстух]/g, (c) => LOOKALIKES[c])
 }
 
+/**
+ * The SKU a file is named after. The name may carry other words too
+ * («спиці MER1124», «MER 1124 зразок»): then the longest run of words that
+ * makes a SKU wins.
+ */
+function skuInName(name: string, bySkuKey: Map<string, string>): string | undefined {
+  const exact = bySkuKey.get(skuKey(name))
+  if (exact) return exact
+  const words = name.split(/[\s_+.,;:()[\]#№-]+/).filter(Boolean)
+  let best: string | undefined
+  let bestLength = 0
+  for (let i = 0; i < words.length; i++) {
+    // SKUs written with spaces span a few words at most.
+    for (let j = i + 1; j <= Math.min(words.length, i + 4); j++) {
+      const key = skuKey(words.slice(i, j).join(""))
+      const sku = bySkuKey.get(key)
+      if (sku && key.length > bestLength) {
+        best = sku
+        bestLength = key.length
+      }
+    }
+  }
+  return best
+}
+
 interface DriveFile {
   id: string
   name: string
@@ -137,7 +162,7 @@ export async function matchDriveVideos(skus: string[]): Promise<{ videos: Map<st
   ;(["review", "sample"] as const).forEach((role, i) => {
     const newestFirst = [...lists[i]].sort((a, b) => (b.modifiedTime ?? "").localeCompare(a.modifiedTime ?? ""))
     for (const file of newestFirst) {
-      const sku = bySkuKey.get(skuKey(file.name.replace(/\.[^.]+$/, "")))
+      const sku = skuInName(file.name.replace(/\.[^.]+$/, ""), bySkuKey)
       if (!sku) {
         report.unmatched.push(file.name)
         continue
