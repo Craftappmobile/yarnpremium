@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check, Send, X } from "lucide-react"
+import { Check, X } from "lucide-react"
 import { readStorage, writeStorage } from "@/lib/storage"
-import { TELEGRAM_URL } from "@/lib/site"
+import { TelegramButton } from "./telegram-button"
 
 const KEY = "sinserita:subscribe-card:v1"
 
@@ -48,16 +48,9 @@ export function SubscribeCard({ className = "" }: { className?: string }) {
           Кожен колір — одна партія, повторно не привозимо. Нові показуємо в нашому каналі.
         </p>
       </div>
-      <a
-        href={TELEGRAM_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => dismiss("subscribed")}
-        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
-      >
-        <Send className="h-4 w-4" aria-hidden />
+      <TelegramButton onClick={() => dismiss("subscribed")} className="shrink-0">
         Підписатися
-      </a>
+      </TelegramButton>
       <button
         type="button"
         onClick={() => dismiss("closed")}
