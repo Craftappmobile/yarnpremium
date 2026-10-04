@@ -16,6 +16,7 @@
 
 import type { Product } from "@/components/shop/data"
 import type { YarnColor } from "@/lib/image-color"
+import { familyFromName } from "@/components/shop/yarn-colors"
 import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 
@@ -228,7 +229,9 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       })),
     }
 
-    // Colour of each yarn on sale, from its photo; the name can mark it multicoloured.
+    // Colour of each yarn on sale, from its photo. The group comes from the colour's
+    // name in KeyCRM where it's recognised (photos come out darker and greyer than
+    // the yarn), else from the photo; the product's name can mark it multicoloured.
     const { colors, report: colorReport } = await photoColors(
       catalog.filter((p) => p.stock > 0).map((p) => p.image),
       started + COLOR_DEADLINE_MS,
@@ -237,7 +240,7 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       const color = colors.get(p.image)
       if (color) p.colorHex = color.hex
       if (MULTI_NAME.test(`${p.name} ${p.category}`)) p.colorFamily = "multi"
-      else if (color) p.colorFamily = color.family
+      else p.colorFamily = familyFromName(p.color) ?? color?.family
     }
 
     // A stock webhook that landed while we were reading KeyCRM is newer than our data: keep it.

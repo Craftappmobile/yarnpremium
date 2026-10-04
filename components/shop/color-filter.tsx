@@ -5,13 +5,15 @@ import { Check } from "lucide-react"
 import type { Product } from "./data"
 import { pluralUk } from "@/lib/utils"
 import { ProductImage } from "./product-image"
-import { COLOR_FAMILIES, type ColorFamily, type Shade, hueName, matchesShade, oklchToHex, shadeHex } from "./yarn-colors"
+import { COLOR_FAMILIES, type ColorFamily, type Shade, hueName, matchesShade, oklchToHex, shadeHex, shadeOrder } from "./yarn-colors"
 
 interface ColorFilterProps {
   products: Product[]
   families: ColorFamily[]
   shade: Shade | null
   onChange: (families: ColorFamily[], shade: Shade | null) => void
+  /** Takes the visitor to the catalog's results (closes the panel on a phone). */
+  onShowResults?: () => void
 }
 
 const MULTI_SWATCH = "conic-gradient(#d0312d, #eccb4a, #4f9150, #239f9a, #3a64b4, #7c55ad, #d0312d)"
@@ -33,7 +35,7 @@ function wheelGradient(l = 0.68) {
  * Colour filter: tap one or more colour groups, or open «Точніше» and turn the
  * wheel to a hue (with a lighter/darker slider) for an exact shade.
  */
-export function ColorFilter({ products, families, shade, onChange }: ColorFilterProps) {
+export function ColorFilter({ products, families, shade, onChange, onShowResults }: ColorFilterProps) {
   const [wheelOpen, setWheelOpen] = useState(shade !== null)
   const wheelRef = useRef<HTMLDivElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
@@ -50,10 +52,17 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
 
   const current = shade ?? DEFAULT_SHADE
   const coloured = useMemo(() => products.filter((p) => p.colorHex), [products])
-  // Yarn of the picked shade, shown right under the wheel: on a phone the panel
-  // covers the catalog, so this is where turning the wheel shows its effect.
+  // Yarn of the picked shade, shown right under the wheel, closest first: on a
+  // phone the panel covers the catalog, so this is where turning the wheel shows its effect.
   const matches = useMemo(
-    () => (shade ? coloured.filter((p) => matchesShade(p.colorHex!, shade)) : []),
+    () =>
+      shade
+        ? coloured
+            .filter((p) => matchesShade(p, shade))
+            .map((p) => ({ p, order: shadeOrder(p, shade) }))
+            .sort((a, b) => a.order - b.order)
+            .map(({ p }) => p)
+        : [],
     [coloured, shade],
   )
   const setShade = (next: Shade) => onChange(families, next)
@@ -170,6 +179,19 @@ export function ColorFilter({ products, families, shade, onChange }: ColorFilter
                       </li>
                     ))}
                   </ul>
+                )}
+                {matches.length > 0 && onShowResults && (
+                  <button
+                    type="button"
+                    // Only this shade: groups ticked earlier would mix other colours into the catalog.
+                    onClick={() => {
+                      onChange([], shade)
+                      onShowResults()
+                    }}
+                    className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                  >
+                    Показати цей відтінок у каталозі
+                  </button>
                 )}
               </div>
             ) : (
