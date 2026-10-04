@@ -49,6 +49,8 @@ export interface ProductPromo {
   /** As in the ads: "Лімітована партія −25%". */
   name: string
   percent: number
+  /** What is on sale, where the category's name doesn't say it: "Меринос 100%". */
+  title?: string
   /** When it is over (ISO): the start of the day after its last, Kyiv time. None: while stock lasts. */
   endsAt?: string
 }

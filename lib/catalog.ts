@@ -81,7 +81,9 @@ function customFields(product: any): Record<string, string> {
 
 function toProduct(offer: any, product: any, fields: Record<string, string>, category: string): Product {
   const name = String(product.name ?? "").trim()
-  const unit = String(product.unit_type ?? "").trim() || "шт"
+  // "Г" now and then in KeyCRM: still grams.
+  const rawUnit = String(product.unit_type ?? "").trim() || "шт"
+  const unit = rawUnit.toLowerCase() === "г" ? "г" : rawUnit
   const images = [offer.thumbnail_url, product.thumbnail_url, ...(product.attachments_data ?? [])]
     .map(imageUrl)
     .filter((u, i, all) => u && all.indexOf(u) === i)

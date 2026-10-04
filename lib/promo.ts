@@ -22,6 +22,8 @@ export interface PromoConfig {
   name: string
   /** KeyCRM category, as named there. */
   category: string
+  /** What is on sale, as the strip and the header name it, when the category's name doesn't say it ("Акційний товар"). */
+  title?: string
   /** Percent off the regular price. */
   percent: number
   /** Which price KeyCRM holds for the category's products (see the top of this file). */
@@ -36,7 +38,8 @@ export interface PromoConfig {
 }
 
 export const PROMOS: PromoConfig[] = [
-  { name: "Лімітована партія", category: "Мериноси тонкі", percent: 25, keycrm: "promo" },
+  // The merino already sold at its promotional price is filed under «Акційний товар» in KeyCRM.
+  { name: "Лімітована партія", category: "Акційний товар", title: "Меринос 100%", percent: 25, keycrm: "promo" },
 ]
 
 const KYIV = "Europe/Kiev"
@@ -90,7 +93,7 @@ export function currentOrNextPromo(category: string, now = Date.now(), promos = 
  * whole hryvnias; a piece is rounded to whole hryvnias.
  */
 function roundPrice(perUnit: number, unit: string): number {
-  return unit === "г" ? Math.round(perUnit * 100) / 100 : Math.round(perUnit)
+  return unit.toLowerCase() === "г" ? Math.round(perUnit * 100) / 100 : Math.round(perUnit)
 }
 
 /** Promotional price per unit from the regular one: 1,35 ₴/г −25% → 101 ₴ / 100 г → 1,01 ₴/г. */
@@ -111,6 +114,7 @@ export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Produc
   const info: ProductPromo = {
     name: promoLabel(promo),
     percent: promo.percent,
+    ...(promo.title ? { title: promo.title } : {}),
     ...(Number.isFinite(end) ? { endsAt: new Date(end).toISOString() } : {}),
   }
   return promo.keycrm === "promo"
