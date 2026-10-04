@@ -57,6 +57,20 @@ async function cartNote(raw: unknown, conv: Conversation): Promise<string | null
   return known.length ? `[Зараз у кошику покупця: ${known.join("; ")}.]` : null
 }
 
+/**
+ * «Покупець зараз на сторінці …» when the chat was opened from a product page
+ * other than the one the model last heard about, so «скільки мені треба?» is
+ * about that product.
+ */
+async function productNote(raw: unknown, conv: Conversation): Promise<string | null> {
+  const sku = typeof raw === "string" ? raw.slice(0, 64) : ""
+  if (!sku || sku === conv.productKey) return null
+  const [p] = await readProducts([sku])
+  if (!p) return null
+  conv.productKey = sku
+  return `[Покупець пише зі сторінки товару «${p.name}» (артикул ${p.sku}). Якщо питає, скільки треба чи як вʼязати, не уточнюючи пряжу, — мова про цей товар: подивись його через get_product.]`
+}
+
 const fail = (message: string, status: number) => NextResponse.json({ error: message }, { status })
 
 export async function POST(req: NextRequest) {
@@ -84,8 +98,11 @@ export async function POST(req: NextRequest) {
   const release = await lockConversation(id)
   if (!release) return fail("Зачекайте, будь ласка, — консультант ще відповідає.", 409)
 
-  const note = await cartNote(body.cart, conv).catch(() => null)
-  const content: Anthropic.Beta.BetaTextBlockParam[] = note ? [{ type: "text", text: note }] : []
+  const notes = await Promise.all([
+    productNote(body.product, conv).catch(() => null),
+    cartNote(body.cart, conv).catch(() => null),
+  ])
+  const content: Anthropic.Beta.BetaTextBlockParam[] = notes.flatMap((text) => (text ? [{ type: "text" as const, text }] : []))
   content.push({ type: "text", text: message })
   const messages = [...conv.messages, { role: "user" as const, content }]
 

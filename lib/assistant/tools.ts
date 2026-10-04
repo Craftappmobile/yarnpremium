@@ -232,6 +232,8 @@ async function details(sku: string): Promise<ToolOutcome> {
     content: JSON.stringify({
       ...brief(p),
       description: p.description || undefined,
+      // Composition, strands, needles, gauge, stitch of the shop's sample (from KeyCRM).
+      specs: p.specs?.length ? Object.fromEntries(p.specs.map((s) => [s.name, s.value])) : undefined,
       buying: byWeight(p)
         ? `від ${p.minQty} г, далі кроком ${p.step} г; якщо після покупки лишилося б менше ${p.minQty} г, продається лише вся бобіна (на залишок знижка 10%)`
         : `від ${p.minQty} ${p.priceUnit}`,

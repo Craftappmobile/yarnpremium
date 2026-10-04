@@ -99,6 +99,8 @@ export interface OrderRequest {
   utm?: Record<string, string>
   /** Present when the buyer wrote to the shopping assistant during the past week. */
   assistant?: { messages: number; skus: string[] }
+  /** Present when the buyer saw a product video during the past week (components/shop/video-attribution.ts). */
+  video?: { page: boolean; reviewCompleted: boolean; sampleCompleted: boolean }
   /** Honeypot: hidden from people, filled in by bots. */
   website?: string
 }

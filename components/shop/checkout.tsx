@@ -28,6 +28,7 @@ import { submitPaymentForm } from "./pay"
 import { trackBeginCheckout, trackPurchase } from "./analytics"
 import { readUtm } from "./utm-capture"
 import { clearAssistantAttribution, readAssistantAttribution } from "./assistant-attribution"
+import { clearVideoAttribution, readVideoAttribution } from "./video-attribution"
 
 export function Checkout() {
   const router = useRouter()
@@ -160,6 +161,7 @@ export function Checkout() {
       notes: notes.trim(),
       utm: readUtm(),
       assistant,
+      video: readVideoAttribution(),
       website,
     }
     try {
@@ -176,6 +178,7 @@ export function Checkout() {
         saveLastOrder({ id: orderId, order: data.order as Order })
         trackPurchase(data.order as Order, orderId, Boolean(assistant))
         clearAssistantAttribution()
+        clearVideoAttribution()
         clearCart()
         // Online part: straight to WayForPay; it brings the buyer back to the confirmation page.
         if (data.payment) submitPaymentForm(data.payment)

@@ -7,6 +7,10 @@
 //   orders, revenue                              every order placed on the site
 //   orders_assisted, revenue_assisted            orders whose buyer wrote to the assistant
 //   revenue_from_cards                           order lines added from the assistant's product cards
+//   video_pages, video_<review|sample>_<started|completed>   visitors (once a day each) who opened a
+//                                                product page with a video / started / finished a video
+//   orders_video_page, orders_video_<review|sample>_completed, revenue_video_sample_completed
+//                                                orders of buyers who did so in the past week
 //
 // Only the live site counts (preview deployments share Redis). Writing a
 // counter never fails the request it is counting.
@@ -70,6 +74,17 @@ export interface DayStats {
   ordersAssisted: number
   revenueAssisted: number
   revenueFromCards: number
+  video: {
+    pages: number
+    reviewStarted: number
+    reviewCompleted: number
+    sampleStarted: number
+    sampleCompleted: number
+    ordersPage: number
+    ordersReviewCompleted: number
+    ordersSampleCompleted: number
+    revenueSampleCompleted: number
+  }
   /** Model spend in USD; null when a model without a known price ran. */
   costUsd: number | null
   tokens: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }>
@@ -106,6 +121,17 @@ function toDay(day: string, h: Record<string, string>): DayStats {
     ordersAssisted: n("orders_assisted"),
     revenueAssisted: n("revenue_assisted"),
     revenueFromCards: n("revenue_from_cards"),
+    video: {
+      pages: n("video_pages"),
+      reviewStarted: n("video_review_started"),
+      reviewCompleted: n("video_review_completed"),
+      sampleStarted: n("video_sample_started"),
+      sampleCompleted: n("video_sample_completed"),
+      ordersPage: n("orders_video_page"),
+      ordersReviewCompleted: n("orders_video_review_completed"),
+      ordersSampleCompleted: n("orders_video_sample_completed"),
+      revenueSampleCompleted: n("revenue_video_sample_completed"),
+    },
     costUsd: costUsd === null ? null : Math.round(costUsd * 10000) / 10000,
     tokens,
   }
@@ -159,6 +185,40 @@ export function summarize(daily: DayStats[]) {
 }
 
 export type StatsSummary = ReturnType<typeof summarize>
+
+/**
+ * Do those who watch a product video to the end buy more often? Visitors are
+ * counted once a day and orders within a week of watching, so the rates are
+ * rough, but comparable between the groups.
+ */
+export function summarizeVideo(daily: DayStats[]) {
+  const sum = (f: (v: DayStats["video"]) => number) => round(daily.reduce((s, d) => s + f(d.video), 0))
+  const pages = sum((v) => v.pages)
+  const reviewCompleted = sum((v) => v.reviewCompleted)
+  const sampleCompleted = sum((v) => v.sampleCompleted)
+  const ordersPage = sum((v) => v.ordersPage)
+  const ordersReview = sum((v) => v.ordersReviewCompleted)
+  const ordersSample = sum((v) => v.ordersSampleCompleted)
+  return {
+    pages,
+    reviewStarted: sum((v) => v.reviewStarted),
+    reviewCompleted,
+    sampleStarted: sum((v) => v.sampleStarted),
+    sampleCompleted,
+    ordersPage,
+    ordersReviewCompleted: ordersReview,
+    ordersSampleCompleted: ordersSample,
+    revenueSampleCompleted: sum((v) => v.revenueSampleCompleted),
+    /** Orders per visitor of a video page: all of them, those who watched the sample to the end, the others. */
+    conversionPage: ratio(ordersPage, pages, 4),
+    conversionSample: ratio(ordersSample, sampleCompleted, 4),
+    conversionNoSample: ratio(ordersPage - ordersSample, pages - sampleCompleted, 4),
+    conversionReview: ratio(ordersReview, reviewCompleted, 4),
+    conversionNoReview: ratio(ordersPage - ordersReview, pages - reviewCompleted, 4),
+  }
+}
+
+export type VideoSummary = ReturnType<typeof summarizeVideo>
 
 /** Checks the password of the statistics pages (ASSISTANT_STATS_KEY); false while it isn't set. */
 export function statsKeyValid(given: string | null | undefined): boolean {
