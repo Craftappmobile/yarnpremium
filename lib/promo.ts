@@ -45,7 +45,15 @@ export interface PromoConfig {
 
 export const PROMOS: PromoConfig[] = [
   // The merino already sold at its promotional price is filed under «Акційний товар» in KeyCRM.
-  { name: "Лімітована партія", category: "Акційний товар", title: "Меринос 100%", percent: 50, keycrm: "promo" },
+  {
+    name: "Лімітована партія",
+    category: "Акційний товар",
+    title: "Меринос 100%",
+    percent: 50,
+    keycrm: "promo",
+    // The Reels ad («❤️‍🔥135грн-100г😍Саме той меринос, який ви постійно питаєте й чекаєте!…»), found by its title.
+    video: "Саме той меринос",
+  },
 ]
 
 const KYIV = "Europe/Kiev"
