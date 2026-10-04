@@ -167,7 +167,7 @@ export default function MinimalShop({
   const categoryProducts = category ? products.filter((p) => p.category === category) : []
   const categoryPromo = categoryProducts.find((p) => p.promo && p.stock > 0)?.promo
 
-  const offer = category && categoryPromo ? `${categoryPromo.name} на «${category}» — ${promoDeadline(categoryPromo)}` : null
+  const offer = category && categoryPromo ? `${categoryPromo.name} на «${categoryPromo.title ?? category}» — ${promoDeadline(categoryPromo)}` : null
   useEffect(() => {
     announceOffer(offer)
     return () => announceOffer(null)

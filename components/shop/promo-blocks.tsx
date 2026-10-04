@@ -10,7 +10,7 @@ export function PromoStrip({ promo, category }: { promo: ProductPromo; category:
     <div className="flex items-center justify-center gap-2 bg-zinc-900 px-4 py-2 text-center text-xs font-medium text-white sm:text-sm dark:bg-zinc-100 dark:text-zinc-900">
       <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span>
-        {promo.name} на «{category}» · {promoDeadline(promo)}
+        {promo.name} на «{promo.title ?? category}» · {promoDeadline(promo)}
       </span>
     </div>
   )
@@ -35,7 +35,7 @@ export function PromoCategoryHeader({ category, products }: { category: string; 
         {promo.name.replace(/\s*−\d+%$/, "")} · {promoDeadline(promo)}
       </p>
       <h2 className="mt-1 text-2xl font-semibold tracking-tight text-balance lg:text-3xl">
-        {category} <span className="whitespace-nowrap">−{promo.percent}%</span>
+        {promo.title ?? category} <span className="whitespace-nowrap">−{promo.percent}%</span>
       </h2>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
         {inStock.length} {pluralUk(inStock.length, ["колір", "кольори", "кольорів"])} в наявності
