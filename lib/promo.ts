@@ -18,7 +18,7 @@
 import type { Product, ProductPromo } from "@/components/shop/data"
 
 export interface PromoConfig {
-  /** As in the ads, without the percent: "Лімітована партія". The site shows "Лімітована партія −25%". */
+  /** As in the ads, without the percent: "Лімітована партія". The site shows "Лімітована партія −50%". */
   name: string
   /** KeyCRM category, as named there. */
   category: string
@@ -39,7 +39,7 @@ export interface PromoConfig {
 
 export const PROMOS: PromoConfig[] = [
   // The merino already sold at its promotional price is filed under «Акційний товар» in KeyCRM.
-  { name: "Лімітована партія", category: "Акційний товар", title: "Меринос 100%", percent: 25, keycrm: "promo" },
+  { name: "Лімітована партія", category: "Акційний товар", title: "Меринос 100%", percent: 50, keycrm: "promo" },
 ]
 
 const KYIV = "Europe/Kiev"
