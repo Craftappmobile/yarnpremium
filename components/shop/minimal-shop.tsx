@@ -162,17 +162,6 @@ export default function MinimalShop({
     return matchesSearch && matchesPrice && matchesLength && matchesCategory && matchesColor
   })
 
-  // One category picked (an ad's link opens it so): its promotion, if it has one.
-  const category = filters.categories.length === 1 ? filters.categories[0] : null
-  const categoryProducts = category ? products.filter((p) => p.category === category) : []
-  const categoryPromo = categoryProducts.find((p) => p.promo && p.stock > 0)?.promo
-
-  const offer = category && categoryPromo ? `${categoryPromo.name} на «${categoryPromo.title ?? category}» — ${promoDeadline(categoryPromo)}` : null
-  useEffect(() => {
-    announceOffer(offer)
-    return () => announceOffer(null)
-  }, [offer])
-
   const sortedProducts = sortProducts(filteredProducts, sort)
   const activeFilterCount =
     filters.categories.length +
@@ -180,6 +169,26 @@ export default function MinimalShop({
     (filters.shade ? 1 : 0) +
     (filters.priceRange[0] !== priceBounds[0] || filters.priceRange[1] !== priceBounds[1] ? 1 : 0) +
     (filters.lengthRange[0] !== lengthBounds[0] || filters.lengthRange[1] !== lengthBounds[1] ? 1 : 0)
+
+  // One category picked (an ad's link opens it so): its promotion, if it has one.
+  // The whole catalog, unfiltered: the biggest promotion, with a button to its category.
+  const category = filters.categories.length === 1 ? filters.categories[0] : null
+  const categoryPromo = category ? summary.promos?.find((s) => s.category === category) : undefined
+  const homePromo = query === "" && activeFilterCount === 0 ? summary.promos?.[0] : undefined
+  const shownPromo = categoryPromo ?? homePromo
+  const openPromo = (promoCategory: string) => {
+    setFilters((prev) => ({ ...prev, categories: [promoCategory] }))
+    requestFull()
+    document.getElementById("content")?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  const offer = shownPromo
+    ? `${shownPromo.promo.name} на «${shownPromo.promo.title ?? shownPromo.category}» — ${promoDeadline(shownPromo.promo)}`
+    : null
+  useEffect(() => {
+    announceOffer(offer)
+    return () => announceOffer(null)
+  }, [offer])
   const shownProducts = sortedProducts.slice(0, visibleCount)
   // Search, filters and sorting need the whole catalog: until it's here they wait.
   const narrowed = query !== "" || activeFilterCount > 0 || sort !== "default"
@@ -215,7 +224,7 @@ export default function MinimalShop({
           onShowAll: showAllCategories,
         }}
       />
-      {category && categoryPromo && <PromoStrip promo={categoryPromo} category={category} />}
+      {shownPromo && <PromoStrip promo={shownPromo.promo} category={shownPromo.category} />}
 
       <div className="mx-auto max-w-[1400px] px-4 pt-6 lg:pt-12 pb-16">
         <h1 className="sr-only">SINCERITA — італійська пряжа преміум якості</h1>
@@ -259,7 +268,8 @@ export default function MinimalShop({
           )}
 
           <div id="content" className="flex-1 min-w-0 scroll-mt-20">
-            {category && categoryPromo && <PromoCategoryHeader category={category} products={categoryProducts} />}
+            {categoryPromo && <PromoCategoryHeader summary={categoryPromo} />}
+            {homePromo && <PromoCategoryHeader summary={homePromo} onShow={() => openPromo(homePromo.category)} />}
             <TrustStrip compact />
             <h2 className="sr-only">Товари</h2>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">

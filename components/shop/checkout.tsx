@@ -31,6 +31,13 @@ import { readUtm } from "./utm-capture"
 import { clearAssistantAttribution, readAssistantAttribution } from "./assistant-attribution"
 import { clearVideoAttribution, readVideoAttribution } from "./video-attribution"
 
+const CARRIER_LOGOS: Partial<Record<DeliveryMethod, string>> = {
+  np_warehouse: "/carriers/nova-poshta.png",
+  np_postomat: "/carriers/nova-poshta.png",
+  np_courier: "/carriers/nova-poshta.png",
+  ukrposhta: "/carriers/ukrposhta.png",
+}
+
 export function Checkout() {
   const router = useRouter()
   const { cart, priced, total, saved, clearCart, hydrated, refresh } = useCart()
@@ -274,9 +281,15 @@ export function Checkout() {
                     onChange={() => selectDelivery(m.value)}
                     className="accent-zinc-900 dark:accent-white"
                   />
+                  {/* The carrier's mark finds the familiar option faster than reading; pickup keeps the space. */}
+                  {CARRIER_LOGOS[m.value] ? (
+                    <img src={CARRIER_LOGOS[m.value]} alt="" width={20} height={20} className="h-5 w-5 shrink-0 rounded-sm" />
+                  ) : (
+                    <span aria-hidden className="h-5 w-5 shrink-0" />
+                  )}
                   {m.label}
                 </span>
-                <span className="pl-[25px] text-xs text-zinc-500 sm:pl-0 sm:text-right">{m.hint}</span>
+                <span className="pl-[57px] text-xs text-zinc-500 sm:pl-0 sm:text-right">{m.hint}</span>
               </label>
             ))}
           </div>

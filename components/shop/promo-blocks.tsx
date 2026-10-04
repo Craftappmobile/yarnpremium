@@ -1,6 +1,7 @@
 import Link from "next/link"
-import { Check, Clock, CreditCard, RotateCcw, Truck } from "lucide-react"
-import { type Product, type ProductPromo, formatPriceShort, promoDeadline } from "./data"
+import { ArrowRight, Check, Clock, CreditCard, RotateCcw, Truck } from "lucide-react"
+import { type ProductPromo, formatPriceShort, promoDeadline } from "./data"
+import type { PromoSummary } from "./catalog-summary"
 import { OldPrice } from "./promo-price"
 import { pluralUk } from "@/lib/utils"
 
@@ -16,41 +17,47 @@ export function PromoStrip({ promo, category }: { promo: ProductPromo; category:
   )
 }
 
-/** Marked products (defects, flaws) don't set the «від» price an ad would quote. */
-const MARKED = /розрив|брак|дефект|пошкодж/i
-
 /**
- * Header over a category while a promotion covers it: the offer, how many
- * colours are left and the lowest price of 100 g. The products follow at once.
+ * Header of a promotion: the offer, how many colours are left and the lowest
+ * price of 100 g. Over its category the products follow at once; on the home
+ * page `onShow` adds the button that opens the category.
  */
-export function PromoCategoryHeader({ category, products }: { category: string; products: Product[] }) {
-  const inStock = products.filter((p) => p.stock > 0)
-  const promo = inStock.find((p) => p.promo)?.promo
-  if (!promo) return null
-  const byWeight = inStock.filter((p) => p.priceUnit === "г" && p.oldPrice && !MARKED.test(p.name))
-  const cheapest = byWeight.reduce<Product | null>((min, p) => (!min || p.price < min.price ? p : min), null)
+export function PromoCategoryHeader({ summary, onShow }: { summary: PromoSummary; onShow?: () => void }) {
+  const { promo, category, count, from } = summary
   return (
     <section className="mb-5 rounded-xl border border-zinc-200 bg-white p-4 lg:p-6 dark:border-zinc-800 dark:bg-zinc-900">
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {promo.name.replace(/\s*−\d+%$/, "")} · {promoDeadline(promo)}
       </p>
-      <h2 className="mt-1 text-2xl font-semibold tracking-tight text-balance lg:text-3xl">
-        {promo.title ?? category} <span className="whitespace-nowrap">−{promo.percent}%</span>
-      </h2>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-        {inStock.length} {pluralUk(inStock.length, ["колір", "кольори", "кольорів"])} в наявності
-        {cheapest && cheapest.oldPrice && (
-          <>
-            {" "}
-            · від <span className="font-semibold text-zinc-900 dark:text-zinc-50">{formatPriceShort(cheapest.price * 100)}</span>{" "}
-            <OldPrice>{formatPriceShort(cheapest.oldPrice * 100)}</OldPrice> / 100 г
-          </>
-        )}
+      {/* The discount is the one accent: black like the shop's buttons, not a sale red that would fight the yarn. */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="rounded-md bg-zinc-900 px-2.5 py-1 text-lg font-bold tabular-nums text-white dark:bg-white dark:text-zinc-900">
+          −{promo.percent}%
+        </span>
+        <h2 className="text-2xl font-semibold tracking-tight text-balance lg:text-3xl">{promo.title ?? category}</h2>
+      </div>
+      {from && (
+        <p className="mt-3 flex flex-wrap items-baseline gap-x-2 tabular-nums">
+          <span className="text-sm text-zinc-600 dark:text-zinc-300">від</span>
+          <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">{formatPriceShort(from.price)}</span>
+          <OldPrice className="text-base">{formatPriceShort(from.oldPrice)}</OldPrice>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">/ 100 г</span>
+        </p>
+      )}
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+        Знижка вже в цінах · {count} {pluralUk(count, ["товар", "товари", "товарів"])} в наявності
       </p>
-      <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium">
-        <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
-        Знижка вже в цінах нижче
-      </p>
+      {onShow && (
+        <button
+          type="button"
+          onClick={onShow}
+          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
+        >
+          Дивитись усі кольори
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </button>
+      )}
     </section>
   )
 }
