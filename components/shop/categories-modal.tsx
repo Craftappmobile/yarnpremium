@@ -7,6 +7,8 @@ import { m } from "motion/react"
 import { X, Search } from "lucide-react"
 import type { Product } from "./data"
 import { pluralUk } from "@/lib/utils"
+import { CatalogLink } from "./catalog-link"
+import { categoryPath } from "@/lib/category-url"
 
 interface CategoriesModalProps {
   allProducts: Product[]
@@ -145,7 +147,9 @@ export function CategoriesModal({
                           </svg>
                         )}
                       </span>
-                      <span
+                      <CatalogLink
+                        href={categoryPath(category)}
+                        onSelect={() => onToggleCategory(category)}
                         className={`flex-1 truncate text-sm ${
                           checked
                             ? "font-medium text-zinc-900 dark:text-zinc-100"
@@ -155,7 +159,7 @@ export function CategoriesModal({
                         }`}
                       >
                         {category}
-                      </span>
+                      </CatalogLink>
                       <span className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs tabular-nums text-zinc-500 dark:border-zinc-800 dark:text-zinc-500">
                         {count}
                       </span>

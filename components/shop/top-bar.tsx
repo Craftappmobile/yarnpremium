@@ -5,6 +5,8 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useWishlist } from "./wishlist-context"
+import { CatalogLink } from "./catalog-link"
+import { categoryPath } from "@/lib/category-url"
 
 interface TopBarProps {
   cartItemCount: number
@@ -80,10 +82,10 @@ export function TopBar({ cartItemCount, onCartClick, searchQuery, onSearch, cate
           >
             {/* The quick-access pills don't fit a phone: there the button opens the full list. */}
             <div className="hidden lg:flex min-w-0 items-center gap-1 pl-4 pr-8 overflow-x-auto overscroll-x-contain scrollbar-none [mask-image:linear-gradient(to_right,transparent,#000_16px,#000_calc(100%-32px),transparent)]">
-            <button
-              type="button"
-              onClick={categories.onClear}
-              aria-pressed={categories.selected.length === 0}
+            <CatalogLink
+              href="/"
+              onSelect={categories.onClear}
+              aria-current={categories.selected.length === 0 ? "true" : undefined}
               className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[15px] transition-colors ${
                 categories.selected.length === 0
                   ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-medium"
@@ -91,15 +93,15 @@ export function TopBar({ cartItemCount, onCartClick, searchQuery, onSearch, cate
               }`}
             >
               Всі
-            </button>
+            </CatalogLink>
             {categories.popular.map((category) => {
               const active = categories.selected.includes(category)
               return (
-                <button
-                  type="button"
+                <CatalogLink
                   key={category}
-                  onClick={() => categories.onToggle(category)}
-                  aria-pressed={active}
+                  href={categoryPath(category)}
+                  onSelect={() => categories.onToggle(category)}
+                  aria-current={active ? "true" : undefined}
                   className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[15px] transition-colors ${
                     active
                       ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-medium"
@@ -107,7 +109,7 @@ export function TopBar({ cartItemCount, onCartClick, searchQuery, onSearch, cate
                   }`}
                 >
                   {category}
-                </button>
+                </CatalogLink>
               )
             })}
             </div>

@@ -4,6 +4,8 @@ import { useMemo, useState } from "react"
 import { type Product, formatPrice } from "./data"
 import { ColorFilter } from "./color-filter"
 import type { ColorFamily, Shade } from "./yarn-colors"
+import { CatalogLink } from "./catalog-link"
+import { categoryPath } from "@/lib/category-url"
 
 export interface Filters {
   priceRange: [number, number]
@@ -362,7 +364,9 @@ function CategoryRow({ category, checked, count, onToggle }: CategoryRowProps) {
             </svg>
           )}
         </span>
-        <span
+        <CatalogLink
+          href={categoryPath(category)}
+          onSelect={onToggle}
           className={`flex-1 text-sm ${
             checked
               ? "font-medium text-zinc-900 dark:text-zinc-100"
@@ -372,7 +376,7 @@ function CategoryRow({ category, checked, count, onToggle }: CategoryRowProps) {
           }`}
         >
           {category}
-        </span>
+        </CatalogLink>
         <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-500 rounded-full border border-zinc-200 dark:border-zinc-800 px-2 py-0.5">
           {count}
         </span>
