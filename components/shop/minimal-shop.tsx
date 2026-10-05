@@ -11,6 +11,7 @@ import { FiltersSidebar, type Filters } from "./filters-sidebar"
 import { Footer } from "./footer"
 import { CartBar } from "./cart-bar"
 import { SubscribeCard } from "./subscribe-card"
+import { SoldOutCategory } from "./sold-out-category"
 import { categoryPath, categoryTitle } from "@/lib/category-url"
 import { BRAND, HOME_TITLE } from "@/lib/site"
 import { CategoryHeader, PromoStrip, TrustStrip } from "./promo-blocks"
@@ -19,7 +20,7 @@ import { announceOffer } from "./assistant"
 import { useCart } from "./cart-context"
 import { pluralUk } from "@/lib/utils"
 import { type PackedCatalog, unpackCatalog } from "./catalog-pack"
-import { type CatalogSummary, FIRST_SCREEN } from "./catalog-summary"
+import { type CatalogSummary, FIRST_SCREEN, type GroupSummary, type PromoSummary } from "./catalog-summary"
 import { matchesShade } from "./yarn-colors"
 
 /** Cards per "Показати ще" click; the catalog has thousands. */
@@ -69,12 +70,15 @@ export default function MinimalShop({
   initial,
   summary,
   category: pageCategory,
+  soldOut,
   catalogVersion,
 }: {
   initial: PackedCatalog
   summary: CatalogSummary
   /** On a category's page (/kategoriya/…): the category, open from the start. */
   category?: string
+  /** The category has nothing left: its page says so and shows these instead. */
+  soldOut?: { similar: (GroupSummary | PromoSummary)[] }
   /** When the page was built: changes after every catalog sync, order and stock update. */
   catalogVersion: string
 }) {
@@ -187,6 +191,8 @@ export default function MinimalShop({
   const group = categoryPromo ?? (category ? summary.groups?.find((s) => s.category === category) : undefined)
   const homePromo = query === "" && activeFilterCount === 0 ? summary.promos?.[0] : undefined
   const shownPromo = categoryPromo ?? homePromo
+  // Until another category is picked.
+  const soldOutHere = !!soldOut && !!pageCategory && category === pageCategory
   const openPromo = (promoCategory: string) => {
     setFilters((prev) => ({ ...prev, categories: [promoCategory] }))
     requestFull()
@@ -251,7 +257,7 @@ export default function MinimalShop({
         <h1 className="sr-only">{pageCategory ? `${pageCategory} — пряжа ${BRAND}` : HOME_TITLE}</h1>
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
           {/* Desktop: filters in a sidebar. Phones get them in a panel, so products come first. */}
-          <div id="filters-sidebar" className="hidden lg:block lg:w-64 shrink-0">
+          <div id="filters-sidebar" className={`hidden lg:w-64 shrink-0 ${soldOutHere ? "" : "lg:block"}`}>
             <div className="lg:sticky lg:top-24">
               <FiltersSidebar
                 allProducts={products}
@@ -289,84 +295,90 @@ export default function MinimalShop({
           )}
 
           <div id="content" className="flex-1 min-w-0 scroll-mt-20">
-            {group && <CategoryHeader summary={group} />}
-            {homePromo && <CategoryHeader summary={homePromo} onShow={() => openPromo(homePromo.category)} />}
-            <TrustStrip compact />
-            <h2 className="sr-only">Товари</h2>
-            {/* Filters and sorting share one row, the count goes under them: the products start sooner. */}
-            <div className="flex items-center justify-between gap-x-4">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFiltersMounted(true)
-                    setIsFiltersOpen(true)
-                  }}
-                  className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-100 lg:hidden"
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Фільтри
-                  {activeFilterCount > 0 && (
-                    <span className="rounded-full bg-zinc-900 px-1.5 text-xs tabular-nums text-white">{activeFilterCount}</span>
-                  )}
-                </button>
-              </div>
-              <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                <span className="hidden sm:inline">Сортувати:</span>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortOption)}
-                  aria-label="Сортувати"
-                  className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-xs text-zinc-800 dark:text-zinc-200"
-                >
-                  {sortOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <p role="status" className="mb-3 mt-1.5 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-              {waiting
-                ? "Шукаємо…"
-                : `${homePromo ? "Увесь каталог · " : ""}${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
-            </p>
-            {products.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Каталог оновлюється. Зазирніть за кілька хвилин.</p>
-              </div>
-            ) : waiting ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center" aria-busy="true">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Завантажуємо весь каталог…</p>
-              </div>
-            ) : sortedProducts.length > 0 ? (
+            {soldOut && soldOutHere && pageCategory ? (
+              <SoldOutCategory category={pageCategory} similar={soldOut.similar} />
+            ) : (
               <>
-                <ProductGrid products={shownProducts} onProductSelect={setSelectedProduct} insert={<SubscribeCard />} />
-                {remaining > 0 && (
-                  <div className="mt-8 flex justify-center">
+                {group && <CategoryHeader summary={group} />}
+                {homePromo && <CategoryHeader summary={homePromo} onShow={() => openPromo(homePromo.category)} />}
+                <TrustStrip compact />
+                <h2 className="sr-only">Товари</h2>
+                {/* Filters and sorting share one row, the count goes under them: the products start sooner. */}
+                <div className="flex items-center justify-between gap-x-4">
+                  <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={showMore}
-                      disabled={!complete && visibleCount > FIRST_SCREEN}
-                      className="rounded-md border border-zinc-300 dark:border-zinc-700 px-5 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:cursor-wait disabled:opacity-60"
+                      onClick={() => {
+                        setFiltersMounted(true)
+                        setIsFiltersOpen(true)
+                      }}
+                      className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-100 lg:hidden"
                     >
-                      {!complete && visibleCount > FIRST_SCREEN ? "Завантажуємо…" : `Показати ще (${remaining})`}
+                      <SlidersHorizontal className="h-4 w-4" />
+                      Фільтри
+                      {activeFilterCount > 0 && (
+                        <span className="rounded-full bg-zinc-900 px-1.5 text-xs tabular-nums text-white">{activeFilterCount}</span>
+                      )}
+                    </button>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="hidden sm:inline">Сортувати:</span>
+                    <select
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value as SortOption)}
+                      aria-label="Сортувати"
+                      className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-xs text-zinc-800 dark:text-zinc-200"
+                    >
+                      {sortOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <p role="status" className="mb-3 mt-1.5 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                  {waiting
+                    ? "Шукаємо…"
+                    : `${homePromo ? "Увесь каталог · " : ""}${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
+                </p>
+                {products.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Каталог оновлюється. Зазирніть за кілька хвилин.</p>
+                  </div>
+                ) : waiting ? (
+                  <div className="flex flex-col items-center justify-center py-24 text-center" aria-busy="true">
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Завантажуємо весь каталог…</p>
+                  </div>
+                ) : sortedProducts.length > 0 ? (
+                  <>
+                    <ProductGrid products={shownProducts} onProductSelect={setSelectedProduct} insert={<SubscribeCard />} />
+                    {remaining > 0 && (
+                      <div className="mt-8 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={showMore}
+                          disabled={!complete && visibleCount > FIRST_SCREEN}
+                          className="rounded-md border border-zinc-300 dark:border-zinc-700 px-5 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:cursor-wait disabled:opacity-60"
+                        >
+                          {!complete && visibleCount > FIRST_SCREEN ? "Завантажуємо…" : `Показати ще (${remaining})`}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Немає товарів за вибраними фільтрами.</p>
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="mt-3 text-xs font-medium text-zinc-900 dark:text-zinc-100 underline underline-offset-4"
+                    >
+                      Скинути фільтри
                     </button>
                   </div>
                 )}
               </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Немає товарів за вибраними фільтрами.</p>
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="mt-3 text-xs font-medium text-zinc-900 dark:text-zinc-100 underline underline-offset-4"
-                >
-                  Скинути фільтри
-                </button>
-              </div>
             )}
           </div>
         </div>

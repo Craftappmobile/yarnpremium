@@ -10,6 +10,7 @@ export const CATEGORY_NOTES: Record<string, string> = {
   "Напіввовна": "50% меринос, 50% синтетика",
   "Шкарпеткова пряжа": "75% меринос, 25% поліамід",
   "Мікропаєтка по 195 грн": "100% поліестер, паєтка 2 мм",
+  "Мікропаєтка": "100% поліестер, паєтка 2 мм",
   "Кашемір Шовк": "Кашемір із шовком, 50–70% кашеміру",
   "Мериноси тонкі": "100% меринос",
   "Кашемір меринос": "Меринос із кашеміром",
@@ -28,4 +29,13 @@ export const CATEGORY_NOTES: Record<string, string> = {
   "Люрекс товcтий": "Віскоза з люрексом",
   "Королівська пайєтка": "100% бавовна з паєткою 3 і 6 мм",
   "Альпака бобінна": "Альпака з вовною і поліамідом",
+}
+
+/**
+ * Categories renamed in KeyCRM, old name → new: links to the old page (ads,
+ * posts, bookmarks) go on to the new one. Kept for as long as old links may
+ * be around; a line does nothing until the new name is in KeyCRM.
+ */
+export const RENAMED_CATEGORIES: Record<string, string> = {
+  "Мікропаєтка по 195 грн": "Мікропаєтка",
 }

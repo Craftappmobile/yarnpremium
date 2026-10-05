@@ -6,9 +6,12 @@ import { PROMOS } from "@/lib/promo"
 
 /**
  * What a catalog page (the home page, a category's page) is built from: the
- * products that can be bought and the summary that ships with the page.
+ * products that can be bought and the summary that ships with the page, and
+ * the categories with nothing in stock.
  */
-export async function catalogPageData(page: string): Promise<{ products: Product[]; summary: CatalogSummary }> {
+export async function catalogPageData(
+  page: string,
+): Promise<{ products: Product[]; summary: CatalogSummary; soldOut: string[] }> {
   const catalog = await readCatalog().catch((e) => {
     console.error(`[${page}] catalog unavailable:`, (e as Error).message)
     return []
@@ -24,5 +27,7 @@ export async function catalogPageData(page: string): Promise<{ products: Product
       return video ? { ...s, video } : s
     }),
   )
-  return { products, summary }
+  // Categories still in KeyCRM with nothing left: their pages say so.
+  const soldOut = [...new Set(catalog.map((p) => p.category))].filter((c) => c && !summary.categories.includes(c))
+  return { products, summary, soldOut }
 }
