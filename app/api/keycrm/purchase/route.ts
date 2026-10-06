@@ -1,25 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { keycrmConfigured, keycrmGet, webhookAuthorized } from "@/lib/keycrm"
-import { type ServerEvent, sendMetaEvent, userData } from "@/lib/meta-capi"
+import { keycrmConfigured, webhookAuthorized } from "@/lib/keycrm"
+import { SENT_KEY, purchaseFor } from "@/lib/keycrm-purchase"
+import { sendMetaEvent } from "@/lib/meta-capi"
 import { redis } from "@/lib/redis"
 
 // Purchases made outside the site (Instagram Direct, Facebook, …) for Meta's
-// ads. A KeyCRM trigger («Зміна статусу оплати» → Сплачено / Оплачено зверх,
-// source = the messengers) sends a webhook here:
+// ads (lib/keycrm-purchase.ts). The half-hourly app/api/cron/purchases sends
+// them without any setup in KeyCRM; this webhook is the faster way in, for a
+// KeyCRM trigger («Зміна статусу оплати» → Сплачено / Оплачено зверх):
 //   /api/keycrm/purchase?token=<KEYCRM_PURCHASE_SECRET>
 // (KEYCRM_WEBHOOK_SECRET, the stock webhook's, is accepted too).
 // The order is read back from KeyCRM and sent to the Conversions API as a
-// Purchase, once per order. The site's own orders are sent by the site itself
-// (lib/meta-capi.ts) and are skipped here.
+// Purchase, once per order whichever way it comes.
 //
 // Check without sending: open …/api/keycrm/purchase?token=…&order=<KeyCRM order id>
 // in a browser; it shows what would go to Meta.
 export const dynamic = "force-dynamic"
 
-/** KeyCRM order source «yarnpremium» (the site), as in lib/keycrm-order.ts. */
-const SITE_SOURCE_ID = 8
 const authorized = (req: NextRequest) => webhookAuthorized(req, "KEYCRM_PURCHASE_SECRET") || webhookAuthorized(req)
-const SENT_KEY = (id: number) => `meta:crm-purchase:${id}`
 
 /** The order id in KeyCRM's webhook, wherever the payload keeps it. */
 function orderIdFrom(payload: unknown): number | null {
@@ -30,51 +28,6 @@ function orderIdFrom(payload: unknown): number | null {
     if (Number.isInteger(n) && n > 0) return n
   }
   return null
-}
-
-const num = (v: unknown) => (v === null || v === undefined || v === "" ? NaN : Number(v))
-
-/** The Purchase for a KeyCRM order, or why there is none. */
-async function purchaseFor(orderId: number): Promise<{ event?: ServerEvent; skip?: string; order: any }> {
-  const order = await keycrmGet<any>(`/order/${orderId}`, { include: "buyer,products,shipping" })
-  if (Number(order.source_id) === SITE_SOURCE_ID) return { skip: "an order from the site: the site reports it itself", order }
-  // Only when KeyCRM gives the field: an order that isn't (fully) paid is not a purchase yet.
-  if (order.payment_status && !["paid", "overpaid"].includes(order.payment_status)) {
-    return { skip: `payment status is ${order.payment_status}`, order }
-  }
-
-  const products: any[] = Array.isArray(order.products) ? order.products : []
-  const lines = products.map((p) => ({
-    id: String(p.sku || p.offer?.sku || p.offer_id || p.id || ""),
-    quantity: num(p.quantity) || 1,
-    item_price: num(p.price_sold ?? p.price) || 0,
-  }))
-  const value = num(order.grand_total ?? order.total) || lines.reduce((s, l) => s + l.quantity * l.item_price, 0)
-  if (!(value > 0)) return { skip: "no order total", order }
-
-  // KeyCRM keeps one full name; the site writes it «Прізвище Ім'я».
-  const [lastName, ...rest] = String(order.buyer?.full_name ?? "").trim().split(/\s+/)
-  const event: ServerEvent = {
-    event_name: "Purchase",
-    event_id: `crm-${orderId}`,
-    action_source: "chat",
-    user_data: userData(
-      {},
-      { phone: order.buyer?.phone, email: order.buyer?.email, lastName, firstName: rest.join(" ") || undefined },
-      order.shipping?.shipping_address_city,
-    ),
-    custom_data: {
-      currency: order.currency || "UAH",
-      value,
-      order_id: String(orderId),
-      content_type: "product",
-      content_ids: lines.map((l) => l.id).filter(Boolean),
-      contents: lines.filter((l) => l.id),
-      num_items: lines.length,
-    },
-  }
-  if (!event.user_data.ph && !event.user_data.em) return { skip: "the buyer has no phone or email to match", order }
-  return { event, order }
 }
 
 // The check: what would be sent for ?order=<id>, without sending it.

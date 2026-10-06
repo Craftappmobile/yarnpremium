@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { readCatalog } from "@/lib/catalog"
+import { catalogImageUrl } from "@/lib/catalog-image"
 import { type ProductVideos, readAllProductVideos } from "@/lib/product-videos"
 import { BRAND, SITE_URL } from "@/lib/site"
 import { type PromoConfig, currentOrNextPromo, promoLabel, promoPrice, promoWindow, regularPrice } from "@/lib/promo"
@@ -19,7 +20,8 @@ import type { Product } from "@/components/shop/data"
 // dates has them in `sale_price_effective_date`, and Meta shows the sale price
 // only between them, so ads switch on time even though Meta fetches the feed
 // only once an hour. `custom_label_0` carries the promotion's name, to build
-// its product set in Commerce Manager.
+// its product set in Commerce Manager. Photos are listed at the shop's own
+// address (lib/catalog-image.ts): KeyCRM's file storage turns crawlers away.
 export const dynamic = "force-dynamic"
 
 const COLUMNS = [
@@ -126,8 +128,8 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
     sale_price_effective_date: promo ? effectiveDates(promo) : "",
     custom_label_0: promo ? promoLabel(promo) : "",
     link: `${SITE_URL}/product/${encodeURIComponent(p.sku)}`,
-    image_link: p.image,
-    additional_image_link: p.images.filter((u) => u !== p.image).slice(0, 5).join(","),
+    image_link: catalogImageUrl(p.image),
+    additional_image_link: p.images.filter((u) => u !== p.image).slice(0, 5).map(catalogImageUrl).join(","),
     brand: p.brand || BRAND,
     product_type: p.category,
     color: p.color,

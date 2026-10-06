@@ -5,15 +5,17 @@
 // Funnel sent to the «KeyCRM+YanrnPremium» dataset:
 //   ViewContent     a product card is opened                         (event_id view-<random>)
 //   AddToCart       a product goes into the cart                     (event_id cart-<random>)
-//                   both passed on by app/api/activity
+//   InitiateCheckout the checkout page opens with a cart             (event_id checkout-<random>)
+//                   all three passed on by app/api/activity
 //   Contact         first message to the site's shopping assistant   (event_id chat-<conversation>)
 //   AddPaymentInfo  order placed with something to pay online        (event_id pay-<KeyCRM order>)
 //   Purchase        the online part is paid, or an order with nothing
 //                   to pay online is placed                          (event_id order-<KeyCRM order>)
-// The browser pixel sends ViewContent, AddToCart, Contact and AddPaymentInfo
-// too, with the same event_id, and Meta keeps one of each pair.
+// The browser pixel sends ViewContent, AddToCart, InitiateCheckout, Contact and
+// AddPaymentInfo too, with the same event_id, and Meta keeps one of each pair.
 //   Purchase        an order from Direct (or another non-site channel) is paid
-//                   in KeyCRM: app/api/keycrm/purchase   (event_id crm-<KeyCRM order>)
+//                   in KeyCRM: lib/keycrm-purchase.ts, read every half hour by
+//                   app/api/cron/purchases               (event_id crm-<KeyCRM order>)
 //
 // Needs META_CAPI_TOKEN (Events Manager → dataset → Settings → Conversions API →
 // Generate access token). Sends only from production; META_CAPI_TEST_CODE (the
@@ -90,37 +92,52 @@ export interface ServerEvent {
   /** "website" unless said otherwise; "chat" for a sale made in a messenger. */
   action_source?: "website" | "chat" | "phone_call" | "other"
   event_source_url?: string
+  /** Unix seconds; now unless the event happened earlier (Meta takes up to 7 days back). */
+  event_time?: number
   user_data: ReturnType<typeof userData>
   custom_data?: Record<string, unknown>
 }
 
+/** Meta's limit for one request to the events endpoint. */
+const BATCH = 1000
+
 /**
- * Sends one event; true when Meta accepted it. `test` (a payment through
- * WayForPay's test merchant, say) goes out only under META_CAPI_TEST_CODE.
- * Never throws: a lost ad signal must not fail an order or a payment.
+ * Sends events, up to a thousand a request; true when Meta accepted all of
+ * them. `test` (a payment through WayForPay's test merchant, say) goes out only
+ * under META_CAPI_TEST_CODE. Never throws: a lost ad signal must not fail an
+ * order or a payment.
  */
-export async function sendMetaEvent(event: ServerEvent, { test = false } = {}): Promise<boolean> {
+export async function sendMetaEvents(events: ServerEvent[], { test = false } = {}): Promise<boolean> {
   const token = process.env.META_CAPI_TOKEN
   const testCode = process.env.META_CAPI_TEST_CODE
-  if (!token) return false
+  if (!token || events.length === 0) return false
   if (!testCode && (test || process.env.VERCEL_ENV !== "production")) return false
-  try {
-    const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${META_PIXEL_ID}/events?access_token=${encodeURIComponent(token)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        data: [{ action_source: "website", ...event, event_time: Math.floor(Date.now() / 1000) }],
-        ...(testCode ? { test_event_code: testCode } : {}),
-      }),
-      signal: AbortSignal.timeout(8000),
-    })
-    if (!res.ok) console.error(`[meta capi] ${event.event_name} ${event.event_id}: ${res.status} ${(await res.text()).slice(0, 300)}`)
-    return res.ok
-  } catch (e) {
-    console.error(`[meta capi] ${event.event_name} ${event.event_id}:`, (e as Error).message)
-    return false
+  const label = events.length === 1 ? `${events[0].event_name} ${events[0].event_id}` : `${events.length} events`
+  const now = Math.floor(Date.now() / 1000)
+  let ok = true
+  for (let i = 0; i < events.length; i += BATCH) {
+    try {
+      const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${META_PIXEL_ID}/events?access_token=${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: events.slice(i, i + BATCH).map((e) => ({ action_source: "website", ...e, event_time: e.event_time ?? now })),
+          ...(testCode ? { test_event_code: testCode } : {}),
+        }),
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) console.error(`[meta capi] ${label}: ${res.status} ${(await res.text()).slice(0, 300)}`)
+      ok &&= res.ok
+    } catch (e) {
+      console.error(`[meta capi] ${label}:`, (e as Error).message)
+      ok = false
+    }
   }
+  return ok
 }
+
+/** Sends one event; true when Meta accepted it (see sendMetaEvents). */
+export const sendMetaEvent = (event: ServerEvent, opts: { test?: boolean } = {}) => sendMetaEvents([event], opts)
 
 export async function sendContact(conversationId: string, ctx: BuyerContext): Promise<void> {
   await sendMetaEvent({
@@ -132,14 +149,17 @@ export async function sendContact(conversationId: string, ctx: BuyerContext): Pr
   })
 }
 
-/** Products browsed on the site: a card opened (ViewContent) or added to the cart (AddToCart). */
-export type BrowseEventName = "ViewContent" | "AddToCart"
+/**
+ * Products browsed on the site: a card opened (ViewContent), added to the cart
+ * (AddToCart), or the checkout opened with the cart (InitiateCheckout).
+ */
+export type BrowseEventName = "ViewContent" | "AddToCart" | "InitiateCheckout"
 
 export async function sendBrowseEvent(
   name: BrowseEventName,
   eventId: string,
   url: string,
-  line: { sku: string; quantity: number; price: number; total: number },
+  lines: { sku: string; quantity: number; price: number; total: number }[],
   ctx: BuyerContext,
 ): Promise<void> {
   await sendMetaEvent({
@@ -149,11 +169,11 @@ export async function sendBrowseEvent(
     user_data: userData(ctx),
     custom_data: {
       currency: "UAH",
-      value: line.total,
+      value: Math.round(lines.reduce((s, l) => s + l.total, 0) * 100) / 100,
       content_type: "product",
-      content_ids: [line.sku],
-      contents: [{ id: line.sku, quantity: line.quantity, item_price: line.price }],
-      num_items: 1,
+      content_ids: lines.map((l) => l.sku),
+      contents: lines.map((l) => ({ id: l.sku, quantity: l.quantity, item_price: l.price })),
+      num_items: lines.length,
     },
   })
 }
