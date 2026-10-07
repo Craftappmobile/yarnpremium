@@ -2,8 +2,8 @@
 //
 // KeyCRM is the source of truth. `syncCatalog()` (run by the cron route) reads
 // every non-archived offer from KeyCRM and replaces the snapshot; pages read the
-// snapshot, never KeyCRM itself, because a full read takes a couple of minutes
-// under KeyCRM's 60 requests/minute limit.
+// snapshot, never KeyCRM itself, because a full read (~110 requests) takes a
+// couple of minutes under KeyCRM's rate limit (lib/keycrm.ts).
 //
 // Redis keys:
 //   catalog:products   hash  sku -> Product JSON (stock as of the last sync)
@@ -18,7 +18,7 @@
 import type { Product } from "@/components/shop/data"
 import type { YarnColor } from "@/lib/image-color"
 import { familyFromName } from "@/components/shop/yarn-colors"
-import { keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
+import { type KeycrmUsage, keycrmBackground, keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { type DriveVideoReport, KEY_VIDEOS, driveVideosConfigured, matchDriveVideos } from "@/lib/product-videos"
 import { withPromo } from "@/lib/promo"
@@ -133,6 +133,8 @@ export interface SyncReport {
   colors?: { known: number; computed: number; failed: number; pending: number }
   /** Product videos found in Google Drive, or why they couldn't be read (the previous ones are kept then). */
   videos?: DriveVideoReport | { error: string }
+  /** KeyCRM requests made and how long reading took; 429s and KeyCRM's rate-limit headers, if any. */
+  keycrm?: KeycrmUsage
 }
 
 /**
@@ -194,12 +196,17 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
 
   const started = Date.now()
   try {
-    const [categories, offers, products, stocksPage] = await Promise.all([
-      keycrmGetAll("/products/categories"),
-      keycrmGetAll("/offers", { include: "product", "filter[is_archived]": "false" }),
-      keycrmGetAll("/products", { include: "custom_fields", "filter[is_archived]": "false" }),
-      keycrmGetPages("/offers/stocks", {}, 1),
-    ])
+    const {
+      result: [categories, offers, products, stocksPage],
+      usage: keycrm,
+    } = await keycrmBackground(() =>
+      Promise.all([
+        keycrmGetAll("/products/categories"),
+        keycrmGetAll("/offers", { include: "product", "filter[is_archived]": "false" }),
+        keycrmGetAll("/products", { include: "custom_fields", "filter[is_archived]": "false" }),
+        keycrmGetPages("/offers/stocks", {}, 1),
+      ]),
+    )
 
     const categoryName = new Map<number, string>(categories.map((c: any) => [c.id, String(c.name ?? "").trim()]))
     const productById = new Map<number, any>(products.map((p: any) => [p.id, p]))
@@ -298,6 +305,7 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       stockCheck,
       colors: colorReport,
       videos: videos ? ("videos" in videos ? videos.report : videos) : undefined,
+      keycrm,
     }
     tx.set(KEY_META, JSON.stringify({ ...report, finishedAt: new Date().toISOString() }))
     await tx.exec()
