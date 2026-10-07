@@ -99,9 +99,22 @@ export interface Order {
   notes: string
   /** The buyer asked for new-colour letters (lib/newsletter.ts). */
   newsletter?: boolean
-  /** Set on an add-on (ADD_ON): the order it was added to, sent in the same parcel. */
+  /**
+   * Set on an add-on (ADD_ON): the order it was added to, sent in the same parcel.
+   * The add-on's lines normally go into that very KeyCRM order (`number` is then
+   * the same as `addOnTo.number`); only when KeyCRM won't take them is it its own order.
+   */
   addOnTo?: { id: string; number?: number }
   createdAt: string
+}
+
+/**
+ * The order's id in reports (GA4's transaction, Meta's event and order ids).
+ * An add-on usually shares its KeyCRM number with the order it joins, so it
+ * gets «-add» after it: otherwise GA4 and Meta would drop it as a repeat.
+ */
+export function orderRef(order: Pick<Order, "number" | "addOnTo">): string {
+  return order.addOnTo ? `${order.addOnTo.number ?? order.number}-add` : String(order.number)
 }
 
 /** What the checkout sends to /api/orders. Prices and totals are worked out on the server. */

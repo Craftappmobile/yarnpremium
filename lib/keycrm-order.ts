@@ -1,9 +1,9 @@
 // Server-only: turns a site order into a KeyCRM order (POST /order). It stays in
 // KeyCRM's first status («Нове»); the manager takes it from there.
 
-import { keycrmGetAll, keycrmSend } from "@/lib/keycrm"
+import { keycrmGet, keycrmGetAll, keycrmSend } from "@/lib/keycrm"
 import { redis } from "@/lib/redis"
-import { TAIL_DISCOUNT } from "@/components/shop/data"
+import { ADD_ON, TAIL_DISCOUNT } from "@/components/shop/data"
 import { PAYMENT_LABELS, PICKUP_POINT, describeDelivery, type Order } from "@/lib/order"
 
 /** KeyCRM order source «yarnpremium» (yarnpremium.com.ua). */
@@ -170,4 +170,114 @@ export async function createKeycrmOrder(
   const created = await keycrmSend<{ id: number }>("POST", "/order", toKeycrmOrder(order, siteOrderId, utm, serviceId, assistant))
   if (!created?.id) throw new Error("KeyCRM did not return an order id")
   return created.id
+}
+
+/** An order line as KeyCRM returns it (GET /order/{id}?include=products). */
+export interface KeycrmLine {
+  id: number
+  sku?: string | null
+  quantity: number | string
+  price: number | string
+  price_sold?: number | string | null
+  comment?: string | null
+}
+
+const money = (n: number) => Math.round(n * 100) / 100
+const kyivTime = () =>
+  new Intl.DateTimeFormat("uk-UA", { timeZone: "Europe/Kiev", hour: "2-digit", minute: "2-digit" }).format(new Date())
+
+/**
+ * The add-on's lines for PUT /order/{id}, and the discount they leave for the
+ * order as a whole. KeyCRM keeps a price per gram to two decimals, so a price
+ * with the add-on's 10% taken off (1.152) would lose kopecks; the lines go at
+ * their usual price instead and everything taken off (the add-on's 10%, a
+ * spool end's discount) is one fixed discount on the order, exact to the kopeck.
+ * KeyCRM matches lines by SKU: a product already in the order gets its line's
+ * quantity raised, a new one a line of its own. Throws when an existing line
+ * isn't at that usual price (a manager changed it), as adding to it would then
+ * misprice the order. Exported for tests.
+ */
+export function addOnLines(order: Order, existing: KeycrmLine[]) {
+  const bySku = new Map<string, { name: string; unit: string; quantity: number; price: number; off: number }>()
+  for (const i of order.items) {
+    // The usual price: before the add-on's 10% (oldPrice), or as sold (a promotion's price stays).
+    const price = i.promo === ADD_ON.name && i.oldPrice ? i.oldPrice : i.price
+    const off = money(price * i.quantity - (i.total ?? i.price * i.quantity))
+    const prev = bySku.get(i.sku)
+    bySku.set(i.sku, {
+      name: i.name,
+      unit: i.unit,
+      quantity: (prev?.quantity ?? 0) + i.quantity,
+      price,
+      off: money((prev?.off ?? 0) + off),
+    })
+  }
+  let discount = 0
+  const products = [...bySku.entries()].map(([sku, a]) => {
+    discount = money(discount + a.off)
+    const added = `+ доповнення ${a.quantity} ${a.unit}` + (a.off > 0 ? `, знижка ${a.off} ₴ — у знижці замовлення` : "")
+    // A spool's discounted end is its own line (toKeycrmOrder): join the full-price one.
+    const same = existing.filter((l) => l.sku === sku)
+    const line = same.find((l) => !l.comment?.startsWith("Залишок бобіни")) ?? same[0]
+    if (!line) return { sku, name: a.name, quantity: a.quantity, price: a.price, comment: added }
+    const quantity = Number(line.quantity)
+    const sold = Number(line.price_sold ?? line.price)
+    if (Math.abs(Number(line.price) - a.price) > 0.0001 || Math.abs(sold - a.price) > 0.0001) {
+      throw new Error(`line ${line.id} (${sku}) is at ${line.price}/${sold} ₴, the add-on at ${a.price} ₴`)
+    }
+    return {
+      id: line.id,
+      quantity: quantity + a.quantity,
+      comment: [line.comment, `було ${quantity} ${a.unit}`, added].filter(Boolean).join("; "),
+    }
+  })
+  return { products, discount }
+}
+
+/**
+ * Puts an add-on into the KeyCRM order it adds to, so the manager packs one
+ * order and one parcel: its lines and discount (addOnLines), a note in the
+ * manager's comment, and a payment for its amount (by card, or on receipt with
+ * the rest). Throws when KeyCRM won't take it — a waybill is already made, a
+ * percent discount or a changed price is on the order, the order is gone, or
+ * the request fails — and the caller then places the add-on as its own order,
+ * as before.
+ */
+export async function addToKeycrmOrder(order: Order, keycrmId: number): Promise<void> {
+  const main = await keycrmGet<{
+    products?: KeycrmLine[]
+    manager_comment?: string | null
+    discount_amount?: number | string | null
+    discount_percent?: number | string | null
+    shipping?: { tracking_code?: string | null } | null
+  }>(`/order/${keycrmId}`, { include: "products,shipping" })
+  if (main.shipping?.tracking_code) throw new Error(`KeyCRM order ${keycrmId} already has a waybill`)
+  if (Number(main.discount_percent) > 0) throw new Error(`KeyCRM order ${keycrmId} has a percent discount`)
+
+  const { products, discount } = addOnLines(order, main.products ?? [])
+  const items = order.items.map((i) => `${i.name} — ${i.quantity} ${i.unit}`).join("; ")
+  const paidHow =
+    order.payment.method === "card"
+      ? "оплата карткою онлайн окремо"
+      : order.payment.method === "on_pickup"
+        ? "оплата при отриманні в магазині разом із замовленням"
+        : `до накладеного платежу додано ${order.total} ₴`
+  const note =
+    `➕ ДОПОВНЕННЯ з сайту о ${kyivTime()} на ${order.total} ₴ (${paidHow}): ${items}.` +
+    (discount > 0 ? ` Його знижку ${discount} ₴ додано до знижки замовлення.` : "") +
+    " Вже в цьому замовленні — відправити однією посилкою."
+
+  await keycrmSend("PUT", `/order/${keycrmId}`, {
+    manager_comment: [main.manager_comment, note].filter(Boolean).join("\n\n"),
+    products,
+    ...(discount > 0 ? { discount_amount: money(Number(main.discount_amount ?? 0) + discount) } : {}),
+  })
+  // The money for the added lines. A card payment stays «not paid» until WayForPay
+  // confirms it (lib/wayforpay.ts finds it by method and amount).
+  for (const p of payments(order)) {
+    const what = "description" in p ? p.description : "оплата"
+    await keycrmSend("POST", `/order/${keycrmId}/payment`, { ...p, description: `Доповнення: ${what}` }).catch(
+      (e) => console.error(`[add-on] KeyCRM payment for order ${keycrmId} not added:`, (e as Error).message),
+    )
+  }
 }

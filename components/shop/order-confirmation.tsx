@@ -265,7 +265,8 @@ function AddOnSummary({
         Додано до замовлення{mainNumber ? ` №${mainNumber}` : ""}
       </p>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        {order.number ? <>Доповнення №{order.number} · </> : null}
+        {/* Usually the add-on is inside the order itself; a number of its own only when KeyCRM couldn't take it. */}
+        {order.number && order.number !== mainNumber ? <>Доповнення №{order.number} · </> : null}
         {formatPrice(order.total)}. Відправимо однією посилкою.
       </p>
       <ul className="mt-3 space-y-1 text-sm text-zinc-600 dark:text-zinc-300">

@@ -23,7 +23,7 @@
 
 import { createHash } from "node:crypto"
 import { META_PIXEL_ID, SITE_URL } from "@/lib/site"
-import type { Order } from "@/lib/order"
+import { type Order, orderRef } from "@/lib/order"
 import { redis } from "@/lib/redis"
 
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v25.0"
@@ -182,7 +182,7 @@ function orderData(order: Order) {
   return {
     currency: "UAH",
     value: order.total,
-    order_id: String(order.number),
+    order_id: orderRef(order),
     content_type: "product",
     content_ids: order.items.map((i) => i.sku),
     contents: order.items.map((i) => ({ id: i.sku, quantity: i.quantity, item_price: i.price })),
@@ -192,7 +192,8 @@ function orderData(order: Order) {
 
 const orderEvent = (name: string, idPrefix: string, order: Order, ctx: BuyerContext): ServerEvent => ({
   event_name: name,
-  event_id: `${idPrefix}-${order.number}`,
+  // An add-on shares the KeyCRM number of the order it joins; orderRef keeps their events apart.
+  event_id: `${idPrefix}-${orderRef(order)}`,
   event_source_url: `${SITE_URL}/checkout`,
   user_data: userData(ctx, order.customer, order.delivery.city?.title || order.delivery.city?.name),
   custom_data: orderData(order),

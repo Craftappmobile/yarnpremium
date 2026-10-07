@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
 import Script from "next/script"
 import { type CartItem, type Product, lineTotal } from "./data"
-import type { Order } from "@/lib/order"
+import { type Order, orderRef } from "@/lib/order"
 import { META_PIXEL_ID } from "@/lib/site"
 
 // Google Analytics 4 and the Meta Pixel. Both run only on the shop's own
@@ -205,7 +205,8 @@ export function trackBeginCheckout(cart: CartItem[]) {
  * `assisted`: the buyer wrote to the shopping assistant before ordering.
  */
 export function trackPurchase(order: Order, fallbackId: string, assisted = false) {
-  const id = String(order.number ?? fallbackId)
+  // An add-on joins its order under the same number: orderRef adds «-add», so GA4 and Meta keep both.
+  const id = order.number ? orderRef(order) : fallbackId
   const payLater = order.payment.now > 0
   send(
     "purchase",
