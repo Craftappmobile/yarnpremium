@@ -22,10 +22,11 @@ export function generateStaticParams() {
 async function load(slug: string) {
   const { products, summary, soldOut: emptied } = await catalogPageData("category")
   const category = categoryBySlug(slug, summary.categories)
-  const soldOut = category ? undefined : categoryBySlug(slug, emptied)
-  /** Renamed in KeyCRM: the new name, while it is there. */
+  /** Renamed or merged in KeyCRM: the new name, while it is there. It wins over the old one's sold-out page. */
   const renamed = Object.entries(RENAMED_CATEGORIES).find(([old]) => categorySlug(old) === slug)?.[1]
-  const movedTo = renamed && (summary.categories.includes(renamed) || emptied.includes(renamed)) ? renamed : undefined
+  const movedTo =
+    !category && renamed && (summary.categories.includes(renamed) || emptied.includes(renamed)) ? renamed : undefined
+  const soldOut = category || movedTo ? undefined : categoryBySlug(slug, emptied)
   return { products, summary, category, soldOut, movedTo }
 }
 

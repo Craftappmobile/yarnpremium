@@ -32,10 +32,13 @@ export const CATEGORY_NOTES: Record<string, string> = {
 }
 
 /**
- * Categories renamed in KeyCRM, old name → new: links to the old page (ads,
- * posts, bookmarks) go on to the new one. Kept for as long as old links may
- * be around; a line does nothing until the new name is in KeyCRM.
+ * Categories renamed in KeyCRM, or merged into another, old name → new: once
+ * the old one has no products, links to its page (ads, posts, bookmarks) go on
+ * to the new one. Kept for as long as old links may be around; a line does
+ * nothing until the new name is in KeyCRM.
  */
 export const RENAMED_CATEGORIES: Record<string, string> = {
   "Мікропаєтка по 195 грн": "Мікропаєтка 2 мм",
+  // Same merino, same price and −50%: one promotion category since 2026-10-07.
+  "Акційний меринос": "Акційний товар",
 }
