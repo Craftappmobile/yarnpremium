@@ -14,8 +14,8 @@
 // The browser pixel sends ViewContent, AddToCart, InitiateCheckout, Contact and
 // AddPaymentInfo too, with the same event_id, and Meta keeps one of each pair.
 //   Purchase        an order from Direct (or another non-site channel) is paid
-//                   in KeyCRM: lib/keycrm-purchase.ts, read every half hour by
-//                   app/api/cron/purchases               (event_id crm-<KeyCRM order>)
+//                   in KeyCRM: sent by KeyCRM's own Conversions API trigger, with
+//                   the chat's PSID/IGSID (lib/keycrm-purchase.ts is the fallback)
 //
 // Needs META_CAPI_TOKEN (Events Manager → dataset → Settings → Conversions API →
 // Generate access token). Sends only from production; META_CAPI_TEST_CODE (the
