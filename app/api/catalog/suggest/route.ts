@@ -2,8 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { readCatalog } from "@/lib/catalog"
 import { similarProducts } from "@/lib/similar-products"
 
-// Shades in stock close to a product, for the cart's «second colour» offer.
-// Products already in the cart (`skip`) are left out.
+// Shades in stock close to a product, for the add-on offer on the order
+// confirmation page. Products already ordered (`skip`) are left out.
 export const dynamic = "force-dynamic"
 
 const LIMIT = 8

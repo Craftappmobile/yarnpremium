@@ -7,6 +7,7 @@
 //   orders, revenue                              every order placed on the site
 //   orders_assisted, revenue_assisted            orders whose buyer wrote to the assistant
 //   revenue_from_cards                           order lines added from the assistant's product cards
+//   orders_add_on, revenue_add_on                add-ons placed on the confirmation page (in revenue too)
 //   video_pages, video_<review|sample>_<started|completed>   visitors (once a day each) who opened a
 //                                                product page with a video / started / finished a video
 //   orders_video_page, orders_video_<review|sample>_completed, revenue_video_sample_completed

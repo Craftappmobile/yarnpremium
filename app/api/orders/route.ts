@@ -10,7 +10,8 @@ import { SHOP_PHONE } from "@/lib/site"
 import { createPayment } from "@/lib/wayforpay"
 import { markOrdered } from "@/lib/checkout-draft"
 import { subscribe } from "@/lib/newsletter"
-import { SECOND_ITEM, isValidQuantity, priceLines, tailGrams } from "@/components/shop/data"
+import { priceLines } from "@/components/shop/data"
+import { readLines, stockChanges, toOrderItems } from "@/lib/order-lines"
 import {
   effectivePaymentMethod,
   normalizePhone,
@@ -18,7 +19,6 @@ import {
   validateOrderFields,
   type Order,
   type OrderRequest,
-  type StockChange,
 } from "@/lib/order"
 
 // Places an order: re-checks prices and stock against the catalog, creates the
@@ -40,12 +40,8 @@ export async function POST(req: NextRequest) {
   if (body.website) return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
 
   const id = text(body.id, 64)
-  const items = Array.isArray(body.items) ? body.items : []
-  if (!/^[\w-]{8,64}$/.test(id) || items.length === 0 || items.length > 50) {
-    return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
-  }
-  const lines = items.map((i) => ({ sku: text(i?.sku, 64), quantity: Number(i?.quantity) }))
-  if (lines.some((l) => !l.sku || !Number.isFinite(l.quantity) || l.quantity <= 0)) {
+  const lines = readLines(body.items)
+  if (!/^[\w-]{8,64}$/.test(id) || !lines) {
     return NextResponse.json({ error: "Не вдалося надіслати замовлення. Оновіть сторінку і спробуйте ще раз." }, { status: 400 })
   }
 
@@ -85,44 +81,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const products = new Map((await readProducts(lines.map((l) => l.sku))).map((p) => [p.sku, p]))
-    const changes: StockChange[] = []
-    for (const line of lines) {
-      const p = products.get(line.sku)
-      if (!p || p.stock <= 0) {
-        changes.push({ sku: line.sku, name: p?.name ?? line.sku, available: 0, unit: p?.priceUnit ?? "" })
-      } else if (!isValidQuantity(p, line.quantity)) {
-        changes.push({ sku: p.sku, name: p.name, available: p.stock, unit: p.priceUnit })
-      }
-    }
+    const changes = stockChanges(lines, products)
     if (changes.length) {
       await r.del(ORDER_KEY(id))
       return NextResponse.json({ error: "Поки ви оформлювали, змінилася наявність.", changes }, { status: 409 })
     }
 
-    // Promotions and the second-item offer, worked out here as in the cart.
+    // Promotions worked out here as in the cart.
     const priced = priceLines(lines.map((l) => ({ product: products.get(l.sku)!, quantity: l.quantity })))
-    const orderItems = lines.map((l, i) => {
-      const p = products.get(l.sku)!
-      const line = priced[i]
-      const tail = line.second ? 0 : tailGrams(p, l.quantity)
-      const regular = p.oldPrice ?? p.price
-      return {
-        id: p.id,
-        sku: p.sku,
-        name: p.name,
-        price: line.unitPrice,
-        quantity: l.quantity,
-        unit: p.priceUnit,
-        ...(tail > 0 ? { tail } : {}),
-        total: line.total,
-        ...(p.image ? { image: p.image } : {}),
-        ...(line.second
-          ? { oldPrice: regular, promo: SECOND_ITEM.name }
-          : p.promo && p.oldPrice
-            ? { oldPrice: p.oldPrice, promo: p.promo.name }
-            : {}),
-      }
-    })
+    const orderItems = toOrderItems(lines, products, priced)
     const subtotal = money(orderItems.reduce((sum, i) => sum + i.total, 0))
     const method = effectivePaymentMethod(body.payment, delivery.method, subtotal)
     const split = paymentSplit(method, subtotal)
