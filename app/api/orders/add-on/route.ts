@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse, after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { readProducts, reserveStock } from "@/lib/catalog"
-import { createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
+import { addToKeycrmOrder, createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { countStats } from "@/lib/assistant/stats"
 import { buyerContext, sendOrderPlaced } from "@/lib/meta-capi"
 import { keycrmConfigured } from "@/lib/keycrm"
@@ -13,8 +13,11 @@ import { readLines, stockChanges, toOrderItems } from "@/lib/order-lines"
 import { addOnPayment, type AddOnRequest, type Order } from "@/lib/order"
 
 // Adds to an order just placed (ADD_ON): within ADD_ON.minutes of it, once
-// it's paid, one add-on per order at the add-on discount. It goes to KeyCRM as
-// its own order marked for the manager to send in the same parcel.
+// it's paid, one add-on per order at the add-on discount. Its lines go into
+// that same KeyCRM order (lib/keycrm-order.ts, addToKeycrmOrder), so the
+// manager packs one order and one parcel. Only when KeyCRM won't take them (a
+// waybill is already made, say) does it become its own order, marked for the
+// manager to send in the same parcel.
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
@@ -87,7 +90,13 @@ export async function POST(req: NextRequest) {
       addOnTo: { id: mainId, number: main.number },
       createdAt: new Date().toISOString(),
     }
-    order.number = await createKeycrmOrder(order, addOnId)
+    try {
+      await addToKeycrmOrder(order, main.number)
+      order.number = main.number
+    } catch (e) {
+      console.warn(`[add-on] not added to KeyCRM order ${main.number}, placing its own:`, (e as Error).message)
+      order.number = await createKeycrmOrder(order, addOnId)
+    }
     await r.set(ORDER_KEY(addOnId), JSON.stringify(order), { EX: 86400 })
     await r.set(ADD_ON_KEY(mainId), addOnId, { EX: 86400 })
     const ctx = buyerContext(req)
@@ -104,7 +113,11 @@ export async function POST(req: NextRequest) {
       revalidatePath("/kategoriya/[slug]", "page")
       for (const i of items) revalidatePath(`/product/${i.sku}`)
     }
-    console.log(`[add-on] KeyCRM order ${order.number} added to ${main.number} (site ${mainId}), ${items.length} items, ${order.total} ₴`)
+    console.log(
+      order.number === main.number
+        ? `[add-on] ${items.length} items, ${order.total} ₴ added into KeyCRM order ${main.number} (site ${mainId})`
+        : `[add-on] KeyCRM order ${order.number} placed for ${main.number} (site ${mainId}), ${items.length} items, ${order.total} ₴`,
+    )
     const payment =
       order.payment.now > 0
         ? await createPayment(order, addOnId, new URL(req.url).origin).catch((e) => {
