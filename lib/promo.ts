@@ -56,6 +56,13 @@ export const PROMOS: PromoConfig[] = [
     percent: 50,
     keycrm: "promo",
   },
+  // KeyCRM holds the promotional 88 ₴ / 100 г; −43% strikes through 154 ₴.
+  {
+    name: "Лімітована партія",
+    category: "Напіввовна",
+    percent: 43,
+    keycrm: "promo",
+  },
 ]
 
 const KYIV = "Europe/Kiev"
