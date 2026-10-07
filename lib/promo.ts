@@ -9,6 +9,8 @@
 //                      the regular price from the percent, to strike through.
 //                      Ending the promotion takes the strike-through away; the
 //                      price stays what KeyCRM says until it is raised there.
+//                      With `price` set, every product of the category sells
+//                      at that price, whatever KeyCRM holds for it.
 // Either way the catalog (lib/catalog.ts) applies it on read, so the site, the
 // cart, the order, the payment and KeyCRM all charge the same price.
 //
@@ -34,6 +36,12 @@ export interface PromoConfig {
   video?: string
   /** Percent off the regular price. */
   percent: number
+  /**
+   * One promotional price for the whole category, per 100 г for yarn by weight
+   * and per piece otherwise: the odd product KeyCRM prices differently sells at
+   * it too, so the site shows a single price. Only with `keycrm: "promo"`.
+   */
+  price?: number
   /** Which price KeyCRM holds for the category's products (see the top of this file). */
   keycrm: "regular" | "promo"
   /**
@@ -56,10 +64,11 @@ export const PROMOS: PromoConfig[] = [
     percent: 50,
     keycrm: "promo",
   },
-  // KeyCRM holds the promotional 88 ₴ / 100 г; −43% strikes through 154 ₴.
+  // KeyCRM holds the promotional 88 ₴ / 100 г for nearly all of it; −43% strikes through 154 ₴.
   {
     name: "Лімітована партія",
     category: "Напіввовна",
+    price: 88,
     percent: 43,
     keycrm: "promo",
   },
@@ -129,6 +138,9 @@ export function regularPrice(promotional: number, unit: string, percent: number)
   return roundPrice(promotional / (1 - percent / 100), unit)
 }
 
+/** A promotion's `price` (per 100 г, or per piece) as a price per unit. */
+const fixedPrice = (price: number, unit: string) => (unit.toLowerCase() === "г" ? price / 100 : price)
+
 /** The product as the shop sells it now: with the regular price struck through while a promotion covers it. */
 export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Product {
   const promo = p.price > 0 ? activePromo(p.category, now, promos) : undefined
@@ -141,7 +153,9 @@ export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Produc
     ...(promo.tagline ? { tagline: promo.tagline } : {}),
     ...(Number.isFinite(end) ? { endsAt: new Date(end).toISOString() } : {}),
   }
-  return promo.keycrm === "promo"
-    ? { ...p, oldPrice: regularPrice(p.price, p.priceUnit, promo.percent), promo: info }
-    : { ...p, oldPrice: p.price, price: promoPrice(p.price, p.priceUnit, promo.percent), promo: info }
+  if (promo.keycrm === "promo") {
+    const price = promo.price ? fixedPrice(promo.price, p.priceUnit) : p.price
+    return { ...p, price, oldPrice: regularPrice(price, p.priceUnit, promo.percent), promo: info }
+  }
+  return { ...p, oldPrice: p.price, price: promoPrice(p.price, p.priceUnit, promo.percent), promo: info }
 }
