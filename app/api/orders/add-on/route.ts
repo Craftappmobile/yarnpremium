@@ -94,7 +94,11 @@ export async function POST(req: NextRequest) {
     after(() => sendOrderPlaced(order, addOnId, ctx))
 
     if (!isTestOrderEnvironment()) {
-      await countStats({ revenue: order.total, orders_add_on: 1, revenue_add_on: order.total })
+      await countStats({
+        orders_add_on: 1,
+        revenue_add_on: order.total,
+        discount_add_on: money(priced.reduce((sum, l) => sum + (l.addOn ? l.saved : 0), 0)),
+      })
       await reserveStock(items).catch((e) => console.error("[add-on] stock update failed:", e.message))
       revalidatePath("/")
       revalidatePath("/kategoriya/[slug]", "page")
