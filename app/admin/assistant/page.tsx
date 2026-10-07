@@ -5,10 +5,13 @@ import { redisConfigured } from "@/lib/redis"
 import { type SyncReport, readCatalogMeta } from "@/lib/catalog"
 import {
   type AddOnSummary,
+  type AssistedOrder,
   type DayStats,
   type StatsSummary,
   type VideoSummary,
+  readAssistedOrders,
   readStats,
+  soldProducts,
   statsKeyValid,
   summarize,
   summarizeAddOn,
@@ -108,6 +111,105 @@ function VideoSync({ report }: { report: SyncReport["videos"] | undefined }) {
     <p className={`rounded-2xl border p-4 text-sm ${problem ? "border-amber-300 bg-amber-50 text-amber-900" : "border-zinc-200 bg-white text-zinc-700"}`}>
       {text}
     </p>
+  )
+}
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("uk-UA", {
+    timeZone: "Europe/Kyiv",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+
+/** What the buyers who wrote to the assistant bought: by product, and order by order. */
+function SoldSection({ orders, days, ordersAssisted }: { orders: AssistedOrder[]; days: number; ordersAssisted: number }) {
+  const products = soldProducts(orders)
+  // Orders counted before the list began (7 October 2026) have no products here.
+  const missing = Math.max(0, Math.round(ordersAssisted) - orders.length)
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Що купили після чату</h2>
+      {missing > 0 && (
+        <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
+          {missing} {plural(missing, "замовлення", "замовлення", "замовлень")} оформлено до 7 жовтня 2026, коли сайт ще не
+          запамʼятовував товари. Їх видно в KeyCRM: у коментарі менеджера є рядок «Консультант (ШІ)».
+        </p>
+      )}
+      {orders.length === 0 ? (
+        <p className="rounded-2xl border border-zinc-200 bg-white p-5 text-base text-zinc-800">
+          За {days} {plural(days, "день", "дні", "днів")} товарів після чату ще не купували.
+        </p>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
+            <table className="w-full text-sm tabular-nums">
+              <thead>
+                <tr className="text-left text-xs text-zinc-500">
+                  <th className="px-4 py-2 font-medium">Товар</th>
+                  <th className="px-3 py-2 text-right font-medium">Замовлень</th>
+                  <th className="px-3 py-2 text-right font-medium">Кількість</th>
+                  <th className="px-3 py-2 text-right font-medium">Виторг</th>
+                  <th className="px-4 py-2 text-right font-medium">З карток</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((p) => (
+                  <tr key={p.sku} className="border-t border-zinc-100 text-zinc-700">
+                    <td className="px-4 py-2">
+                      {p.name} <span className="text-xs text-zinc-400">{p.sku}</span>
+                    </td>
+                    <td className="px-3 py-2 text-right">{p.orders}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                      {p.quantity.toLocaleString("uk-UA")} {p.unit}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">{uah(p.revenue)}</td>
+                    <td className="px-4 py-2 text-right">{p.fromCard > 0 ? `${p.fromCard} з ${p.orders}` : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <details className="rounded-2xl border border-zinc-200 bg-white">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-900">
+              Замовлення по одному ({orders.length})
+            </summary>
+            <ul className="divide-y divide-zinc-100 border-t border-zinc-200">
+              {orders.map((o) => (
+                <li key={`${o.number}-${o.at}`} className="px-4 py-3 text-sm">
+                  <p className="flex flex-wrap justify-between gap-x-3 font-medium text-zinc-900">
+                    <span>
+                      {o.number ? `№${o.number}` : "Без номера"} · {when(o.at)}
+                    </span>
+                    <span className="tabular-nums">{uah(o.total)}</span>
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {o.messages} {plural(o.messages, "повідомлення", "повідомлення", "повідомлень")} консультанту
+                  </p>
+                  <ul className="mt-1.5 space-y-0.5 text-zinc-700">
+                    {o.items.map((i) => (
+                      <li key={i.sku} className="flex justify-between gap-3">
+                        <span>
+                          {i.name} × {i.quantity.toLocaleString("uk-UA")} {i.unit}
+                          {i.fromCard && (
+                            <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">з картки</span>
+                          )}
+                        </span>
+                        <span className="whitespace-nowrap tabular-nums">{uah(i.total)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </>
+      )}
+      <p className="text-sm text-zinc-500">
+        «З карток» — скільки разів товар поклали в кошик прямо з картки, яку показав консультант.
+      </p>
+    </section>
   )
 }
 
@@ -243,7 +345,7 @@ export default async function AssistantStatsPage({
   if (!statsKeyValid(key) || !redisConfigured()) notFound()
 
   const days = PERIODS.includes(Number(params.days)) ? Number(params.days) : 30
-  const daily = await readStats(days)
+  const [daily, assistedOrders] = await Promise.all([readStats(days), readAssistedOrders(days)])
   const s = summarize(daily)
   const video = summarizeVideo(daily)
   const addOn = summarizeAddOn(daily)
@@ -321,6 +423,8 @@ export default async function AssistantStatsPage({
           data={chronological.map((d) => ({ day: d.day, values: [d.ordersAssisted, d.orders - d.ordersAssisted] }))}
         />
       </section>
+
+      <SoldSection orders={assistedOrders} days={days} ordersAssisted={s.ordersAssisted} />
 
       <DayTable daily={daily} />
 

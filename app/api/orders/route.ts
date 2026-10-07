@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse, after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { readProducts, reserveStock } from "@/lib/catalog"
 import { type AssistantUse, createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
-import { countStats } from "@/lib/assistant/stats"
+import { countStats, recordAssistedOrder } from "@/lib/assistant/stats"
 import { buyerContext, sendOrderPlaced } from "@/lib/meta-capi"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
@@ -149,6 +149,22 @@ export async function POST(req: NextRequest) {
         orders_video_sample_completed: body.video?.sampleCompleted ? 1 : 0,
         revenue_video_sample_completed: body.video?.sampleCompleted ? order.total : 0,
       })
+      if (assistant) {
+        await recordAssistedOrder({
+          at: order.createdAt,
+          number: order.number,
+          total: order.total,
+          messages: assistant.messages,
+          items: orderItems.map((i) => ({
+            sku: i.sku,
+            name: i.name,
+            quantity: i.quantity,
+            unit: i.unit,
+            total: i.total,
+            fromCard: assistant.skus.includes(i.sku),
+          })),
+        })
+      }
       await reserveStock(orderItems).catch((e) => console.error("[orders] stock update failed:", e.message))
       revalidatePath("/")
       revalidatePath("/kategoriya/[slug]", "page")

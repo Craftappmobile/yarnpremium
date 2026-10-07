@@ -15,6 +15,10 @@
 //   orders_video_page, orders_video_<review|sample>_completed, revenue_video_sample_completed
 //                                                orders of buyers who did so in the past week
 //
+// Redis key: assistant:orders  list, newest first (the last MAX_ASSISTED_ORDERS, kept 400 days)
+//   what each order of a buyer who wrote to the assistant consisted of (AssistedOrder),
+//   so the statistics page can show what was sold; no names or contacts.
+//
 // Only the live site counts (preview deployments share Redis). Writing a
 // counter never fails the request it is counting.
 
@@ -47,6 +51,73 @@ export async function countStats(add: Record<string, number>): Promise<void> {
   } catch (e) {
     console.error("[assistant stats]", (e as Error).message)
   }
+}
+
+const ORDERS_KEY = "assistant:orders"
+const MAX_ASSISTED_ORDERS = 1000
+
+/** An order whose buyer wrote to the assistant during the week before it. */
+export interface AssistedOrder {
+  /** When it was placed (ISO). */
+  at: string
+  /** KeyCRM order id. */
+  number?: number
+  total: number
+  /** Messages the buyer sent to the assistant before ordering. */
+  messages: number
+  items: {
+    sku: string
+    name: string
+    quantity: number
+    unit: string
+    total: number
+    /** Added to the cart from one of the assistant's product cards. */
+    fromCard: boolean
+  }[]
+}
+
+/** Keeps what an assisted order consisted of. Never fails the order. */
+export async function recordAssistedOrder(order: AssistedOrder): Promise<void> {
+  if (process.env.VERCEL_ENV !== "production") return
+  try {
+    const m = (await redis()).multi()
+    m.lPush(ORDERS_KEY, JSON.stringify(order))
+    m.lTrim(ORDERS_KEY, 0, MAX_ASSISTED_ORDERS - 1)
+    m.expire(ORDERS_KEY, KEEP)
+    await m.exec()
+  } catch (e) {
+    console.error("[assistant stats] order not recorded:", (e as Error).message)
+  }
+}
+
+/** Assisted orders of the last `days` days (Kyiv calendar days, as the counters), newest first. */
+export async function readAssistedOrders(days: number): Promise<AssistedOrder[]> {
+  const raw = await (await redis()).lRange(ORDERS_KEY, 0, MAX_ASSISTED_ORDERS - 1)
+  const first = kyivDay(new Date(Date.now() - (days - 1) * 86400_000))
+  return raw.flatMap((r) => {
+    try {
+      const o = JSON.parse(r) as AssistedOrder
+      return kyivDay(new Date(o.at)) >= first ? [o] : []
+    } catch {
+      return []
+    }
+  })
+}
+
+/** Products bought after a chat, most revenue first: how often, how much, and how much of it from the cards. */
+export function soldProducts(orders: AssistedOrder[]) {
+  const bySku = new Map<string, { sku: string; name: string; unit: string; orders: number; quantity: number; revenue: number; fromCard: number }>()
+  for (const o of orders) {
+    for (const i of o.items) {
+      const p = bySku.get(i.sku) ?? { sku: i.sku, name: i.name, unit: i.unit, orders: 0, quantity: 0, revenue: 0, fromCard: 0 }
+      p.orders += 1
+      p.quantity += i.quantity
+      p.revenue = round(p.revenue + i.total)
+      if (i.fromCard) p.fromCard += 1
+      bySku.set(i.sku, p)
+    }
+  }
+  return [...bySku.values()].sort((a, b) => b.revenue - a.revenue)
 }
 
 /** Token counts of one model response, as counters. */
