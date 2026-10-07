@@ -77,6 +77,8 @@ export function toKeycrmOrder(
 
   const managerNotes = [
     isTestOrderEnvironment() && "ТЕСТ — не обробляти (замовлення з тестової версії сайту)",
+    order.addOnTo &&
+      `ДОПОВНЕННЯ до замовлення №${order.addOnTo.number ?? "?"} (додано на сайті одразу після нього) — відправити однією посилкою з ним`,
     `Доставка: ${describeDelivery(d)}`,
     d.method === "ukrposhta" && d.point?.postcode && `Укрпошта: індекс ${d.point.postcode}`,
     `Оплата: ${PAYMENT_LABELS[order.payment.method]}` +

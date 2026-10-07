@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, MapPin, Clock } from "lucide-react"
 import { useCart } from "./cart-context"
-import { SECOND_ITEM, formatPrice, formatQuantity, TAIL_DISCOUNT, lineTotal, tailGrams } from "./data"
+import { formatPrice, formatQuantity, TAIL_DISCOUNT, lineTotal, tailGrams } from "./data"
 import { OldPrice } from "./promo-price"
 import { NovaPoshtaFields } from "./nova-poshta-fields"
 import { UkrposhtaFields } from "./ukrposhta-fields"
@@ -396,12 +396,8 @@ export function Checkout() {
                 <li key={item.id} className="flex justify-between gap-3 py-3 text-sm">
                   <span className="text-zinc-600 dark:text-zinc-300">
                     {item.name} <span className="whitespace-nowrap text-zinc-500">× {formatQuantity(item.quantity, item.priceUnit)}</span>
-                    {line?.second ? (
-                      <span className="block text-xs text-emerald-700">{SECOND_ITEM.name}</span>
-                    ) : (
-                      item.promo && <span className="block text-xs text-emerald-700">{item.promo.name}</span>
-                    )}
-                    {!line?.second && tailGrams(item, item.quantity) > 0 && (
+                    {item.promo && <span className="block text-xs text-emerald-700">{item.promo.name}</span>}
+                    {tailGrams(item, item.quantity) > 0 && (
                       <span className="block text-xs text-emerald-700">
                         З них {formatQuantity(tailGrams(item, item.quantity), item.priceUnit)} — залишок бобіни зі знижкою {TAIL_DISCOUNT * 100}%
                       </span>

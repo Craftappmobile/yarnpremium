@@ -9,6 +9,10 @@ const LAST_ORDER_KEY = "sinserita:last-order"
 export interface LastOrder {
   id: string
   order: Order
+  /** What was added to it on this page (ADD_ON), with its own site id. */
+  addOn?: { id: string; order: Order }
+  /** The buyer said no to the add-on offer. */
+  addOnDeclined?: boolean
 }
 
 export function saveLastOrder(last: LastOrder): void {

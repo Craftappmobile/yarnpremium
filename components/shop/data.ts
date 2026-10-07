@@ -198,15 +198,6 @@ export function lineSavings(p: QuantityProduct & Pick<Product, "price" | "oldPri
   return Math.max(0, Math.round((p.oldPrice * quantity - lineTotal(p, quantity)) * 100) / 100)
 }
 
-/**
- * Second-item offer: in a cart of two or more lines, the line that costs the
- * second most is sold at this share off its price on the site, a
- * promotional price included (merino at 135 ₴ / 100 г → 121,50 ₴). The
- * costliest line always stays at its price, so the cheaper purchase gets the
- * discount whichever order things were picked in.
- */
-export const SECOND_ITEM = { percent: 10, name: "Друга позиція −10%" }
-
 type PricedProduct = QuantityProduct & Pick<Product, "price" | "oldPrice">
 
 export interface PricedLine {
@@ -215,27 +206,53 @@ export interface PricedLine {
   total: number
   /** Regular price of the line less `total`. */
   saved: number
-  /** This line has the second-item offer. */
-  second: boolean
 }
 
-/** Every cart line priced, offers included, in the order given. */
+/** Every cart line priced, promotions and the spool-end discount included, in the order given. */
 export function priceLines(lines: { product: PricedProduct; quantity: number }[]): PricedLine[] {
-  const usual = lines.map(({ product, quantity }) => lineTotal(product, quantity))
-  // Second costliest by what it would cost otherwise; a tie goes to the line added later.
-  const ranked = usual.map((total, i) => ({ total, i })).sort((a, b) => b.total - a.total || a.i - b.i)
-  const secondIndex = lines.length >= 2 ? ranked[1].i : -1
-  return lines.map(({ product, quantity }, i) => {
-    const regular = product.oldPrice ?? product.price
-    if (i === secondIndex) {
-      const unitPrice = Math.round(product.price * (1 - SECOND_ITEM.percent / 100) * 10000) / 10000
+  return lines.map(({ product, quantity }) => ({
+    unitPrice: product.price,
+    total: lineTotal(product, quantity),
+    saved: lineSavings(product, quantity),
+  }))
+}
+
+/**
+ * Add-on to a placed order, offered on the confirmation page only (never in
+ * the cart, so nobody plans an order around it): for `minutes` after the
+ * order, what is added costs `percent` less and goes in the same parcel. The
+ * discount is capped at `percent` of the order itself, so a small order can't
+ * unlock a big discount; promotional prices stay as they are.
+ */
+export const ADD_ON = { percent: 10, minutes: 30, name: "Доповнення до замовлення −10%" }
+
+/** Most the add-on discount can take off, for an order of `orderTotal`. */
+export function addOnCap(orderTotal: number): number {
+  return Math.round(orderTotal * ADD_ON.percent) / 100
+}
+
+export interface AddOnLine extends PricedLine {
+  /** This line has the add-on discount. */
+  addOn: boolean
+}
+
+/** Add-on lines priced against the order they are added to (ADD_ON). */
+export function priceAddOn(lines: { product: PricedProduct; quantity: number }[], orderTotal: number): AddOnLine[] {
+  const eligible = (p: PricedProduct) => !p.promo && !p.oldPrice
+  const base = lines.reduce((sum, l) => sum + (eligible(l.product) ? l.product.price * l.quantity : 0), 0)
+  // The full percent until the cap is reached, then less, spread over the lines.
+  const rate = base > 0 ? Math.min(ADD_ON.percent / 100, addOnCap(orderTotal) / base) : 0
+  return lines.map(({ product, quantity }) => {
+    const usual = lineTotal(product, quantity)
+    if (rate > 0 && eligible(product)) {
+      const unitPrice = Math.round(product.price * (1 - rate) * 10000) / 10000
       const total = Math.round(unitPrice * quantity * 100) / 100
-      // Never dearer than without the offer (the spool-end discount can take off as much).
-      if (total < usual[i]) {
-        return { unitPrice, total, saved: Math.round((regular * quantity - total) * 100) / 100, second: true }
+      // Never dearer than without it (the spool-end discount can take off more).
+      if (total < usual) {
+        return { unitPrice, total, saved: Math.round((product.price * quantity - total) * 100) / 100, addOn: true }
       }
     }
-    return { unitPrice: product.price, total: usual[i], saved: lineSavings(product, quantity), second: false }
+    return { unitPrice: product.price, total: usual, saved: lineSavings(product, quantity), addOn: false }
   })
 }
 

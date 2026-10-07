@@ -99,6 +99,8 @@ export interface Order {
   notes: string
   /** The buyer asked for new-colour letters (lib/newsletter.ts). */
   newsletter?: boolean
+  /** Set on an add-on (ADD_ON): the order it was added to, sent in the same parcel. */
+  addOnTo?: { id: string; number?: number }
   createdAt: string
 }
 
@@ -121,6 +123,22 @@ export interface OrderRequest {
   video?: { page: boolean; reviewCompleted: boolean; sampleCompleted: boolean }
   /** Honeypot: hidden from people, filled in by bots. */
   website?: string
+}
+
+/** What the confirmation page sends to /api/orders/add-on. */
+export interface AddOnRequest {
+  /** The site id of the order being added to. */
+  order: string
+  items: { sku: string; quantity: number }[]
+}
+
+/**
+ * How an add-on is paid, following the order it joins: by card online if that
+ * was paid by card, else on receipt with the rest of the parcel (the order's
+ * prepayment already covers the delivery).
+ */
+export function addOnPayment(method: PaymentMethod, total: number): Order["payment"] {
+  return method === "card" ? { method, now: total, onReceipt: 0 } : { method, now: 0, onReceipt: total }
 }
 
 /** A cart line that can't be bought as ordered any more (returned by /api/orders with 409). */

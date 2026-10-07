@@ -7,6 +7,9 @@
 //   orders, revenue                              every order placed on the site
 //   orders_assisted, revenue_assisted            orders whose buyer wrote to the assistant
 //   revenue_from_cards                           order lines added from the assistant's product cards
+//   orders_add_on, revenue_add_on, discount_add_on   add-ons placed on the confirmation page (ADD_ON):
+//                                                how many, what they brought, what their discount gave away
+//                                                (not in orders/revenue, which count checkouts)
 //   video_pages, video_<review|sample>_<started|completed>   visitors (once a day each) who opened a
 //                                                product page with a video / started / finished a video
 //   orders_video_page, orders_video_<review|sample>_completed, revenue_video_sample_completed
@@ -85,6 +88,7 @@ export interface DayStats {
     ordersSampleCompleted: number
     revenueSampleCompleted: number
   }
+  addOn: { orders: number; revenue: number; discount: number }
   /** Model spend in USD; null when a model without a known price ran. */
   costUsd: number | null
   tokens: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }>
@@ -132,6 +136,7 @@ function toDay(day: string, h: Record<string, string>): DayStats {
       ordersSampleCompleted: n("orders_video_sample_completed"),
       revenueSampleCompleted: n("revenue_video_sample_completed"),
     },
+    addOn: { orders: n("orders_add_on"), revenue: n("revenue_add_on"), discount: n("discount_add_on") },
     costUsd: costUsd === null ? null : Math.round(costUsd * 10000) / 10000,
     tokens,
   }
@@ -219,6 +224,28 @@ export function summarizeVideo(daily: DayStats[]) {
 }
 
 export type VideoSummary = ReturnType<typeof summarizeVideo>
+
+/** Add-ons on the confirmation page (ADD_ON): how often orders get one, and what it brings and costs. */
+export function summarizeAddOn(daily: DayStats[]) {
+  const sum = (f: (d: DayStats) => number) => round(daily.reduce((s, d) => s + f(d), 0))
+  const orders = sum((d) => d.orders)
+  const addOns = sum((d) => d.addOn.orders)
+  const revenue = sum((d) => d.addOn.revenue)
+  const discount = sum((d) => d.addOn.discount)
+  return {
+    orders,
+    addOns,
+    revenue,
+    discount,
+    /** Share of the site's orders that got an add-on. */
+    takeRate: ratio(addOns, orders, 4),
+    averageAddOn: ratio(revenue, addOns),
+    /** What the add-ons raised the average order by. */
+    averageOrderLift: ratio(revenue, orders),
+  }
+}
+
+export type AddOnSummary = ReturnType<typeof summarizeAddOn>
 
 /** Checks the password of the statistics pages (ASSISTANT_STATS_KEY); false while it isn't set. */
 export function statsKeyValid(given: string | null | undefined): boolean {

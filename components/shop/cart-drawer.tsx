@@ -6,7 +6,6 @@ import { m } from "motion/react"
 import { X, Minus, Plus } from "lucide-react"
 import Link from "next/link"
 import {
-  SECOND_ITEM,
   TAIL_DISCOUNT,
   formatPrice,
   formatQuantity,
@@ -18,7 +17,6 @@ import {
 import { useCart } from "./cart-context"
 import { ProductImage } from "./product-image"
 import { OldPrice } from "./promo-price"
-import { SecondItemOffer } from "./second-item-offer"
 
 interface CartDrawerProps {
   onClose: () => void
@@ -106,7 +104,7 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                         {formatPrice(item.price)}
                         {item.oldPrice ? <OldPrice className="ml-1">{formatPrice(item.oldPrice)}</OldPrice> : null} /{" "}
                         {item.priceUnit}
-                        {item.promo && !line?.second && <span className="text-zinc-700 dark:text-zinc-300"> · {item.promo.name}</span>}
+                        {item.promo && <span className="text-zinc-700 dark:text-zinc-300"> · {item.promo.name}</span>}
                       </p>
 
                       <div className="flex items-center justify-between mt-2">
@@ -139,11 +137,8 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                         </p>
                       </div>
 
-                      {line?.second && (
-                        <p className="mt-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-500">{SECOND_ITEM.name}</p>
-                      )}
                       <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1.5">
-                        {!line?.second && tailGrams(item, item.quantity) > 0
+                        {tailGrams(item, item.quantity) > 0
                           ? `З них ${formatQuantity(tailGrams(item, item.quantity), item.priceUnit)} — залишок бобіни зі знижкою ${TAIL_DISCOUNT * 100}%`
                           : atMax
                             ? `Максимум на складі: ${formatQuantity(item.stock, item.priceUnit)}`
@@ -153,7 +148,6 @@ export function CartDrawer({ onClose }: CartDrawerProps) {
                   </div>
                 )
               })}
-              <SecondItemOffer />
             </div>
           )}
 

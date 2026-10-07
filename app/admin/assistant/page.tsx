@@ -4,15 +4,17 @@ import { notFound } from "next/navigation"
 import { redisConfigured } from "@/lib/redis"
 import { type SyncReport, readCatalogMeta } from "@/lib/catalog"
 import {
+  type AddOnSummary,
   type DayStats,
   type StatsSummary,
   type VideoSummary,
   readStats,
   statsKeyValid,
   summarize,
+  summarizeAddOn,
   summarizeVideo,
 } from "@/lib/assistant/stats"
-import { formatPrice } from "@/components/shop/data"
+import { ADD_ON, formatPrice } from "@/components/shop/data"
 import { BarChart } from "@/components/admin/bar-chart"
 
 // Whether the shopping assistant pays off, for the shop's owner:
@@ -106,6 +108,26 @@ function VideoSync({ report }: { report: SyncReport["videos"] | undefined }) {
     <p className={`rounded-2xl border p-4 text-sm ${problem ? "border-amber-300 bg-amber-50 text-amber-900" : "border-zinc-200 bg-white text-zinc-700"}`}>
       {text}
     </p>
+  )
+}
+
+function AddOnSection({ a, days }: { a: AddOnSummary; days: number }) {
+  const period = `${days} ${plural(days, "день", "дні", "днів")}`
+  const verdict =
+    a.addOns === 0
+      ? `За ${period} доповнень ще не було. Їх пропонують ${ADD_ON.minutes} хв після оформлення на сторінці «Дякуємо» (−${ADD_ON.percent}%, не більше ${ADD_ON.percent}% від суми замовлення).`
+      : `За ${period} до ${a.addOns} ${plural(a.addOns, "замовлення", "замовлень", "замовлень")} з ${a.orders} додали ще товарів (${percent(a.takeRate)}) на ${uah(a.revenue)}; знижка на них — ${uah(a.discount)}.`
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Доповнення після замовлення</h2>
+      <p className="rounded-2xl border border-zinc-200 bg-white p-5 text-base leading-relaxed text-zinc-800">{verdict}</p>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Tile label="Замовлення з доповненням" value={`${a.addOns} з ${a.orders}`} note={`${percent(a.takeRate)} усіх замовлень`} />
+        <Tile label="Виторг доповнень" value={uah(a.revenue)} note={`середнє доповнення: ${uah(a.averageAddOn)}`} />
+        <Tile label="Віддали знижкою" value={uah(a.discount)} />
+        <Tile label="Середній чек вищий на" value={uah(a.averageOrderLift)} note="виторг доповнень на кожне замовлення" />
+      </div>
+    </section>
   )
 }
 
@@ -224,6 +246,7 @@ export default async function AssistantStatsPage({
   const daily = await readStats(days)
   const s = summarize(daily)
   const video = summarizeVideo(daily)
+  const addOn = summarizeAddOn(daily)
   const catalogMeta = await readCatalogMeta().catch(() => null)
   const chronological = [...daily].reverse()
 
@@ -300,6 +323,8 @@ export default async function AssistantStatsPage({
       </section>
 
       <DayTable daily={daily} />
+
+      <AddOnSection a={addOn} days={days} />
 
       <VideoSection v={video} days={days} sync={catalogMeta?.videos} />
 
