@@ -1,13 +1,28 @@
 // Server-only KeyCRM OpenAPI client. The API key is read from the environment
-// and never sent to the browser. KeyCRM allows 60 requests per minute per key,
-// so every call goes through a sliding-window limiter; reads also retry on 5xx.
+// and never sent to the browser. Reads retry on 5xx.
+//
+// Rate limit: KeyCRM's docs (docs.keycrm.app) say 20 requests per minute per
+// key, yet the catalog sync has made ~110 requests in about a minute every 15
+// minutes without a single 429, so what KeyCRM enforces today is higher, or
+// allows bursts. Every call takes a slot in one sliding minute shared by all
+// function instances (kept in Redis): MAX_PER_MINUTE in all, of which
+// background jobs (keycrmBackground) may use BACKGROUND_PER_MINUTE, so an order
+// or a payment never queues behind a catalog sync. The sync reports KeyCRM's
+// rate-limit headers and any 429s, to see if KeyCRM tightens the limit.
 
-import { timingSafeEqual } from "node:crypto"
+import { AsyncLocalStorage } from "node:async_hooks"
+import { randomUUID, timingSafeEqual } from "node:crypto"
+import { redis, redisConfigured } from "@/lib/redis"
 
 const KEYCRM_URL = process.env.KEYCRM_API_URL || "https://openapi.keycrm.app/v1"
 const PAGE_LIMIT = 50
-/** Stay a little under KeyCRM's 60 requests/minute. */
+/** Requests per sliding minute for the whole site: the rate the catalog sync has run at without a 429. */
 const MAX_PER_MINUTE = 55
+/** Crons leave the rest of the minute to buyers' orders and payments. */
+const BACKGROUND_PER_MINUTE = 44
+const WINDOW_MS = 60_000
+/** Sorted set: one member per request sent in the last minute, scored by its time (ms). */
+const KEY_SENT = "keycrm:sent"
 
 /** The key as pasted into Vercel, minus stray whitespace, quotes or a "Bearer " prefix. */
 function apiKey(): string {
@@ -39,19 +54,88 @@ export function keycrmKeyShape() {
   }
 }
 
-const sentAt: number[] = []
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-async function throttle() {
-  for (;;) {
-    const now = Date.now()
-    while (sentAt.length && now - sentAt[0] >= 60_000) sentAt.shift()
-    if (sentAt.length < MAX_PER_MINUTE) {
-      sentAt.push(now)
-      return
-    }
-    await sleep(60_000 - (now - sentAt[0]) + 50)
+/** What a background job used of KeyCRM. */
+export interface KeycrmUsage {
+  requests: number
+  seconds: number
+  /** Responses with HTTP 429 (each one retried). */
+  rateLimited: number
+  /** KeyCRM's rate-limit headers from its last response, if it sends any. */
+  headers?: Record<string, string>
+}
+
+const backgroundJob = new AsyncLocalStorage<KeycrmUsage>()
+
+/**
+ * Runs a cron or another job nobody waits on: its KeyCRM calls get the smaller
+ * share of the rate limit. Returns the job's result and what it used.
+ */
+export async function keycrmBackground<T>(job: () => Promise<T>): Promise<{ result: T; usage: KeycrmUsage }> {
+  const usage: KeycrmUsage = { requests: 0, seconds: 0, rateLimited: 0 }
+  const started = Date.now()
+  const result = await backgroundJob.run(usage, job)
+  usage.seconds = Math.round((Date.now() - started) / 1000)
+  return { result, usage }
+}
+
+/**
+ * Takes a slot if fewer than ARGV[1] requests went out in the last ARGV[2] ms;
+ * else returns the ms until enough of them age out. Redis's clock, so instances agree.
+ */
+const TAKE_SLOT = `
+local t = redis.call('TIME')
+local now = t[1] * 1000 + math.floor(t[2] / 1000)
+local limit = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
+local sent = redis.call('ZCARD', KEYS[1])
+if sent < limit then
+  redis.call('ZADD', KEYS[1], now, ARGV[3])
+  redis.call('PEXPIRE', KEYS[1], window)
+  return 0
+end
+local freed = redis.call('ZRANGE', KEYS[1], sent - limit, sent - limit, 'WITHSCORES')
+return math.max(1, freed[2] + window - now)
+`
+
+/** Fallback while Redis can't be reached: the same window, for this instance only. */
+const sentAt: number[] = []
+let sharedLimiterFailedAt = 0
+
+function takeLocalSlot(limit: number): number {
+  const now = Date.now()
+  while (sentAt.length && now - sentAt[0] >= WINDOW_MS) sentAt.shift()
+  if (sentAt.length < limit) {
+    sentAt.push(now)
+    return 0
   }
+  return sentAt[sentAt.length - limit] + WINDOW_MS - now
+}
+
+async function takeSlot(limit: number): Promise<number> {
+  if (redisConfigured() && Date.now() - sharedLimiterFailedAt > WINDOW_MS) {
+    try {
+      const r = await redis()
+      const args = [String(limit), String(WINDOW_MS), randomUUID()]
+      return Number(await r.eval(TAKE_SLOT, { keys: [KEY_SENT], arguments: args }))
+    } catch (e) {
+      sharedLimiterFailedAt = Date.now()
+      console.error("[keycrm] shared rate limiter failed, limiting per instance:", (e as Error).message)
+    }
+  }
+  return takeLocalSlot(limit)
+}
+
+async function throttle(limit: number) {
+  for (let wait = await takeSlot(limit); wait > 0; wait = await takeSlot(limit)) await sleep(wait + 50)
+}
+
+/** Rate-limit headers of a KeyCRM response (X-RateLimit-*, Retry-After), if any. */
+function rateLimitHeaders(headers: Headers): Record<string, string> | undefined {
+  const found = [...headers].filter(([name]) => /ratelimit|retry-after/i.test(name))
+  return found.length ? Object.fromEntries(found) : undefined
 }
 
 type Params = Record<string, string | number | boolean | undefined>
@@ -83,8 +167,10 @@ export class KeycrmError extends Error {
 
 async function request<T>(method: string, url: URL, body?: unknown): Promise<T> {
   const path = url.pathname.replace(/^\/v1/, "")
+  const usage = backgroundJob.getStore()
   for (let attempt = 1; ; attempt++) {
-    await throttle()
+    await throttle(usage ? BACKGROUND_PER_MINUTE : MAX_PER_MINUTE)
+    if (usage) usage.requests++
     const res = await fetch(url, {
       method,
       headers: {
@@ -95,6 +181,12 @@ async function request<T>(method: string, url: URL, body?: unknown): Promise<T> 
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
     })
+    const limits = rateLimitHeaders(res.headers)
+    if (usage && limits) usage.headers = limits
+    if (res.status === 429) {
+      if (usage) usage.rateLimited++
+      console.warn(`[keycrm] ${method} ${path}: HTTP 429 (attempt ${attempt})`, JSON.stringify(limits ?? {}))
+    }
     if (res.ok) return (await res.json()) as T
     const retryable = res.status === 429 || (method === "GET" && res.status >= 500)
     if (!retryable || attempt >= 4) {
@@ -102,7 +194,9 @@ async function request<T>(method: string, url: URL, body?: unknown): Promise<T> 
       throw new KeycrmError(`KeyCRM ${method} ${path}: HTTP ${res.status}`, res.status, text.slice(0, 2000))
     }
     const retryAfter = Number(res.headers.get("retry-after"))
-    await sleep(retryAfter > 0 ? retryAfter * 1000 : 2000 * 2 ** (attempt - 1))
+    // A background job can afford to wait out KeyCRM's minute; a buyer can't.
+    const backoff = res.status === 429 && usage ? 15_000 * attempt : 2000 * 2 ** (attempt - 1)
+    await sleep(retryAfter > 0 ? retryAfter * 1000 : backoff)
   }
 }
 

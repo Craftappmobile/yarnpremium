@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { keycrmConfigured } from "@/lib/keycrm"
+import { keycrmBackground, keycrmConfigured } from "@/lib/keycrm"
 import { syncPurchases } from "@/lib/keycrm-purchase"
 import { redisConfigured } from "@/lib/redis"
 
@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "KEYCRM_API_KEY or REDIS_URL is not set" }, { status: 500 })
   }
   try {
-    const report = await syncPurchases()
+    const { result, usage } = await keycrmBackground(syncPurchases)
+    const report = { ...result, keycrm: usage }
     console.log("[purchases]", JSON.stringify(report))
     return NextResponse.json(report)
   } catch (e) {
