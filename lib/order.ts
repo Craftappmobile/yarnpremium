@@ -24,7 +24,7 @@ export type PaymentMethod = "card" | "cod" | "on_pickup"
 
 export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   card: "Повна оплата карткою онлайн",
-  cod: `Накладений платіж (передоплата ${COD_PREPAYMENT}\u00a0₴)`,
+  cod: "Післяплата з авансом",
   on_pickup: "Оплата при отриманні в магазині",
 }
 

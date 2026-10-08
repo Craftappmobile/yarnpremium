@@ -321,7 +321,7 @@ function AddOnSummary({
 function paymentTitle(order: Order, paid: boolean): string {
   const { method, now } = order.payment
   if (method === "on_pickup") return "Оплата при отриманні в магазині"
-  if (method === "cod") return paid ? `Передоплату ${formatPrice(now)} отримано` : "Накладений платіж"
+  if (method === "cod") return paid ? `Передоплату ${formatPrice(now)} отримано` : "Післяплата з авансом"
   return paid ? "Оплачено онлайн" : "Оплата карткою онлайн"
 }
 
