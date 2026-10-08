@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     await r.set(ORDER_KEY(addOnId), JSON.stringify(order), { EX: 86400 })
     await r.set(ADD_ON_KEY(mainId), addOnId, { EX: 86400 })
     const ctx = buyerContext(req)
-    after(() => sendOrderPlaced(order, addOnId, ctx))
+    after(() => sendOrderPlaced(order, ctx))
 
     if (!isTestOrderEnvironment()) {
       await countStats({

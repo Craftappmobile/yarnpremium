@@ -9,13 +9,12 @@
 //                   all three passed on by app/api/activity
 //   Contact         first message to the site's shopping assistant   (event_id chat-<conversation>)
 //   AddPaymentInfo  order placed with something to pay online        (event_id pay-<KeyCRM order>)
-//   Purchase        the online part is paid, or an order with nothing
-//                   to pay online is placed                          (event_id order-<KeyCRM order>)
-// The browser pixel sends ViewContent, AddToCart, InitiateCheckout, Contact and
-// AddPaymentInfo too, with the same event_id, and Meta keeps one of each pair.
+//   Purchase        every order placed, whatever the payment: card,
+//                   cash on delivery or at pickup                    (event_id order-<KeyCRM order>)
+// The browser pixel sends ViewContent, AddToCart, InitiateCheckout, Contact,
+// AddPaymentInfo and Purchase too, with the same event_id, and Meta keeps one of each pair.
 //   Purchase        an order from Direct (or another non-site channel) is paid
-//                   in KeyCRM: sent by KeyCRM's own Conversions API trigger, with
-//                   the chat's PSID/IGSID (lib/keycrm-purchase.ts is the fallback)
+//                   in KeyCRM: lib/keycrm-purchase.ts
 //
 // Needs META_CAPI_TOKEN (Events Manager → dataset → Settings → Conversions API →
 // Generate access token). Sends only from production; META_CAPI_TEST_CODE (the
@@ -24,7 +23,6 @@
 import { createHash } from "node:crypto"
 import { META_PIXEL_ID, SITE_URL } from "@/lib/site"
 import { type Order, orderRef } from "@/lib/order"
-import { redis } from "@/lib/redis"
 
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v25.0"
 
@@ -199,27 +197,13 @@ const orderEvent = (name: string, idPrefix: string, order: Order, ctx: BuyerCont
   custom_data: orderData(order),
 })
 
-// The buyer's context is kept with the order for the Purchase sent when WayForPay
-// confirms the payment (server to server, so the buyer's request is long gone).
-// Meta takes events up to 7 days old.
-const CONTEXT_KEY = (siteOrderId: string) => `meta:ctx:${siteOrderId}`
-
 /**
- * A newly placed order: Purchase now when nothing is to be paid online, else
- * AddPaymentInfo now and Purchase once the payment comes through.
+ * A newly placed order is a Purchase whatever the payment: most buyers pay on
+ * delivery, and the ads must learn from them too. AddPaymentInfo as well when
+ * part of it is to be paid online.
  */
-export async function sendOrderPlaced(order: Order, siteOrderId: string, ctx: BuyerContext, { test = false } = {}) {
-  if (order.payment.now > 0) {
-    await (await redis()).set(CONTEXT_KEY(siteOrderId), JSON.stringify(ctx), { EX: 7 * 86400 }).catch(() => {})
-    await sendMetaEvent(orderEvent("AddPaymentInfo", "pay", order, ctx), { test })
-  } else {
-    await sendMetaEvent(orderEvent("Purchase", "order", order, ctx), { test })
-  }
-}
-
-/** The online part of an order is paid. */
-export async function sendOrderPaid(order: Order, siteOrderId: string, { test = false } = {}) {
-  const raw = await (await redis()).get(CONTEXT_KEY(siteOrderId)).catch(() => null)
-  const ctx = raw ? (JSON.parse(raw) as BuyerContext) : {}
-  await sendMetaEvent(orderEvent("Purchase", "order", order, ctx), { test })
+export async function sendOrderPlaced(order: Order, ctx: BuyerContext, { test = false } = {}) {
+  const events = [orderEvent("Purchase", "order", order, ctx)]
+  if (order.payment.now > 0) events.unshift(orderEvent("AddPaymentInfo", "pay", order, ctx))
+  await sendMetaEvents(events, { test })
 }

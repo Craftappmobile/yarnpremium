@@ -105,6 +105,18 @@ interface Line {
   brand?: string
 }
 
+/** Meta's custom data for a list of products. */
+function metaOrderData(lines: Line[]) {
+  return {
+    currency: CURRENCY,
+    value: Math.round(lines.reduce((s, l) => s + l.total, 0) * 100) / 100,
+    content_type: "product",
+    content_ids: lines.map((l) => l.sku),
+    contents: lines.map((l) => ({ id: l.sku, quantity: l.quantity, item_price: l.price })),
+    num_items: lines.length,
+  }
+}
+
 function send(
   ga: string,
   meta: string,
@@ -133,14 +145,7 @@ function send(
   window.fbq?.(
     "track",
     meta,
-    {
-      currency: CURRENCY,
-      value,
-      content_type: "product",
-      content_ids: lines.map((l) => l.sku),
-      contents: lines.map((l) => ({ id: l.sku, quantity: l.quantity, item_price: l.price })),
-      num_items: lines.length,
-    },
+    metaOrderData(lines),
     // Lets Meta merge this with the same event sent from the shop's server (lib/meta-capi.ts).
     extra.metaEventId ? { eventID: extra.metaEventId } : undefined,
   )
@@ -199,31 +204,32 @@ export function trackBeginCheckout(cart: CartItem[]) {
 }
 
 /**
- * A placed order. GA4 counts it as a purchase. Meta gets Purchase only when
- * nothing is to be paid online; otherwise AddPaymentInfo, and the server sends
- * Purchase once WayForPay confirms the payment, so ads learn from paid orders.
+ * A placed order: GA4's purchase and Meta's Purchase, whatever the payment
+ * (card, cash on delivery, at pickup), so ads learn from buyers who pay on
+ * delivery too. Meta also gets AddPaymentInfo when part of it is paid online.
+ * The server sends the same events (lib/meta-capi.ts) under the same eventIDs.
  * `assisted`: the buyer wrote to the shopping assistant before ordering.
  */
 export function trackPurchase(order: Order, fallbackId: string, assisted = false) {
   // An add-on joins its order under the same number: orderRef adds «-add», so GA4 and Meta keep both.
   const id = order.number ? orderRef(order) : fallbackId
-  const payLater = order.payment.now > 0
-  send(
-    "purchase",
-    payLater ? "AddPaymentInfo" : "Purchase",
-    order.items.map((i) => ({
-      sku: i.sku,
-      name: i.name,
-      price: i.price,
-      quantity: i.quantity,
-      total: i.total ?? i.price * i.quantity,
-    })),
-    {
-      transactionId: id,
-      metaEventId: `${payLater ? "pay" : "order"}-${id}`,
-      params: { assistant_used: assisted ? "yes" : "no" },
-    },
-  )
+  const lines = order.items.map((i) => ({
+    sku: i.sku,
+    name: i.name,
+    price: i.price,
+    quantity: i.quantity,
+    total: i.total ?? i.price * i.quantity,
+  }))
+  // Meta only: GA4 counts the order once, as its purchase below.
+  if (order.payment.now > 0 && enabled()) {
+    boot()
+    window.fbq?.("track", "AddPaymentInfo", metaOrderData(lines), { eventID: `pay-${id}` })
+  }
+  send("purchase", "Purchase", lines, {
+    transactionId: id,
+    metaEventId: `order-${id}`,
+    params: { assistant_used: assisted ? "yes" : "no" },
+  })
 }
 
 /** First message of a conversation with the shopping assistant: Meta's Contact (the server sends it too). */

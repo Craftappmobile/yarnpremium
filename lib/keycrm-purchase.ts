@@ -7,13 +7,10 @@
 // The site's own orders are reported by the site itself (lib/meta-capi.ts) and
 // are skipped here.
 //
-// Off since 2026-10-07: KeyCRM's own «Надіслати конверсію у Facebook» trigger
-// (payment status → Сплачено / Оплачено зверх / Часткова оплата, source not
-// yarnpremium, once per order through the tag «Meta покупка») sends these
-// purchases with the chat's PSID/IGSID, which ties them to the conversation an
-// ad started. Both at once would count each purchase twice. Should KeyCRM's
-// Facebook connection lapse (it has to be renewed every 60 days), put the cron
-// back in vercel.json.
+// KeyCRM's own triggers («Надіслати конверсію у FB», «Мета: покупка з Direct»)
+// were meant to send these from 2026-10-07, but none of their purchases reached
+// the dataset, so the cron is back. Should one of them ever deliver, turn it or
+// the cron off: both at once would count each purchase twice.
 
 import { keycrmGet, keycrmGetPages } from "@/lib/keycrm"
 import { type ServerEvent, sendMetaEvents, userData } from "@/lib/meta-capi"
