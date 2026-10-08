@@ -9,7 +9,6 @@ import { redis } from "@/lib/redis"
 import { SITE_INDEXABLE, SITE_URL } from "@/lib/site"
 import { onlinePaymentMethodId } from "@/lib/keycrm-order"
 import type { Order } from "@/lib/order"
-import { sendOrderPaid } from "@/lib/meta-capi"
 
 export const PAY_URL = "https://secure.wayforpay.com/pay"
 
@@ -239,11 +238,8 @@ export async function recordApprovedPayment(p: PaymentResult): Promise<boolean> 
   if (siteOrder) {
     const order = JSON.parse(siteOrder) as Order
     order.payment.paid = true
+    // Meta had its Purchase when the order was placed (lib/meta-capi.ts).
     await r.set(ORDER_KEY(record.siteOrderId), JSON.stringify(order), { KEEPTTL: true })
-    // The order is paid: the Purchase Meta's ads learn from.
-    await sendOrderPaid(order, record.siteOrderId, { test: !record.live })
-  } else {
-    console.error(`[wayforpay] ${ref}: site order ${record.siteOrderId} expired, no Purchase sent to Meta`)
   }
   console.log(`[wayforpay] ${ref}: ${record.amount} ₴ paid for KeyCRM order ${record.keycrmId}${record.live ? "" : " (test)"}`)
   return true

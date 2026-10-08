@@ -124,9 +124,9 @@ export async function POST(req: NextRequest) {
     await r.set(ORDER_KEY(id), JSON.stringify(order), { EX: 86400 })
     // No «abandoned checkout» lead for a buyer who ordered.
     await markOrdered(id, customer.phone).catch((e) => console.error("[orders] draft cleanup failed:", e.message))
-    // Meta's AddPaymentInfo or Purchase from the server, once the buyer has their answer.
+    // Meta's Purchase (and AddPaymentInfo) from the server, once the buyer has their answer.
     const ctx = buyerContext(req)
-    after(() => sendOrderPlaced(order, id, ctx))
+    after(() => sendOrderPlaced(order, ctx))
     if (order.newsletter && !isTestOrderEnvironment()) {
       after(() =>
         subscribe(order.customer).catch((e) => console.error("[orders] newsletter failed:", (e as Error).message)),

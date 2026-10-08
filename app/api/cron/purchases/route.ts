@@ -4,8 +4,7 @@ import { syncPurchases } from "@/lib/keycrm-purchase"
 import { redisConfigured } from "@/lib/redis"
 
 // Purchases paid in KeyCRM outside the site (Direct, Facebook, phone) → Meta,
-// once per order (lib/keycrm-purchase.ts). Not scheduled while KeyCRM's own
-// trigger sends them (see there); back in vercel.json it runs every half hour,
+// once per order (lib/keycrm-purchase.ts). Runs every half hour (vercel.json),
 // and each run rereads the last days, so a missed run is caught up by the next.
 export const dynamic = "force-dynamic"
 export const maxDuration = 120

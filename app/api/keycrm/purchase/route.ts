@@ -5,9 +5,8 @@ import { sendMetaEvent } from "@/lib/meta-capi"
 import { redis } from "@/lib/redis"
 
 // Purchases made outside the site (Instagram Direct, Facebook, …) for Meta's
-// ads (lib/keycrm-purchase.ts). Not in use while KeyCRM's own Conversions API
-// trigger sends them (see there). Otherwise app/api/cron/purchases sends them
-// without any setup in KeyCRM, and this webhook is the faster way in, for a
+// ads (lib/keycrm-purchase.ts). app/api/cron/purchases sends them without any
+// setup in KeyCRM; this webhook is the faster way in, for a
 // KeyCRM trigger («Зміна статусу оплати» → Сплачено / Оплачено зверх):
 //   /api/keycrm/purchase?token=<KEYCRM_PURCHASE_SECRET>
 // (KEYCRM_WEBHOOK_SECRET, the stock webhook's, is accepted too).
