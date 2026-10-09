@@ -21,7 +21,7 @@ import { familyFromName } from "@/components/shop/yarn-colors"
 import { type KeycrmUsage, keycrmBackground, keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { type DriveVideoReport, KEY_VIDEOS, driveVideosConfigured, matchDriveVideos } from "@/lib/product-videos"
-import { withPromo } from "@/lib/promo"
+import { runningPromosKey, withPromo } from "@/lib/promo"
 
 const KEY_PRODUCTS = "catalog:products"
 const KEY_STOCK = "catalog:stock"
@@ -135,6 +135,11 @@ export interface SyncReport {
   videos?: DriveVideoReport | { error: string }
   /** KeyCRM requests made and how long reading took; 429s and KeyCRM's rate-limit headers, if any. */
   keycrm?: KeycrmUsage
+  /** Products whose data, stock or videos this sync changed (added and removed ones included). */
+  changed?: number
+  /** The promotions running at this sync (lib/promo.ts), and whether that differs from the last sync. */
+  promos?: string
+  promosChanged?: boolean
 }
 
 /**
@@ -184,10 +189,10 @@ async function photoColors(urls: string[], deadline: number) {
   return { colors, report: { known: colors.size, computed, failed, pending: queue.length } }
 }
 
-export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncReport> {
+export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncReport & { changedSkus?: string[] }> {
   const r = await redis()
+  const meta = JSON.parse((await r.get(KEY_META)) ?? "null")
   if (minIntervalMs > 0) {
-    const meta = JSON.parse((await r.get(KEY_META)) ?? "null")
     const last = meta?.finishedAt ? Date.parse(meta.finishedAt) : 0
     if (Date.now() - last < minIntervalMs) return { ran: false, reason: "synced recently" }
   }
@@ -282,18 +287,38 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
     const live = newer.length ? await r.hmGet(KEY_STOCK, newer) : []
     const liveStock = new Map(newer.map((sku, i) => [sku, live[i]]))
 
+    const productsNow = Object.fromEntries(catalog.map((p) => [p.sku, JSON.stringify(p)]))
+    const stockNow = Object.fromEntries(catalog.map((p) => [p.sku, liveStock.get(p.sku) ?? String(p.stock)]))
+    // Videos that couldn't be read stay as they were.
+    const [productsBefore, stockBefore, videosBefore] = await Promise.all([
+      r.hGetAll(KEY_PRODUCTS),
+      r.hGetAll(KEY_STOCK),
+      r.hGetAll(KEY_VIDEOS),
+    ])
+    const videosNow = !videos
+      ? {}
+      : "videos" in videos
+        ? Object.fromEntries([...videos.videos].map(([sku, v]) => [sku, JSON.stringify(v)]))
+        : videosBefore
+
+    // Only the pages of what changed are rebuilt (app/api/cron/catalog-sync): Vercel
+    // bills every rebuilt page, and most syncs change a few products or none.
+    const everySku = new Set([...Object.keys(productsBefore), ...Object.keys(productsNow), ...Object.keys(videosNow)])
+    const changedSkus = [...everySku].filter(
+      (sku) =>
+        productsBefore[sku] !== productsNow[sku] || stockBefore[sku] !== stockNow[sku] || videosBefore[sku] !== videosNow[sku],
+    )
+    const promos = runningPromosKey()
+
     const tx = r.multi().del(KEY_PRODUCTS).del(KEY_STOCK).del(KEY_OFFER_SKU)
     if (catalog.length) {
       tx.hSet(KEY_OFFER_SKU, Object.fromEntries(catalog.map((p) => [String(p.offerId), p.sku])))
-      tx.hSet(KEY_PRODUCTS, Object.fromEntries(catalog.map((p) => [p.sku, JSON.stringify(p)])))
-      tx.hSet(KEY_STOCK, Object.fromEntries(catalog.map((p) => [p.sku, liveStock.get(p.sku) ?? String(p.stock)])))
+      tx.hSet(KEY_PRODUCTS, productsNow)
+      tx.hSet(KEY_STOCK, stockNow)
     }
-    if (!videos) tx.del(KEY_VIDEOS)
-    else if ("videos" in videos) {
+    if (!videos || "videos" in videos) {
       tx.del(KEY_VIDEOS)
-      if (videos.videos.size) {
-        tx.hSet(KEY_VIDEOS, Object.fromEntries([...videos.videos].map(([sku, v]) => [sku, JSON.stringify(v)])))
-      }
+      if (Object.keys(videosNow).length) tx.hSet(KEY_VIDEOS, videosNow)
     }
     const report: SyncReport = {
       ran: true,
@@ -306,10 +331,13 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       colors: colorReport,
       videos: videos ? ("videos" in videos ? videos.report : videos) : undefined,
       keycrm,
+      changed: changedSkus.length,
+      promos,
+      promosChanged: promos !== meta?.promos,
     }
     tx.set(KEY_META, JSON.stringify({ ...report, finishedAt: new Date().toISOString() }))
     await tx.exec()
-    return report
+    return { ...report, changedSkus }
   } finally {
     if ((await r.get(KEY_LOCK)) === token) await r.del(KEY_LOCK)
   }

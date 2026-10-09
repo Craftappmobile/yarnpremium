@@ -13,7 +13,7 @@ import { pluralUk } from "@/lib/utils"
 // A category's own page: the catalog opened on it, rendered on the first
 // visit and refreshed like the home page. A category with nothing left says
 // so and shows the ones like it.
-export const revalidate = 300
+export const revalidate = 3600
 
 export function generateStaticParams() {
   return []

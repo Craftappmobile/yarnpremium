@@ -9,8 +9,9 @@ export const metadata: Metadata = {
   openGraph: { url: "/" },
 }
 
-// Rebuilt after every catalog sync (revalidatePath) and at least every 5 minutes.
-export const revalidate = 300
+// Rebuilt when stock or the catalog changes (webhook, order, catalog sync:
+// revalidatePath) and at least every hour. Every rebuild is billed by Vercel.
+export const revalidate = 3600
 
 export default async function Home() {
   // The page carries the first screen of products and a summary of the rest;
