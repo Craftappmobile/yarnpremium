@@ -8,8 +8,10 @@ import { fallbackSearch, matchOldProduct, rankOldProduct } from "@/lib/old-urls"
 import { formatPrice, type Product } from "@/components/shop/data"
 import { ProductDetail } from "@/components/shop/product-detail"
 
-// Pages are rendered on first visit and refreshed after each catalog sync.
-export const revalidate = 300
+// Pages are rendered on first visit and rebuilt when the product changes
+// (webhook, order, catalog sync); the hourly rebuild only refreshes the
+// similar products shown under it.
+export const revalidate = 3600
 
 export function generateStaticParams() {
   return []

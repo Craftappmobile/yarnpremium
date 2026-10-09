@@ -113,6 +113,17 @@ export function activePromo(category: string, now = Date.now(), promos = PROMOS)
   })
 }
 
+/** The promotions running now, as one string: it changes when one starts or ends. */
+export function runningPromosKey(now = Date.now(), promos = PROMOS): string {
+  return promos
+    .filter((p) => {
+      const { start, end } = promoWindow(p)
+      return now >= start && now < end
+    })
+    .map((p) => `${p.category}: ${promoLabel(p)}`)
+    .join("; ")
+}
+
 /** The promotion running now for this category, or else the next one to come. */
 export function currentOrNextPromo(category: string, now = Date.now(), promos = PROMOS): PromoConfig | undefined {
   return promos
