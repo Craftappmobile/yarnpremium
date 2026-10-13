@@ -2,6 +2,7 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { readCatalog, readProducts } from "@/lib/catalog"
 import { SITE_URL } from "@/lib/site"
+import { absoluteImageUrl } from "@/lib/catalog-image"
 import { similarProducts } from "@/lib/similar-products"
 import { readProductVideos } from "@/lib/product-videos"
 import { fallbackSearch, matchOldProduct, rankOldProduct } from "@/lib/old-urls"
@@ -60,7 +61,7 @@ function productJsonLd(product: Product) {
     name: product.name,
     sku: product.sku,
     url,
-    image: product.images.length ? product.images : product.image ? [product.image] : undefined,
+    image: product.images.length ? product.images.map(absoluteImageUrl) : product.image ? [product.image] : undefined,
     description: productDescription(product),
     category: product.category || undefined,
     color: product.color || undefined,

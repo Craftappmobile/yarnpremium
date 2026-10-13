@@ -16,10 +16,9 @@
 
 import { redis, redisConfigured } from "@/lib/redis"
 import { type BunnyRef, type BunnyReport, bunnyConfigured, bunnyUrls, syncBunnyCopies } from "@/lib/bunny-stream"
+import { baseName, driveApiKey, driveFileUrl, folderId, listDriveFolder, skuInName, skuKey } from "@/lib/google-drive"
 
 export const KEY_VIDEOS = "catalog:videos"
-
-const DRIVE_FILES = "https://www.googleapis.com/drive/v3/files"
 
 interface StoredVideo {
   /** Drive file id. */
@@ -50,14 +49,6 @@ export interface ProductVideos {
   sample?: ProductVideo
 }
 
-const apiKey = () => process.env.GOOGLE_DRIVE_API_KEY ?? ""
-
-/** Accepts the folder id or the whole link copied from Drive. */
-function folderId(value: string | undefined): string {
-  const v = (value ?? "").trim()
-  return v.match(/\/folders\/([\w-]+)/)?.[1] ?? v
-}
-
 const folders = () => ({
   review: folderId(process.env.GOOGLE_DRIVE_REVIEW_FOLDER),
   sample: folderId(process.env.GOOGLE_DRIVE_SAMPLE_FOLDER),
@@ -65,45 +56,7 @@ const folders = () => ({
 
 export function driveVideosConfigured(): boolean {
   const f = folders()
-  return Boolean(apiKey() && (f.review || f.sample))
-}
-
-/** Cyrillic letters typed in place of the Latin ones they look like (МЕR → MER). */
-const LOOKALIKES: Record<string, string> = {
-  а: "a", в: "b", е: "e", і: "i", к: "k", м: "m", н: "h", о: "o", р: "p", с: "c", т: "t", у: "y", х: "x",
-}
-
-/** SKU or file name as compared: case, spaces, dashes and Cyrillic lookalikes don't matter. */
-export function skuKey(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "")
-    .replace(/[авеікмнорстух]/g, (c) => LOOKALIKES[c])
-}
-
-/**
- * The SKU a file is named after. The name may carry other words too
- * («спиці MER1124», «MER 1124 зразок»): then the longest run of words that
- * makes a SKU wins.
- */
-function skuInName(name: string, bySkuKey: Map<string, string>): string | undefined {
-  const exact = bySkuKey.get(skuKey(name))
-  if (exact) return exact
-  const words = name.split(/[\s_+.,;:()[\]#№-]+/).filter(Boolean)
-  let best: string | undefined
-  let bestLength = 0
-  for (let i = 0; i < words.length; i++) {
-    // SKUs written with spaces span a few words at most.
-    for (let j = i + 1; j <= Math.min(words.length, i + 4); j++) {
-      const key = skuKey(words.slice(i, j).join(""))
-      const sku = bySkuKey.get(key)
-      if (sku && key.length > bestLength) {
-        best = sku
-        bestLength = key.length
-      }
-    }
-  }
-  return best
+  return Boolean(driveApiKey() && (f.review || f.sample))
 }
 
 interface DriveFile {
@@ -114,28 +67,8 @@ interface DriveFile {
   videoMediaMetadata?: { width?: number; height?: number; durationMillis?: string }
 }
 
-async function listFolder(folder: string): Promise<DriveFile[]> {
-  const files: DriveFile[] = []
-  let pageToken = ""
-  do {
-    const url = new URL(DRIVE_FILES)
-    url.search = new URLSearchParams({
-      q: `'${folder}' in parents and trashed = false and mimeType contains 'video/'`,
-      fields: "nextPageToken,files(id,name,description,modifiedTime,videoMediaMetadata(width,height,durationMillis))",
-      pageSize: "1000",
-      supportsAllDrives: "true",
-      includeItemsFromAllDrives: "true",
-      key: apiKey(),
-      ...(pageToken ? { pageToken } : {}),
-    }).toString()
-    const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(20_000) })
-    if (!res.ok) throw new Error(`Google Drive ${res.status}: ${(await res.text()).slice(0, 300)}`)
-    const body = (await res.json()) as { files?: DriveFile[]; nextPageToken?: string }
-    files.push(...(body.files ?? []))
-    pageToken = body.nextPageToken ?? ""
-  } while (pageToken)
-  return files
-}
+const VIDEO_FIELDS = "id,name,description,modifiedTime,videoMediaMetadata(width,height,durationMillis)"
+const listFolder = (folder: string) => listDriveFolder<DriveFile>(folder, "video/", VIDEO_FIELDS)
 
 export interface DriveVideoReport {
   review: number
@@ -145,8 +78,6 @@ export interface DriveVideoReport {
   /** Copies in Bunny Stream, or why they couldn't be updated (videos then play from Drive). */
   bunny?: BunnyReport | { error: string }
 }
-
-const driveFileUrl = (id: string) => `${DRIVE_FILES}/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(apiKey())}`
 
 /**
  * Videos for the given SKUs, read from both Drive folders. Where a folder holds
@@ -162,7 +93,7 @@ export async function matchDriveVideos(skus: string[]): Promise<{ videos: Map<st
   ;(["review", "sample"] as const).forEach((role, i) => {
     const newestFirst = [...lists[i]].sort((a, b) => (b.modifiedTime ?? "").localeCompare(a.modifiedTime ?? ""))
     for (const file of newestFirst) {
-      const sku = skuInName(file.name.replace(/\.[^.]+$/, ""), bySkuKey)
+      const sku = skuInName(baseName(file.name), bySkuKey)
       if (!sku) {
         report.unmatched.push(file.name)
         continue

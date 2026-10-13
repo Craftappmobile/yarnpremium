@@ -114,6 +114,26 @@ function VideoSync({ report }: { report: SyncReport["videos"] | undefined }) {
   )
 }
 
+/** Product photos found in Drive by the last catalog sync. Not set up is no problem: KeyCRM's photos are enough. */
+function PhotoSync({ report }: { report: SyncReport["photos"] | undefined }) {
+  if (!report) return null
+  let text: string
+  let problem = true
+  if ("error" in report) {
+    text = `Фото з Google Drive не прочитались: ${report.error}. На сайті лишились фото з попередньої синхронізації.`
+  } else {
+    text = `Фото на Drive: ${report.photos} для ${report.products} ${plural(report.products, "товару", "товарів", "товарів")}, показуються в галереї після фото з KeyCRM.`
+    if (report.unmatched.length) {
+      text += ` Без товару (перевірте артикул у назві): ${report.unmatched.slice(0, 10).join(", ")}${report.unmatched.length > 10 ? "…" : ""}.`
+    } else problem = false
+  }
+  return (
+    <p className={`rounded-2xl border p-4 text-sm ${problem ? "border-amber-300 bg-amber-50 text-amber-900" : "border-zinc-200 bg-white text-zinc-700"}`}>
+      {text}
+    </p>
+  )
+}
+
 const when = (iso: string) =>
   new Date(iso).toLocaleString("uk-UA", {
     timeZone: "Europe/Kyiv",
@@ -233,7 +253,7 @@ function AddOnSection({ a, days }: { a: AddOnSummary; days: number }) {
   )
 }
 
-function VideoSection({ v, days, sync }: { v: VideoSummary; days: number; sync: SyncReport["videos"] | undefined }) {
+function VideoSection({ v, days, sync, photos }: { v: VideoSummary; days: number; sync: SyncReport["videos"] | undefined; photos: SyncReport["photos"] | undefined }) {
   const share = (part: number, whole: number) => (whole > 0 ? percent(part / whole) : "—")
   let verdict: string
   if (v.pages === 0) {
@@ -255,6 +275,7 @@ function VideoSection({ v, days, sync }: { v: VideoSummary; days: number; sync: 
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">Відео на картках товарів</h2>
       <VideoSync report={sync} />
+      <PhotoSync report={photos} />
       <p className="rounded-2xl border border-zinc-200 bg-white p-5 text-base leading-relaxed text-zinc-800">{verdict}</p>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Відкрили товар із відео" value={String(v.pages)} note={`замовлень після цього: ${v.ordersPage}`} />
@@ -430,7 +451,7 @@ export default async function AssistantStatsPage({
 
       <AddOnSection a={addOn} days={days} />
 
-      <VideoSection v={video} days={days} sync={catalogMeta?.videos} />
+      <VideoSection v={video} days={days} sync={catalogMeta?.videos} photos={catalogMeta?.photos} />
 
       <section className="space-y-2 rounded-2xl bg-zinc-100 p-5 text-sm leading-relaxed text-zinc-600">
         <p className="font-medium text-zinc-800">Як читати ці цифри</p>

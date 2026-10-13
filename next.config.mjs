@@ -10,7 +10,9 @@ const nextConfig = {
   },
   // Product photos from KeyCRM are resized and converted to WebP by Vercel
   // (billed per transformation, so the size list is short and results are
-  // cached for a month — KeyCRM gives every upload a new file name).
+  // cached for a month — KeyCRM gives every upload a new file name). Photos
+  // from Google Drive come from the shop itself (app/drive-img): local paths
+  // need no pattern here.
   images: {
     remotePatterns: [{ protocol: "https", hostname: "sincerita.api.keycrm.app", pathname: "/file-storage/**" }],
     formats: ["image/webp"],

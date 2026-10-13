@@ -12,6 +12,7 @@
 //   catalog:offer_sku  hash  KeyCRM offer id -> sku (webhooks may name offers by id only)
 //   catalog:image_color hash photo URL -> yarn colour worked out from it (kept across syncs)
 //   catalog:videos     hash  sku -> videos from Google Drive (lib/product-videos.ts)
+//   catalog:photos     hash  Drive file id -> path of a product photo from Google Drive (lib/product-photos.ts)
 //   catalog:meta       JSON  report of the last sync
 //   catalog:lock       lock  held while a sync runs
 
@@ -21,6 +22,7 @@ import { familyFromName } from "@/components/shop/yarn-colors"
 import { type KeycrmUsage, keycrmBackground, keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
 import { type DriveVideoReport, KEY_VIDEOS, driveVideosConfigured, matchDriveVideos } from "@/lib/product-videos"
+import { DRIVE_IMG_PATH, type DrivePhotoReport, KEY_PHOTOS, drivePhotosConfigured, matchDrivePhotos } from "@/lib/product-photos"
 import { runningPromosKey, withPromo } from "@/lib/promo"
 
 const KEY_PRODUCTS = "catalog:products"
@@ -47,6 +49,9 @@ const GRAM_MIN = 100
 const CASHMERE_GRAM_MIN = 50
 const GRAM_STEP = 50
 const DESCRIPTION_MAX = 1000
+/** Photos in a product's gallery: up to 6 from KeyCRM, then the ones from Google Drive. */
+const KEYCRM_IMAGES = 6
+const MAX_IMAGES = 10
 /**
  * KeyCRM custom fields shown on the product page, when filled in. Only these:
  * other fields may be internal. The first is about the yarn, the rest describe
@@ -95,7 +100,7 @@ function toProduct(offer: any, product: any, fields: Record<string, string>, cat
     price: Number(offer.price ?? product.price ?? 0),
     priceUnit: unit,
     image: images[0] ?? "",
-    images: images.slice(0, 6),
+    images: images.slice(0, KEYCRM_IMAGES),
     category,
     sku: offer.sku,
     // quantity is the total over all warehouses; in_reserve is held by open orders.
@@ -133,9 +138,11 @@ export interface SyncReport {
   colors?: { known: number; computed: number; failed: number; pending: number }
   /** Product videos found in Google Drive, or why they couldn't be read (the previous ones are kept then). */
   videos?: DriveVideoReport | { error: string }
+  /** Product photos found in Google Drive, or why they couldn't be read (the previous ones are kept then). */
+  photos?: DrivePhotoReport | { error: string }
   /** KeyCRM requests made and how long reading took; 429s and KeyCRM's rate-limit headers, if any. */
   keycrm?: KeycrmUsage
-  /** Products whose data, stock or videos this sync changed (added and removed ones included). */
+  /** Products whose data, photos, stock or videos this sync changed (added and removed ones included). */
   changed?: number
   /** The promotions running at this sync (lib/promo.ts), and whether that differs from the last sync. */
   promos?: string
@@ -249,6 +256,10 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
     const videosRead = driveVideosConfigured()
       ? matchDriveVideos(catalog.map((p) => p.sku)).catch((e: Error) => ({ error: e.message }))
       : Promise.resolve(null)
+    // Photos likewise: if Drive can't be read, products keep the ones they had.
+    const photosRead = drivePhotosConfigured()
+      ? matchDrivePhotos(catalog.map((p) => p.sku)).catch((e: Error) => ({ error: e.message }))
+      : Promise.resolve(null)
 
     const offerById = new Map<number, any>(offers.map((o: any) => [o.id, o]))
     const compared = stocksPage.items.filter((s: any) => offerById.has(s.id))
@@ -279,7 +290,7 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       else p.colorFamily = familyFromName(p.color) ?? color?.family
     }
 
-    const videos = await videosRead
+    const [videos, photos] = await Promise.all([videosRead, photosRead])
 
     // A stock webhook that landed while we were reading KeyCRM is newer than our data: keep it.
     const stockAt = await r.hGetAll(KEY_STOCK_AT)
@@ -287,14 +298,24 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
     const live = newer.length ? await r.hmGet(KEY_STOCK, newer) : []
     const liveStock = new Map(newer.map((sku, i) => [sku, live[i]]))
 
-    const productsNow = Object.fromEntries(catalog.map((p) => [p.sku, JSON.stringify(p)]))
-    const stockNow = Object.fromEntries(catalog.map((p) => [p.sku, liveStock.get(p.sku) ?? String(p.stock)]))
-    // Videos that couldn't be read stay as they were.
+    // Videos and photos that couldn't be read stay as they were.
     const [productsBefore, stockBefore, videosBefore] = await Promise.all([
       r.hGetAll(KEY_PRODUCTS),
       r.hGetAll(KEY_STOCK),
       r.hGetAll(KEY_VIDEOS),
     ])
+    for (const p of catalog) {
+      const drive =
+        photos && "photos" in photos
+          ? (photos.photos.get(p.sku) ?? [])
+          : photos
+            ? ((JSON.parse(productsBefore[p.sku] ?? "null") as Product | null)?.images ?? []).filter((u) => u.startsWith(DRIVE_IMG_PATH))
+            : []
+      p.images = [...p.images, ...drive].slice(0, MAX_IMAGES)
+    }
+
+    const productsNow = Object.fromEntries(catalog.map((p) => [p.sku, JSON.stringify(p)]))
+    const stockNow = Object.fromEntries(catalog.map((p) => [p.sku, liveStock.get(p.sku) ?? String(p.stock)]))
     const videosNow = !videos
       ? {}
       : "videos" in videos
@@ -320,6 +341,10 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       tx.del(KEY_VIDEOS)
       if (Object.keys(videosNow).length) tx.hSet(KEY_VIDEOS, videosNow)
     }
+    if (!photos || "photos" in photos) {
+      tx.del(KEY_PHOTOS)
+      if (photos && Object.keys(photos.paths).length) tx.hSet(KEY_PHOTOS, photos.paths)
+    }
     const report: SyncReport = {
       ran: true,
       startedAt: new Date(started).toISOString(),
@@ -330,6 +355,7 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       stockCheck,
       colors: colorReport,
       videos: videos ? ("videos" in videos ? videos.report : videos) : undefined,
+      photos: photos ? ("photos" in photos ? photos.report : photos) : undefined,
       keycrm,
       changed: changedSkus.length,
       promos,
