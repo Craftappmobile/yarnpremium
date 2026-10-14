@@ -8,7 +8,7 @@
 //
 // Redis keys:
 //   tg:subs  hash  chat id -> JSON list of rubric keys
-//   tg:me    JSON  the bot's getMe, cached for a day
+//   tg:me:<bot id>  JSON  the bot's getMe, cached for a day (per bot, so a new token never shows the old name)
 
 import { redis } from "@/lib/redis"
 import { SITE_URL, TELEGRAM_URL } from "@/lib/site"
@@ -16,7 +16,8 @@ import { RUBRICS, rubricByKey } from "@/lib/telegram-rubrics"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg, webhookSecret } from "@/lib/telegram"
 
 const KEY_SUBS = "tg:subs"
-const KEY_ME = "tg:me"
+/** The bot id is the token's part before the colon. */
+const keyMe = () => `tg:me:${(process.env.TELEGRAM_BOT_TOKEN ?? "").split(":")[0]}`
 
 export const WEBHOOK_PATH = "/api/telegram/webhook"
 const ALLOWED_UPDATES = ["message", "callback_query", "my_chat_member"]
@@ -61,10 +62,10 @@ export async function subscriberCounts(): Promise<{ total: number; byRubric: Rec
 
 export async function botMe(): Promise<{ id: number; username: string; first_name: string }> {
   const r = await redis()
-  const cached = await r.get(KEY_ME)
+  const cached = await r.get(keyMe())
   if (cached) return JSON.parse(cached)
   const me = await tg("getMe")
-  await r.set(KEY_ME, JSON.stringify(me), { EX: 24 * 3600 })
+  await r.set(keyMe(), JSON.stringify(me), { EX: 24 * 3600 })
   return me
 }
 
