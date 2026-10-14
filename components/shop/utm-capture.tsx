@@ -16,8 +16,35 @@ export function UtmCapture() {
     } catch {
       // Storage unavailable — the order just goes without UTM data.
     }
+    if (utm.utm_source === "telegram") reportTelegramVisit(utm)
   }, [])
   return null
+}
+
+const TG_SEEN_KEY = "sinserita:tg-visits"
+
+/**
+ * Counts a visit from a Telegram post or the bot (lib/telegram-stats.ts), once
+ * per link and session, so a reload or a second tab of it doesn't count again.
+ */
+function reportTelegramVisit(utm: Record<string, string>) {
+  const href = window.location.pathname + window.location.search
+  let seen: string[] = []
+  try {
+    seen = JSON.parse(sessionStorage.getItem(TG_SEEN_KEY) ?? "[]")
+    if (seen.includes(href)) return
+    sessionStorage.setItem(TG_SEEN_KEY, JSON.stringify([...seen, href].slice(-50)))
+  } catch {
+    // Storage unavailable: count it anyway.
+  }
+  const body = JSON.stringify({
+    medium: utm.utm_medium,
+    campaign: utm.utm_campaign,
+    buy: window.location.pathname.startsWith("/buy"),
+  })
+  fetch("/api/telegram/visit", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(
+    () => {},
+  )
 }
 
 export function readUtm(): Record<string, string> {

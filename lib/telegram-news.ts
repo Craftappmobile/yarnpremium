@@ -33,6 +33,7 @@ import { redis } from "@/lib/redis"
 import { SITE_URL } from "@/lib/site"
 import { botUsername, readSubscribers, removeSubscriber } from "@/lib/telegram-bot"
 import { RUBRICS, type Rubric, rubricByKey, rubricOf } from "@/lib/telegram-rubrics"
+import { countTelegram } from "@/lib/telegram-stats"
 import { CATEGORY_NOTES } from "@/lib/categories"
 import { MAX_TILES, collage, fullGrid } from "@/lib/telegram-collage"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg } from "@/lib/telegram"
@@ -707,6 +708,7 @@ export async function publishDaily(products: Product[], deadline: number, now = 
         await r.hDel(KEY_QUEUE, skus)
         await markAnnounced(skus, now)
       }
+      await countTelegram({ posts: 1 })
       const entry: LogEntry = { at: new Date().toISOString(), title: logTitle(post), type: post.type, products: count }
       await r.multi().lPush(KEY_LOG, JSON.stringify(entry)).lTrim(KEY_LOG, 0, 99).exec()
     } catch (e) {

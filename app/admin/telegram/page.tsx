@@ -7,11 +7,14 @@ import { telegramConfigured } from "@/lib/telegram"
 import { botStatus, subscriberCounts } from "@/lib/telegram-bot"
 import { MAX_POSTS, POST_HOUR, introPost, plannedPosts, queueSize, readPostLog, renderPost } from "@/lib/telegram-news"
 import { RUBRICS } from "@/lib/telegram-rubrics"
+import { readTelegramStats } from "@/lib/telegram-stats"
+import { TelegramResults } from "@/components/admin/telegram-results"
 
 // The Telegram channel's daily post, for the shop's owner:
-// /admin/telegram?key=<ASSISTANT_STATS_KEY>. Whether the bot can post, who
-// subscribed to which rubric, what the next post will say, what went out.
-// Orders from Telegram are in KeyCRM under utm_source=telegram.
+// /admin/telegram?key=<ASSISTANT_STATS_KEY>&days=30. What the channel and the
+// bot bring (visits, orders, revenue, audience; lib/telegram-stats.ts),
+// whether the bot can post, who subscribed to which rubric, what the next
+// post will say, what went out.
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Telegram-канал", robots: { index: false, follow: false } }
@@ -25,6 +28,8 @@ function Tile({ label, value, note }: { label: string; value: string; note?: str
     </div>
   )
 }
+
+const PERIODS = [7, 30, 90]
 
 export default async function TelegramAdminPage({
   searchParams,
@@ -44,12 +49,14 @@ export default async function TelegramAdminPage({
     )
   }
 
-  const [status, subs, queued, log, products] = await Promise.all([
+  const days = PERIODS.includes(Number(params.days)) ? Number(params.days) : 30
+  const [status, subs, queued, log, products, daily] = await Promise.all([
     botStatus().catch((e: Error) => ({ error: e.message })),
     subscriberCounts(),
     queueSize(),
     readPostLog(),
     readCatalog(),
+    readTelegramStats(days),
   ])
   const { posts } = await plannedPosts(products)
   const bot = "username" in status ? status.username : null
@@ -60,10 +67,11 @@ export default async function TelegramAdminPage({
         <h1 className="text-2xl font-semibold">Telegram-канал</h1>
         <p className="mt-1 text-sm text-zinc-500">
           Новинки виходять раз на день о {POST_HOUR}:12 за Києвом: до {MAX_POSTS} постів, дрібні оновлення разом в одному.
-          Підписники бота отримують одне повідомлення з обраними категоріями. Замовлення з Telegram — у KeyCRM з міткою
-          utm_source=telegram.
+          Підписники бота отримують одне повідомлення з обраними категоріями.
         </p>
       </header>
+
+      <TelegramResults daily={daily} days={days} periods={PERIODS} statsKey={key} />
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
         {"error" in status ? (
