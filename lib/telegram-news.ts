@@ -33,7 +33,8 @@ import { redis } from "@/lib/redis"
 import { SITE_URL } from "@/lib/site"
 import { botUsername, readSubscribers, removeSubscriber } from "@/lib/telegram-bot"
 import { RUBRICS, type Rubric, rubricByKey, rubricOf } from "@/lib/telegram-rubrics"
-import { collage } from "@/lib/telegram-collage"
+import { CATEGORY_NOTES } from "@/lib/categories"
+import { MAX_TILES, collage, fullGrid } from "@/lib/telegram-collage"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg } from "@/lib/telegram"
 
 const KEY_SEEN = "tg:seen"
@@ -62,8 +63,6 @@ const REPEAT_AFTER_MS = 30 * 24 * 3600_000
 export const MAX_POSTS = 3
 /** A rubric with fewer new products than this shares the day's «Новинки дня» post. */
 const OWN_POST_MIN = 3
-/** Telegram's limit for an album. */
-const ALBUM_MAX = 10
 const PROMO_PHOTOS = 6
 /** Telegram's limit for a caption, in visible characters. */
 const CAPTION_MAX = 1024
@@ -180,7 +179,10 @@ export type Post =
 export type Audience = "channel" | "bot"
 
 export interface Rendered {
+  /** Photo URLs or Telegram file ids; numbered ones match the numbers in the text. */
   photos: string[]
+  /** The text numbers its products 1… in the order of `photos`: their collage gets the same numbers. */
+  numbered?: boolean
   caption: string
   buttons: InlineButton[][]
 }
@@ -202,9 +204,13 @@ function runningPromos(now: number): PromoConfig[] {
 
 const sameCategory = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-/** New colours before restocks, newest first. */
+/** New colours before restocks; those with a photo first, so the picture shows them; then newest first. */
 const byNews = (a: NewsItem, b: NewsItem) =>
-  a.kind === b.kind ? b.product.offerId - a.product.offerId : a.kind === "new" ? -1 : 1
+  a.kind !== b.kind
+    ? a.kind === "new" ? -1 : 1
+    : Boolean(b.product.image) !== Boolean(a.product.image)
+      ? a.product.image ? -1 : 1
+      : b.product.offerId - a.product.offerId
 
 /** What the next daily post will carry, in posting order: at most MAX_POSTS posts. */
 export async function plannedPosts(products: Product[], now = Date.now()): Promise<{ posts: Post[]; stale: string[] }> {
@@ -285,12 +291,35 @@ function priceText(p: Product): string {
   return p.oldPrice ? `<s>${per(p.oldPrice)}</s> ${per(p.price)}${unit}` : `${per(p.price)}${unit}`
 }
 
-function itemLine(item: NewsItem, utm: Utm, markBack: boolean): string {
+/** The numbers on the collage's tiles, as the text writes them. */
+const KEYCAPS = ["", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"]
+
+/**
+ * What the yarn is made of, unless the name says it already («80%Меринос
+ * 20%ПА»): the «Склад» from KeyCRM, else the line about the whole category.
+ */
+function composition(p: Product): string {
+  if (p.name.includes("%")) return ""
+  const field = p.specs?.find((s) => s.name === "Склад")?.value
+  return (field ?? CATEGORY_NOTES[p.category] ?? "").trim()
+}
+
+/** «180 м і 215 ₴ за 100 г», the promotional price after the struck-through one. */
+function amounts(p: Product): string {
+  const price = (v: number) => (isByWeight(p) ? formatPriceShort(Math.round(v * 100)) : formatPriceShort(v))
+  const now = p.oldPrice ? `<s>${price(p.oldPrice)}</s> ${price(p.price)}` : price(p.price)
+  if (!isByWeight(p)) return `${now} за шт`
+  return `${p.length > 0 ? `${p.length} м і ` : ""}${now} за 100 г`
+}
+
+/** One product: its number on the collage (or a bullet), its name linking to the purchase, colour, composition, amounts. */
+function itemLine(item: NewsItem, utm: Utm, markBack: boolean, num?: number): string {
   const p = item.product
   const color = p.color && !p.name.toLowerCase().includes(p.color.toLowerCase()) ? ` — ${p.color}` : ""
-  const length = p.length > 0 ? ` · ${p.length} м${isByWeight(p) ? " / 100 г" : ""}` : ""
+  const made = composition(p)
   const back = markBack && item.kind === "back" ? " · знову є" : ""
-  return `• <a href="${esc(buyUrl(p.sku, utm))}">${esc(p.name + color)}</a>${esc(length)} · ${priceText(p)}${back}`
+  const mark = num ? `${KEYCAPS[num]} ` : "• "
+  return `${mark}<a href="${esc(buyUrl(p.sku, utm))}">${esc(p.name + color)}</a>${made ? ` · ${esc(made)}` : ""} · ${amounts(p)}${back}`
 }
 
 /** The category with the most products among these: the «see all» page. */
@@ -300,6 +329,7 @@ function mainCategory(products: Product[]): string {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ""
 }
 
+/** Photos for a picture without numbers (a promotion's): distinct ones, up to `max`. */
 const photosOf = (products: Product[], max: number) =>
   products
     .map((p) => p.image)
@@ -325,10 +355,38 @@ interface Section {
   moreUrl: string
 }
 
+/** The caption with `limits[i]` lines of section i, numbered as `numbers` says. */
+function renderSections(
+  head: string,
+  sections: Section[],
+  end: string,
+  utm: Utm,
+  markBack: boolean,
+  limits: number[],
+  numbers: Map<string, number>,
+): { text: string; shown: NewsItem[] } {
+  let text = head
+  const shown: NewsItem[] = []
+  sections.forEach((s, i) => {
+    text += s.title ? `\n\n<b>${s.title}</b>` : "\n"
+    for (const item of s.items.slice(0, limits[i])) {
+      text += `\n${itemLine(item, utm, markBack, numbers.get(item.product.sku))}`
+      shown.push(item)
+    }
+    const more = s.items.length - limits[i]
+    if (more > 0) {
+      const what = limits[i] === 0 ? `${more} ${plural(more, "новинка", "новинки", "новинок")}` : `і ще ${more}`
+      text += `\n<a href="${esc(s.moreUrl)}">${what} — дивитися всі</a>`
+    }
+  })
+  return { text: `${text}\n\n${end}`, shown }
+}
+
 /**
  * Head, sections and footer in one caption of at most CAPTION_MAX visible
  * characters: sections lose their last lines, largest first, and say how many
- * more there are instead. Returns the text and the products it lists.
+ * more there are instead. The listed products with a photo, up to a collage
+ * of whole rows, are numbered 1… in the text; `photos` are theirs, in order.
  */
 function fitSections(
   head: string,
@@ -336,28 +394,26 @@ function fitSections(
   end: string,
   utm: Utm,
   markBack: boolean,
-): { text: string; shown: Product[] } {
+): { text: string; shown: Product[]; photos: string[] } {
+  // Fitted as if every line had a number, the widest mark, so numbering fewer can only shorten it.
+  const widest = new Map(sections.flatMap((s) => s.items.map((i) => [i.product.sku, 9] as [string, number])))
   const limits = sections.map((s) => s.items.length)
   for (;;) {
-    let text = head
-    const shown: Product[] = []
-    sections.forEach((s, i) => {
-      text += s.title ? `\n\n<b>${s.title}</b>` : "\n"
-      for (const item of s.items.slice(0, limits[i])) {
-        text += `\n${itemLine(item, utm, markBack)}`
-        shown.push(item.product)
-      }
-      const more = s.items.length - limits[i]
-      if (more > 0) {
-        const what = limits[i] === 0 ? `${more} ${plural(more, "новинка", "новинки", "новинок")}` : `і ще ${more}`
-        text += `\n<a href="${esc(s.moreUrl)}">${what} — дивитися всі</a>`
-      }
-    })
-    text += `\n\n${end}`
-    if (visibleLength(text) <= CAPTION_MAX) return { text, shown }
+    const { text } = renderSections(head, sections, end, utm, markBack, limits, widest)
+    if (visibleLength(text) <= CAPTION_MAX) break
     const largest = limits.indexOf(Math.max(...limits))
-    if (limits[largest] === 0) return { text: text.slice(0, CAPTION_MAX), shown }
+    if (limits[largest] === 0) break
     limits[largest]--
+  }
+  const listed = renderSections(head, sections, end, utm, markBack, limits, new Map()).shown
+  const withPhoto = listed.filter((i) => i.product.image)
+  const pictured = withPhoto.slice(0, fullGrid(Math.min(MAX_TILES, withPhoto.length)))
+  const numbers = new Map(pictured.map((i, k) => [i.product.sku, k + 1]))
+  const { text, shown } = renderSections(head, sections, end, utm, markBack, limits, numbers)
+  return {
+    text,
+    shown: shown.map((i) => i.product),
+    photos: pictured.map((i) => catalogImageUrl(i.product.image)),
   }
 }
 
@@ -432,11 +488,12 @@ export function renderPost(post: Post, bot: string | null): Rendered {
       }
     })
   }
-  const { text, shown } = fitSections(head, sections, end, utm, !rubric)
+  const { text, photos } = fitSections(head, sections, end, utm, !rubric)
 
   const single = items.length === 1 ? products[0] : null
   return {
-    photos: photosOf(shown.length ? shown : products, ALBUM_MAX),
+    photos,
+    numbered: photos.length > 1,
     caption: text,
     buttons: single
       ? [[
@@ -472,7 +529,7 @@ function sectionButtons(sections: Section[]): InlineButton[][] {
  * One subscriber's message of the day: what the day's posts carried in their
  * rubrics, in one photo with one caption, however many rubrics they follow.
  */
-export function renderDigest(posts: Post[], rubricKeys: string[], photo: string | undefined): Rendered | null {
+export function renderDigest(posts: Post[], rubricKeys: string[]): Rendered | null {
   const utm = utmFor("bot", "digest")
   const promos = posts.filter((p): p is Extract<Post, { type: "promo" }> => p.type === "promo" && rubricKeys.includes("sale"))
   const items = posts.flatMap((p) => (p.type === "news" ? p.items.filter((i) => rubricKeys.includes(i.rubric.key)) : []))
@@ -493,8 +550,15 @@ export function renderDigest(posts: Post[], rubricKeys: string[], photo: string 
     }
   })
   const hint = items.length ? HOW_TO_ORDER : HOW_TO_ORDER_PROMO
-  const { text } = fitSections(head, sections, `${hint}\nЗмінити категорії: /start`, utm, true)
-  return { photos: photo ? [photo] : [], caption: text, buttons: sectionButtons(sections) }
+  const { text, photos } = fitSections(head, sections, `${hint}\nЗмінити категорії: /start`, utm, true)
+  // Only promotions: their photos, unnumbered.
+  const promoPhotos = photos.length ? [] : photosOf(promos.flatMap((p) => p.products), 4)
+  return {
+    photos: photos.length ? photos : promoPhotos,
+    numbered: photos.length > 1,
+    caption: text,
+    buttons: sectionButtons(sections),
+  }
 }
 
 /**
@@ -510,7 +574,7 @@ export async function sendPost(chatId: string | number, m: Rendered): Promise<{ 
   const markup = m.buttons.length ? { reply_markup: keyboard(m.buttons) } : {}
   try {
     if (m.photos.length >= 2) {
-      const picture = await collage(m.photos).catch((e: Error) => {
+      const picture = await collage(m.photos, m.numbered).catch((e: Error) => {
         console.warn("[telegram] collage failed:", e.message)
         return null
       })
@@ -676,22 +740,25 @@ async function deliverToSubscribers(
 ): Promise<NonNullable<PublishReport["subscribers"]>> {
   const subscribers = await readSubscribers()
   const result = { sent: 0, removed: 0, failed: 0, unfinished: false }
+  // The same categories make the same message: its picture is made once, then sent by file id.
+  const pictureOf = new Map<string, string>()
   for (const [chatId, rubrics] of subscribers) {
     if (Date.now() > deadline) {
       result.unfinished = true
       break
     }
     const theirs = sent.filter(({ post }) => postRubrics(post).some((r) => rubrics.includes(r.key)))
-    // The channel's copy of a photo, so Telegram doesn't fetch it for every subscriber.
-    const photo = theirs.find((s) => s.fileIds.length)?.fileIds[0]
     const digest = renderDigest(
       theirs.map((s) => s.post),
       rubrics,
-      photo,
     )
     if (!digest) continue
+    const key = [...rubrics].sort().join(",")
+    const picture = pictureOf.get(key)
+    if (picture) digest.photos = [picture]
     try {
-      await sendPost(chatId, digest)
+      const { fileIds } = await sendPost(chatId, digest)
+      if (!picture && fileIds.length === 1) pictureOf.set(key, fileIds[0])
       result.sent++
     } catch (e) {
       if (e instanceof TelegramError && (e.code === 403 || /chat not found/i.test(e.description))) {
