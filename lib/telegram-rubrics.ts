@@ -22,7 +22,7 @@ export const RUBRICS: Rubric[] = [
   { key: "mohair", title: "Мохер і кід", hashtag: "#мохер", pattern: /мохер|(^|[^а-яіїєґ])кід/ },
   { key: "merino", title: "Меринос", hashtag: "#меринос", pattern: /мерин|напіввовн|шкарпетк/ },
   { key: "alpaca", title: "Альпака і як", hashtag: "#альпака", pattern: /альпак|(^|[^а-яіїєґ])як([^а-яіїєґ]|$)|верблюд/ },
-  { key: "linen", title: "Льон і бавовна", hashtag: "#льон", pattern: /льон|бавовн|котон/ },
+  { key: "linen", title: "Льон і бавовна", hashtag: "#льон", pattern: /льон|бавовн|котон|кропив|коноп|евкаліпт/ },
   { key: "other", title: "Інша пряжа", hashtag: "#пряжа" },
 ]
 
