@@ -120,9 +120,11 @@ function menuText(rubrics: string[]): string {
 }
 
 function menuKeyboard(rubrics: string[]) {
+  // Chosen categories are green, so the choice reads at a glance.
   const toggles: InlineButton[] = RUBRICS.map((r) => ({
     text: `${rubrics.includes(r.key) ? "✅" : "▫️"} ${r.title}`,
     callback_data: `t:${r.key}`,
+    ...(rubrics.includes(r.key) ? { style: "success" as const } : {}),
   }))
   const rows: InlineButton[][] = []
   for (let i = 0; i < toggles.length; i += 2) rows.push(toggles.slice(i, i + 2))

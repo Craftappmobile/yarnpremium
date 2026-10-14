@@ -36,14 +36,34 @@ export class TelegramError extends Error {
   }
 }
 
+/** A file sent with the call itself (multipart), not by URL or file id. */
+export interface Upload {
+  field: string
+  data: Buffer
+  name: string
+  type: string
+}
+
 /** Calls a Bot API method; one retry when Telegram asks to slow down. */
-export async function tg<T = any>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+export async function tg<T = any>(method: string, params: Record<string, unknown> = {}, upload?: Upload): Promise<T> {
   for (let attempt = 0; ; attempt++) {
+    let payload: string | FormData = JSON.stringify(params)
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (upload) {
+      // Multipart: objects (reply_markup) go as JSON strings.
+      const form = new FormData()
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined) form.append(k, typeof v === "object" ? JSON.stringify(v) : String(v))
+      }
+      form.append(upload.field, new Blob([new Uint8Array(upload.data)], { type: upload.type }), upload.name)
+      payload = form
+      delete headers["Content-Type"]
+    }
     const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
-      signal: AbortSignal.timeout(30_000),
+      headers,
+      body: payload,
+      signal: AbortSignal.timeout(60_000),
     })
     const body = (await res.json().catch(() => null)) as {
       ok: boolean
@@ -71,6 +91,11 @@ export interface InlineButton {
   text: string
   url?: string
   callback_data?: string
+  /**
+   * The button's colour: green (success), blue (primary) or red (danger).
+   * Apps too old to know it draw the usual button, so the text carries an emoji as well.
+   */
+  style?: "success" | "primary" | "danger"
 }
 
 export const keyboard = (rows: InlineButton[][]) => ({ inline_keyboard: rows })

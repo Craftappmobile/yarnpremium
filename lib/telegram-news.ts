@@ -33,6 +33,7 @@ import { redis } from "@/lib/redis"
 import { SITE_URL } from "@/lib/site"
 import { botUsername, readSubscribers, removeSubscriber } from "@/lib/telegram-bot"
 import { RUBRICS, type Rubric, rubricByKey, rubricOf } from "@/lib/telegram-rubrics"
+import { collage } from "@/lib/telegram-collage"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg } from "@/lib/telegram"
 
 const KEY_SEEN = "tg:seen"
@@ -315,8 +316,10 @@ function plural(n: number, one: string, few: string, many: string): string {
 }
 
 interface Section {
-  /** Bold line over the products; none for a post's only section. */
+  /** Bold line over the products (HTML); none for a post's only section. */
   title?: string
+  /** The same as plain text, for a button. */
+  plainTitle?: string
   items: NewsItem[]
   /** Where «і ще N» leads. */
   moreUrl: string
@@ -397,7 +400,11 @@ export function renderPost(post: Post, bot: string | null): Rendered {
 
   if (post.type === "promo") {
     const { caption, url } = renderPromo(post, utm, end)
-    return { photos: photosOf(post.products, PROMO_PHOTOS), caption, buttons: [[{ text: "Обрати колір", url }]] }
+    return {
+      photos: photosOf(post.products, PROMO_PHOTOS),
+      caption,
+      buttons: [[{ text: "🔥 Обрати колір зі знижкою", url, style: "success" }]],
+    }
   }
 
   const { rubric, items } = post
@@ -419,6 +426,7 @@ export function renderPost(post: Post, bot: string | null): Rendered {
       const theirs = items.filter((i) => i.rubric.key === r.key)
       return {
         title: esc(r.title),
+        plainTitle: r.title,
         items: theirs,
         moreUrl: withUtm(categoryPath(mainCategory(theirs.map((i) => i.product))), utm),
       }
@@ -431,9 +439,22 @@ export function renderPost(post: Post, bot: string | null): Rendered {
     photos: photosOf(shown.length ? shown : products, ALBUM_MAX),
     caption: text,
     buttons: single
-      ? [[{ text: "Купити", url: buyUrl(single.sku, utm) }, { text: "Уся категорія", url: categoryUrl }]]
-      : [[{ text: "Дивитися всі", url: categoryUrl }]],
+      ? [[
+          { text: "🛒 Купити", url: buyUrl(single.sku, utm), style: "success" },
+          { text: "🧶 Уся категорія", url: categoryUrl, style: "primary" },
+        ]]
+      : rubric
+        ? [[{ text: "🧶 Дивитися всі на сайті", url: categoryUrl, style: "success" }]]
+        : sectionButtons(sections),
   }
+}
+
+/** A green button per section, two to a row: where each category's «see all» leads. */
+function sectionButtons(sections: Section[]): InlineButton[][] {
+  const buttons: InlineButton[] = sections.map((s) => ({ text: `🧶 ${s.plainTitle ?? "Дивитися всі"}`, url: s.moreUrl, style: "success" }))
+  const rows: InlineButton[][] = []
+  for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2))
+  return rows
 }
 
 /**
@@ -455,19 +476,22 @@ export function renderDigest(posts: Post[], rubricKeys: string[], photo: string 
     const theirs = items.filter((i) => i.rubric.key === r.key).sort(byNews)
     return {
       title: esc(r.title),
+      plainTitle: r.title,
       items: theirs,
       moreUrl: withUtm(categoryPath(mainCategory(theirs.map((i) => i.product))), utm),
     }
   })
   const hint = items.length ? HOW_TO_ORDER : HOW_TO_ORDER_PROMO
   const { text } = fitSections(head, sections, `${hint}\nЗмінити категорії: /start`, utm, true)
-  return { photos: photo ? [photo] : [], caption: text, buttons: [] }
+  return { photos: photo ? [photo] : [], caption: text, buttons: sectionButtons(sections) }
 }
 
 /**
- * Sends a post: an album when it has several photos (Telegram puts no buttons
- * under an album, so its links are in the text), one photo with buttons, or
- * text alone. A photo Telegram can't fetch turns it into text.
+ * Sends a post: several photos tiled into one picture (lib/telegram-collage.ts)
+ * with the buttons under it, one photo with buttons, or text alone. When the
+ * picture can't be made the photos go as an album, which Telegram shows
+ * without buttons (its links are in the text). A photo Telegram can't fetch
+ * turns the post into text.
  * Returns the photos' file ids, to send them on without fetching them again.
  */
 export async function sendPost(chatId: string | number, m: Rendered): Promise<{ fileIds: string[]; messageId?: number }> {
@@ -475,6 +499,18 @@ export async function sendPost(chatId: string | number, m: Rendered): Promise<{ 
   const markup = m.buttons.length ? { reply_markup: keyboard(m.buttons) } : {}
   try {
     if (m.photos.length >= 2) {
+      const picture = await collage(m.photos).catch((e: Error) => {
+        console.warn("[telegram] collage failed:", e.message)
+        return null
+      })
+      if (picture) {
+        const msg = await tg(
+          "sendPhoto",
+          { chat_id: chatId, caption: m.caption, parse_mode: "HTML", ...markup },
+          { field: "photo", data: picture, name: "novynky.jpg", type: "image/jpeg" },
+        )
+        return { fileIds: fileIds([msg]), messageId: msg.message_id }
+      }
       const media = m.photos.map((photo, i) => ({
         type: "photo",
         media: photo,
@@ -524,8 +560,8 @@ export function introPost(bot: string | null): Rendered {
     photos: [],
     caption,
     buttons: [
-      [{ text: "🛍 Перейти на сайт", url: withUtm("/", utmFor("channel", "intro")) }],
-      ...(bot ? [[{ text: "🔔 Обрати свої категорії", url: `https://t.me/${bot}?start` }]] : []),
+      [{ text: "🛍 Перейти на сайт", url: withUtm("/", utmFor("channel", "intro")), style: "primary" }],
+      ...(bot ? [[{ text: "🔔 Обрати свої категорії", url: `https://t.me/${bot}?start`, style: "success" as const }]] : []),
     ],
   }
 }
