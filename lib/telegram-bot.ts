@@ -73,38 +73,50 @@ export async function botUsername(): Promise<string> {
   return (await botMe()).username
 }
 
-/** Points Telegram's webhook at this deployment, and sets the bot's menu, when it isn't already. */
-export async function ensureWebhook(): Promise<{ url: string; changed: boolean }> {
+/** The bot's menu commands and its profile texts (shown before /start and in its profile). */
+const PROFILE = {
+  commands: [
+    { command: "start", description: "Обрати категорії новинок" },
+    { command: "stop", description: "Відписатися від усіх" },
+  ],
+  short_description: "Новинки пряжі SINCERITA лише з ваших категорій: меринос, кашемір, мохер та інші. Одне повідомлення на день.",
+  description:
+    "Бот новинок SINCERITA — італійської пряжі преміум якості.\n\nОберіть категорії пряжі (меринос, кашемір, мохер, акції…), і раз на день я надішлю одне повідомлення з новинками й акціями лише цих категорій. Натиснете назву товару — він одразу ляже в кошик на сайті.",
+}
+const profileKey = () => `${keyMe()}:profile`
+
+/**
+ * Points Telegram's webhook at this deployment, and sets the bot's menu and
+ * profile texts, whenever either differs from what this code says.
+ */
+export async function ensureWebhook(): Promise<{ url: string; changed: boolean; profile?: boolean }> {
   const url = `${SITE_URL}${WEBHOOK_PATH}`
-  const info = await tg<{ url: string; allowed_updates?: string[] }>("getWebhookInfo")
-  if (info.url === url) return { url, changed: false }
-  await tg("setWebhook", { url, secret_token: webhookSecret(), allowed_updates: ALLOWED_UPDATES })
-  await tg("setMyCommands", {
-    commands: [
-      { command: "start", description: "Обрати рубрики новинок" },
-      { command: "stop", description: "Відписатися від усіх" },
-    ],
-  })
-  await tg("setMyShortDescription", {
-    short_description: "Нові кольори пряжі SINCERITA за рубриками: меринос, кашемір, мохер та інші. Раз на день.",
-  }).catch(() => {})
-  await tg("setMyDescription", {
-    description:
-      "Бот новинок SINCERITA — італійської пряжі преміум якості.\n\nОберіть рубрики (меринос, кашемір, мохер, акції…), і раз на день я надсилатиму лише їхні нові кольори та акції, з посиланням, щоб купити в один дотик.",
-  }).catch(() => {})
-  return { url, changed: true }
+  const info = await tg<{ url: string }>("getWebhookInfo")
+  const changed = info.url !== url
+  if (changed) await tg("setWebhook", { url, secret_token: webhookSecret(), allowed_updates: ALLOWED_UPDATES })
+
+  const r = await redis()
+  const profile = JSON.stringify(PROFILE)
+  if ((await r.get(profileKey())) === profile) return { url, changed }
+  await tg("setMyCommands", { commands: PROFILE.commands })
+  await tg("setMyShortDescription", { short_description: PROFILE.short_description })
+  await tg("setMyDescription", { description: PROFILE.description })
+  await r.set(profileKey(), profile)
+  return { url, changed, profile: true }
 }
 
 const WELCOME =
   "Привіт! Я бот новинок <b>SINCERITA</b> 🧶\n\n" +
-  "Оберіть рубрики нижче, і раз на день я надсилатиму лише їхні нові кольори та акції. " +
-  "Кожен колір — з посиланням, щоб купити в один дотик.\n\n" +
+  "Оберіть категорії пряжі нижче. Раз на день я надішлю <b>одне повідомлення</b> з новинками й акціями лише цих категорій. " +
+  "Те, що вже показував, не повторюю.\n\n" +
+  "🛒 <b>Як замовити:</b> натисніть назву товару — він одразу опиниться в кошику на сайті, на сторінці оформлення. " +
+  "Там можна змінити кількість, додати інші товари й обрати доставку.\n\n" +
   `Усі новинки разом — у каналі <a href="${TELEGRAM_URL}">${esc(telegramChannel())}</a>.`
 
 function menuText(rubrics: string[]): string {
-  if (rubrics.length === 0) return `${WELCOME}\n\nЗараз ви не підписані на жодну рубрику.`
+  if (rubrics.length === 0) return `${WELCOME}\n\nЗараз ви не обрали жодної категорії.`
   const titles = rubrics.map((k) => rubricByKey(k)?.title).filter(Boolean)
-  return `${WELCOME}\n\n✅ Ваші рубрики: <b>${esc(titles.join(", "))}</b>`
+  return `${WELCOME}\n\n✅ Ваші категорії: <b>${esc(titles.join(", "))}</b>`
 }
 
 function menuKeyboard(rubrics: string[]) {
@@ -115,7 +127,7 @@ function menuKeyboard(rubrics: string[]) {
   const rows: InlineButton[][] = []
   for (let i = 0; i < toggles.length; i += 2) rows.push(toggles.slice(i, i + 2))
   rows.push([
-    { text: "Усі рубрики", callback_data: "all" },
+    { text: "Усі категорії", callback_data: "all" },
     { text: "Відписатися", callback_data: "none" },
   ])
   rows.push([{ text: "🛍 Перейти на сайт", url: `${SITE_URL}/?utm_source=telegram&utm_medium=bot&utm_campaign=menu` }])
@@ -146,7 +158,7 @@ export async function handleUpdate(update: any): Promise<void> {
       if (payload === "all") {
         const all = RUBRICS.map((r) => r.key)
         await writeRubrics(chatId, all)
-        return sendMenu(chatId, all, "🔔 Ви підписані на всі рубрики.")
+        return sendMenu(chatId, all, "🔔 Ви підписані на всі категорії.")
       }
       const rubric = rubricByKey(payload)
       if (rubric) {
@@ -158,7 +170,7 @@ export async function handleUpdate(update: any): Promise<void> {
     }
     if (text.startsWith("/stop")) {
       await writeRubrics(chatId, [])
-      return sendMenu(chatId, [], "Ви відписалися від усіх рубрик. Повернутися можна будь-коли кнопками нижче.")
+      return sendMenu(chatId, [], "Ви відписалися від усіх категорій. Повернутися можна будь-коли кнопками нижче.")
     }
     return sendMenu(
       chatId,
@@ -176,10 +188,10 @@ export async function handleUpdate(update: any): Promise<void> {
     let note = ""
     if (data === "all") {
       next = RUBRICS.map((r) => r.key)
-      note = "Підписано на всі рубрики"
+      note = "Підписано на всі категорії"
     } else if (data === "none") {
       next = []
-      note = "Ви відписалися від усіх рубрик"
+      note = "Ви відписалися від усіх категорій"
     } else if (data.startsWith("t:")) {
       const rubric = rubricByKey(data.slice(2))
       if (rubric) {

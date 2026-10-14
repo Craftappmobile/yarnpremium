@@ -5,7 +5,7 @@ import { redisConfigured } from "@/lib/redis"
 import { statsKeyValid } from "@/lib/assistant/stats"
 import { telegramConfigured } from "@/lib/telegram"
 import { botStatus, subscriberCounts } from "@/lib/telegram-bot"
-import { POST_HOUR, plannedPosts, queueSize, readPostLog, renderPost } from "@/lib/telegram-news"
+import { MAX_POSTS, POST_HOUR, introPost, plannedPosts, queueSize, readPostLog, renderPost } from "@/lib/telegram-news"
 import { RUBRICS } from "@/lib/telegram-rubrics"
 
 // The Telegram channel's daily post, for the shop's owner:
@@ -59,8 +59,9 @@ export default async function TelegramAdminPage({
       <header>
         <h1 className="text-2xl font-semibold">Telegram-канал</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Новинки публікуються раз на день о {POST_HOUR}:12 за Києвом, по рубриках. Замовлення з Telegram — у KeyCRM з
-          міткою utm_source=telegram.
+          Новинки виходять раз на день о {POST_HOUR}:12 за Києвом: до {MAX_POSTS} постів, дрібні оновлення разом в одному.
+          Підписники бота отримують одне повідомлення з обраними категоріями. Замовлення з Telegram — у KeyCRM з міткою
+          utm_source=telegram.
         </p>
       </header>
 
@@ -95,12 +96,12 @@ export default async function TelegramAdminPage({
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Підписники бота" value={String(subs.total)} note="отримують обрані рубрики в особисті" />
         <Tile label="Товарів у черзі" value={String(queued)} note="чекають на щоденний пост" />
-        <Tile label="Постів наступного разу" value={String(Math.min(posts.length, 5))} note={posts.length > 5 ? `ще ${posts.length - 5} — наступного дня` : undefined} />
+        <Tile label="Постів наступного разу" value={String(posts.length)} note={`не більше ${MAX_POSTS} на день`} />
         <Tile label="Опубліковано" value={String(log.length)} note="останні 100 постів" />
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
-        <h2 className="text-lg font-semibold">Підписники за рубриками</h2>
+        <h2 className="text-lg font-semibold">Підписники бота за категоріями</h2>
         <table className="mt-3 w-full text-sm">
           <tbody>
             {RUBRICS.map((r) => (
@@ -119,8 +120,8 @@ export default async function TelegramAdminPage({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Наступний пост</h2>
         {posts.length === 0 && <p className="text-sm text-zinc-500">Поки нічого нового: черга порожня.</p>}
-        {posts.slice(0, 5).map((post, i) => {
-          const m = renderPost(post, "channel", bot)
+        {posts.map((post, i) => {
+          const m = renderPost(post, bot)
           return (
             <article key={i} className="rounded-2xl border border-zinc-200 bg-white p-4">
               {m.photos.length > 0 && (
@@ -141,6 +142,17 @@ export default async function TelegramAdminPage({
         })}
       </section>
 
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Закріплений пост «Як замовити»</h2>
+        <p className="text-sm text-zinc-500">Виходить один раз, перед першими новинками, і закріплюється вгорі каналу.</p>
+        <article className="rounded-2xl border border-zinc-200 bg-white p-4">
+          <div
+            className="whitespace-pre-wrap text-sm leading-relaxed [&_a]:text-[#1A78B4] [&_a]:underline"
+            dangerouslySetInnerHTML={{ __html: introPost(bot).caption }}
+          />
+        </article>
+      </section>
+
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
         <h2 className="text-lg font-semibold">Опубліковані пости</h2>
         {log.length === 0 ? (
@@ -153,7 +165,7 @@ export default async function TelegramAdminPage({
                   <td className="py-1.5 pr-4 text-zinc-500 tabular-nums">
                     {new Date(e.at).toLocaleString("uk-UA", { timeZone: "Europe/Kiev", dateStyle: "short", timeStyle: "short" })}
                   </td>
-                  <td className="py-1.5">{e.type === "promo" ? `Акція: ${e.title}` : e.title}</td>
+                  <td className="py-1.5">{e.title}</td>
                 </tr>
               ))}
             </tbody>
