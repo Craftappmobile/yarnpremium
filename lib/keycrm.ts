@@ -155,6 +155,24 @@ export async function keycrmSend<T = any>(method: "POST" | "PUT", path: string, 
   return request<T>(method, new URL(`${KEYCRM_URL}${path}`), body)
 }
 
+export interface KeycrmFile {
+  id: number
+  url: string
+  file_name: string
+  size: number
+  mime_type: string
+}
+
+/**
+ * Uploads a file to KeyCRM's storage (at most 10 MB) and returns it. KeyCRM
+ * answers 200 instead of 201 when the same file is already there, with that file.
+ */
+export async function keycrmUpload(file: Blob, fileName: string): Promise<KeycrmFile> {
+  const form = new FormData()
+  form.append("file", file, fileName)
+  return request<KeycrmFile>("POST", new URL(`${KEYCRM_URL}/storage/upload`), form)
+}
+
 export class KeycrmError extends Error {
   constructor(
     message: string,
@@ -176,9 +194,10 @@ async function request<T>(method: string, url: URL, body?: unknown): Promise<T> 
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${apiKey()}`,
-        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        // FormData sets its own multipart Content-Type, boundary included.
+        ...(body === undefined || body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
       cache: "no-store",
     })
     const limits = rateLimitHeaders(res.headers)

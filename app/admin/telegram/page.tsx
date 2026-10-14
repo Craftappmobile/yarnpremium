@@ -11,6 +11,7 @@ import { readTelegramStats } from "@/lib/telegram-stats"
 import { readStaffChat, staffCode } from "@/lib/telegram-staff"
 import { reviewCount } from "@/lib/reviews"
 import { readReviewsTopic } from "@/lib/reviews-intake"
+import { readPendingAlbums, readPhotoChannel, readPhotoLog } from "@/lib/telegram-photos"
 import { TelegramResults } from "@/components/admin/telegram-results"
 
 // The Telegram channel's daily post, for the shop's owner:
@@ -62,10 +63,13 @@ export default async function TelegramAdminPage({
     readTelegramStats(days),
     readIntro(),
   ])
-  const [staff, reviewsTopic, reviews] = await Promise.all([
+  const [staff, reviewsTopic, reviews, photoChannel, photoPending, photoLog] = await Promise.all([
     readStaffChat().catch(() => null),
     readReviewsTopic().catch(() => null),
     reviewCount().catch(() => 0),
+    readPhotoChannel().catch(() => null),
+    readPendingAlbums().catch(() => []),
+    readPhotoLog().catch(() => []),
   ])
   const introResult = typeof params.intro === "string" ? params.intro : ""
   const introReason = typeof params.reason === "string" ? params.reason : ""
@@ -162,6 +166,47 @@ export default async function TelegramAdminPage({
             все: /reviews_off {staffCode()}
           </li>
         </ol>
+      </section>
+
+      <section className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
+        <h2 className="text-lg font-semibold">Фото товарів з каналу</h2>
+        {photoChannel ? (
+          <p className="text-green-700">
+            Альбоми з «{photoChannel.title}» потрапляють на сайт і в KeyCRM. Чекають на артикул у KeyCRM:{" "}
+            {photoPending.length ? photoPending.map((p) => p.sku).join(", ") : "немає"}.
+          </p>
+        ) : (
+          <p className="text-zinc-600">Ще не налаштовано: бот не бере фото з жодного каналу.</p>
+        )}
+        <ol className="list-decimal space-y-1 pl-5 text-zinc-700">
+          <li>Приватний канал, @{bot ?? "бот"} у ньому адміністратор з правом «Публікація повідомлень».</li>
+          <li>
+            Опублікуйте в каналі:{" "}
+            <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-900">/photos_here {staffCode()}</code>{" "}
+            (бот видалить це повідомлення і відповість ✅). Вимкнути: /photos_off {staffCode()}
+          </li>
+          <li>
+            Альбом до 6 фото, у підписі — артикул. Немає ще в KeyCRM — бот відповідає ⏳ і сам додає фото після
+            синхронізації каталогу (кожні 30 хвилин, до 7 днів).
+          </li>
+        </ol>
+        {photoLog.length > 0 && (
+          <table className="mt-3 w-full">
+            <tbody>
+              {photoLog.slice(0, 20).map((e, i) => (
+                <tr key={i} className="border-t border-zinc-100 align-top">
+                  <td className="whitespace-nowrap py-1.5 pr-4 tabular-nums text-zinc-500">
+                    {new Date(e.at).toLocaleString("uk-UA", { timeZone: "Europe/Kiev", dateStyle: "short", timeStyle: "short" })}
+                  </td>
+                  <td className="py-1.5 pr-4 font-medium">
+                    {e.ok ? "✅" : e.waiting ? "⏳" : "❌"} {e.sku || "—"}
+                  </td>
+                  <td className="py-1.5">{e.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">

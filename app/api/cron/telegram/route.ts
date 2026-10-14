@@ -5,6 +5,7 @@ import { botUsername, ensureWebhook, subscriberCounts } from "@/lib/telegram-bot
 import { setTelegram } from "@/lib/telegram-stats"
 import { telegramChannel, telegramConfigured, tg } from "@/lib/telegram"
 import { RUBRICS, rubricOf } from "@/lib/telegram-rubrics"
+import { retryPendingAlbums } from "@/lib/telegram-photos"
 import {
   POST_HOUR,
   type Post,
@@ -44,11 +45,13 @@ export async function GET(req: NextRequest) {
     if (!production) return NextResponse.json(await preview(products, req.nextUrl.searchParams.has("sample")))
 
     const webhook = await ensureWebhook().catch((e: Error) => ({ error: e.message }))
+    // Albums of the photo channel waiting for their SKU: the catalog was synced at :00 and :30.
+    const photos = await retryPendingAlbums().catch((e: Error) => ({ error: e.message }))
     // Today's channel and bot audience, for the statistics.
     await recordAudience().catch((e: Error) => console.warn("[telegram] audience:", e.message))
     const watch = await watchCatalog(products)
     const publish = kyivHour() === POST_HOUR ? await publishDaily(products, started + 270_000) : undefined
-    const report = { webhook, watch, publish }
+    const report = { webhook, photos, watch, publish }
     console.log("[telegram]", JSON.stringify(report))
     return NextResponse.json(report)
   } catch (e) {
