@@ -6,6 +6,7 @@ import { statsKeyValid } from "@/lib/assistant/stats"
 import { telegramConfigured } from "@/lib/telegram"
 import { botStatus, subscriberCounts } from "@/lib/telegram-bot"
 import { POST_HOUR, plannedPosts, queueSize, readPostLog, renderPost } from "@/lib/telegram-news"
+import { photoChannel, readPhotoChannels, readPhotoLog } from "@/lib/telegram-photos"
 import { RUBRICS } from "@/lib/telegram-rubrics"
 
 // The Telegram channel's daily post, for the shop's owner:
@@ -44,13 +45,17 @@ export default async function TelegramAdminPage({
     )
   }
 
-  const [status, subs, queued, log, products] = await Promise.all([
+  const [status, subs, queued, log, products, photoChannels, photoLog] = await Promise.all([
     botStatus().catch((e: Error) => ({ error: e.message })),
     subscriberCounts(),
     queueSize(),
     readPostLog(),
     readCatalog(),
+    readPhotoChannels(),
+    readPhotoLog(),
   ])
+  const photosTo = photoChannel()
+  const photosToTitle = photoChannels.find((c) => c.id === photosTo)?.title
   const { posts } = await plannedPosts(products)
   const bot = "username" in status ? status.username : null
 
@@ -139,6 +144,52 @@ export default async function TelegramAdminPage({
             </article>
           )
         })}
+      </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
+        <h2 className="text-lg font-semibold">Фото товарів з Telegram</h2>
+        <p className="mt-1 text-zinc-500">
+          Альбом у приватному каналі з артикулом у підписі (наприклад, ST98): перше фото — головне, до 6 фото. Бот
+          завантажує їх у KeyCRM і на сайт та відповідає в каналі.
+        </p>
+        {photosTo ? (
+          <p className="mt-2">
+            Канал: <span className="font-mono">{photosTo}</span>
+            {photosToTitle && ` — ${photosToTitle}`}
+          </p>
+        ) : (
+          <div className="mt-2 text-red-700">
+            Канал ще не вказаний. Додайте бота адміністратором приватного каналу, знайдіть його id нижче і впишіть у
+            налаштуваннях Vercel змінну TELEGRAM_PHOTO_CHANNEL, потім зробіть Redeploy.
+          </div>
+        )}
+        {photoChannels.length > 0 && (
+          <ul className="mt-2 space-y-0.5 text-zinc-600">
+            {photoChannels.map((c) => (
+              <li key={c.id}>
+                Бот — адміністратор каналу «{c.title}»: id <span className="font-mono">{c.id}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {photoLog.length > 0 && (
+          <table className="mt-3 w-full">
+            <tbody>
+              {photoLog.map((e, i) => (
+                <tr key={i} className="border-t border-zinc-100 align-top">
+                  <td className="py-1.5 pr-4 whitespace-nowrap text-zinc-500 tabular-nums">
+                    {new Date(e.at).toLocaleString("uk-UA", { timeZone: "Europe/Kiev", dateStyle: "short", timeStyle: "short" })}
+                  </td>
+                  <td className="py-1.5 pr-4 font-medium">{e.ok ? "✅" : "❌"} {e.sku || "—"}</td>
+                  <td className="py-1.5">
+                    {e.ok && `${e.photos} фото; `}
+                    {e.note}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
