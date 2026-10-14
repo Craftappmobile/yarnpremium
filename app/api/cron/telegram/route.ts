@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { readCatalog } from "@/lib/catalog"
 import { redisConfigured } from "@/lib/redis"
-import { telegramConfigured } from "@/lib/telegram"
-import { botUsername, ensureWebhook } from "@/lib/telegram-bot"
+import { botUsername, ensureWebhook, subscriberCounts } from "@/lib/telegram-bot"
+import { setTelegram } from "@/lib/telegram-stats"
+import { telegramChannel, telegramConfigured, tg } from "@/lib/telegram"
 import { RUBRICS, rubricOf } from "@/lib/telegram-rubrics"
 import {
   POST_HOUR,
@@ -43,6 +44,8 @@ export async function GET(req: NextRequest) {
     if (!production) return NextResponse.json(await preview(products, req.nextUrl.searchParams.has("sample")))
 
     const webhook = await ensureWebhook().catch((e: Error) => ({ error: e.message }))
+    // Today's channel and bot audience, for the statistics.
+    await recordAudience().catch((e: Error) => console.warn("[telegram] audience:", e.message))
     const watch = await watchCatalog(products)
     const publish = kyivHour() === POST_HOUR ? await publishDaily(products, started + 270_000) : undefined
     const report = { webhook, watch, publish }
@@ -72,4 +75,9 @@ async function preview(products: Awaited<ReturnType<typeof readCatalog>>, sample
     posts: posts.map((post) => ({ rubric: post.rubric?.key ?? "mixed", type: post.type, ...renderPost(post, bot) })),
     digestForAllCategories: renderDigest(posts, RUBRICS.map((r) => r.key)),
   }
+}
+
+async function recordAudience() {
+  const [members, subs] = await Promise.all([tg<number>("getChatMemberCount", { chat_id: telegramChannel() }), subscriberCounts()])
+  await setTelegram({ members, subscribers: subs.total })
 }

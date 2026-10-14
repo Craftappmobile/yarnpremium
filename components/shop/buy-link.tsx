@@ -6,6 +6,16 @@ import { useCart } from "./cart-context"
 import { clampQuantity, type Product } from "./data"
 
 /**
+ * The link's campaign tags (utm_*, and the click ids of ads), carried on to
+ * checkout: Google Analytics loads after the page and reads the address it
+ * finds then, so without them a purchase from Telegram counted as direct.
+ */
+function campaignQuery(): string {
+  const tags = [...new URLSearchParams(window.location.search)].filter(([k]) => k.startsWith("utm_") || k === "fbclid" || k === "gclid")
+  return tags.length ? `?${new URLSearchParams(tags)}` : ""
+}
+
+/**
  * Puts the products of a buy link (app/buy) into the cart and opens checkout.
  * A product already in the cart keeps the larger of the two amounts, so
  * opening the link twice doesn't double it.
@@ -23,7 +33,7 @@ export function BuyLink({ items }: { items: { product: Product; quantity: number
       if (!inCart) addToCart(product, quantity, "Посилання на покупку")
       else if (inCart.quantity < quantity) updateQuantity(product.sku, clampQuantity(product, quantity))
     }
-    router.replace("/checkout")
+    router.replace(`/checkout${campaignQuery()}`)
   }, [hydrated, cart, items, addToCart, updateQuantity, router])
 
   return (

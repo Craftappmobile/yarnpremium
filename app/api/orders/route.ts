@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache"
 import { readProducts, reserveStock } from "@/lib/catalog"
 import { type AssistantUse, createKeycrmOrder, isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { countStats, recordAssistedOrder } from "@/lib/assistant/stats"
+import { countTelegramOrder } from "@/lib/telegram-stats"
 import { buyerContext, sendOrderPlaced } from "@/lib/meta-capi"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
@@ -149,6 +150,7 @@ export async function POST(req: NextRequest) {
         orders_video_sample_completed: body.video?.sampleCompleted ? 1 : 0,
         revenue_video_sample_completed: body.video?.sampleCompleted ? order.total : 0,
       })
+      await countTelegramOrder(utm, order.total)
       if (assistant) {
         await recordAssistedOrder({
           at: order.createdAt,
