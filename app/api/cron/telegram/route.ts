@@ -70,6 +70,6 @@ async function preview(products: Awaited<ReturnType<typeof readCatalog>>, sample
     bot,
     intro: introPost(bot),
     posts: posts.map((post) => ({ rubric: post.rubric?.key ?? "mixed", type: post.type, ...renderPost(post, bot) })),
-    digestForAllCategories: renderDigest(posts, RUBRICS.map((r) => r.key), undefined),
+    digestForAllCategories: renderDigest(posts, RUBRICS.map((r) => r.key)),
   }
 }
