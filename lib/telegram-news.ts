@@ -318,8 +318,8 @@ function plural(n: number, one: string, few: string, many: string): string {
 interface Section {
   /** Bold line over the products (HTML); none for a post's only section. */
   title?: string
-  /** The same as plain text, for a button. */
-  plainTitle?: string
+  /** The site category «і ще N» leads to, named on the section's button. */
+  category?: string
   items: NewsItem[]
   /** Where «і ще N» leads. */
   moreUrl: string
@@ -426,7 +426,7 @@ export function renderPost(post: Post, bot: string | null): Rendered {
       const theirs = items.filter((i) => i.rubric.key === r.key)
       return {
         title: esc(r.title),
-        plainTitle: r.title,
+        category: mainCategory(theirs.map((i) => i.product)),
         items: theirs,
         moreUrl: withUtm(categoryPath(mainCategory(theirs.map((i) => i.product))), utm),
       }
@@ -449,11 +449,22 @@ export function renderPost(post: Post, bot: string | null): Rendered {
   }
 }
 
-/** A green button per section, two to a row: where each category's «see all» leads. */
+/**
+ * A green button per site category the sections lead to, two to a row, named
+ * after the category: new yarn of several kinds often comes in one stock lot,
+ * and a «Кашемір» button opening «Сток Шанель» would mislead.
+ */
 function sectionButtons(sections: Section[]): InlineButton[][] {
-  const buttons: InlineButton[] = sections.map((s) => ({ text: `🧶 ${s.plainTitle ?? "Дивитися всі"}`, url: s.moreUrl, style: "success" }))
+  const pages = [...new Map(sections.map((s) => [s.moreUrl, s.category ?? ""])).entries()]
+  const buttons: InlineButton[] = pages.map(([url, category]) => ({
+    text: pages.length === 1 || !category ? "🧶 Дивитися всі на сайті" : `🧶 ${category}`,
+    url,
+    style: "success",
+  }))
+  // Two to a row while the names are short enough not to be cut off.
+  const perRow = buttons.every((b) => b.text.length <= 18) ? 2 : 1
   const rows: InlineButton[][] = []
-  for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2))
+  for (let i = 0; i < buttons.length; i += perRow) rows.push(buttons.slice(i, i + perRow))
   return rows
 }
 
@@ -476,7 +487,7 @@ export function renderDigest(posts: Post[], rubricKeys: string[], photo: string 
     const theirs = items.filter((i) => i.rubric.key === r.key).sort(byNews)
     return {
       title: esc(r.title),
-      plainTitle: r.title,
+      category: mainCategory(theirs.map((i) => i.product)),
       items: theirs,
       moreUrl: withUtm(categoryPath(mainCategory(theirs.map((i) => i.product))), utm),
     }
