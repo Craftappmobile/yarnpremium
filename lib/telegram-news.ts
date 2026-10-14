@@ -1,20 +1,26 @@
 // Server-only: what's new in the catalog, posted to the Telegram channel once a
-// day by rubric (lib/telegram-rubrics.ts), and sent to the bot's subscribers
-// of each rubric (lib/telegram-bot.ts).
+// day by rubric (lib/telegram-rubrics.ts; «категорії» to buyers), and sent to
+// the bot's subscribers as one message with their rubrics only
+// (lib/telegram-bot.ts).
 //
 // Every half hour (app/api/cron/telegram) `watchCatalog` compares the catalog
 // with what it saw last time and queues:
 //   new   a product in stock for the first time (a new colour);
-//   back  a product in stock again after BACK_AFTER_MS or more sold out.
+//   back  a product in stock again after BACK_AFTER_MS or more sold out, and
+//         not announced in the last REPEAT_AFTER_MS.
 // The very first run only remembers the catalog, so it doesn't post the whole
 // shop. Once a day, at POST_HOUR Kyiv time, `publishDaily` posts what is
-// queued and still in stock: one post per rubric, promotions that started
-// (lib/promo.ts) first, at most MAX_POSTS a day (the rest wait for the next).
+// queued and still in stock, keeping the channel short: promotions that
+// started (lib/promo.ts) first, a post of its own for a rubric with
+// OWN_POST_MIN or more products, the rest together in one «Новинки дня»; at
+// most MAX_POSTS posts. Each product is posted once. The first daily post is
+// preceded by a pinned «how to order» post.
 //
 // Redis keys:
-//   tg:seen          hash  sku -> { in, wasIn, outSince } as of the last watch
+//   tg:seen          hash  sku -> { in, wasIn, outSince, announcedAt } as of the last watch
 //   tg:queue         hash  sku -> { kind, at }: waiting for the daily post
 //   tg:promos        set   promotions already announced (promoKey)
+//   tg:intro         flag  the pinned «how to order» post went out
 //   tg:posted:<day>  flag  the day's post went out (Kyiv day)
 //   tg:log           list  the last posts, newest first (admin page)
 
@@ -27,11 +33,13 @@ import { redis } from "@/lib/redis"
 import { SITE_URL } from "@/lib/site"
 import { botUsername, readSubscribers, removeSubscriber } from "@/lib/telegram-bot"
 import { RUBRICS, type Rubric, rubricByKey, rubricOf } from "@/lib/telegram-rubrics"
+import { collage } from "@/lib/telegram-collage"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg } from "@/lib/telegram"
 
 const KEY_SEEN = "tg:seen"
 const KEY_QUEUE = "tg:queue"
 const KEY_PROMOS = "tg:promos"
+const KEY_INTRO = "tg:intro"
 const KEY_LOG = "tg:log"
 const postedKey = (day: string) => `tg:posted:${day}`
 
@@ -48,8 +56,12 @@ export const POST_HOUR = (() => {
 })()
 /** Sold out for less than this and back: reserves coming and going, not news. */
 const BACK_AFTER_MS = 3 * 24 * 3600_000
-/** Posts a day, promotions included. */
-const MAX_POSTS = 5
+/** A product announced this recently isn't announced again when it comes back. */
+const REPEAT_AFTER_MS = 30 * 24 * 3600_000
+/** Posts a day in the channel, promotions included. */
+export const MAX_POSTS = 3
+/** A rubric with fewer new products than this shares the day's «Новинки дня» post. */
+const OWN_POST_MIN = 3
 /** Telegram's limit for an album. */
 const ALBUM_MAX = 10
 const PROMO_PHOTOS = 6
@@ -60,10 +72,16 @@ const QUEUE_TTL_MS = 14 * 24 * 3600_000
 /** A catalog this much smaller than the last one is a KeyCRM hiccup, not a sell-out. */
 const SHRINK_GUARD = 0.7
 
+/** Under every post: buyers don't expect a channel link to fill the cart. */
+const HOW_TO_ORDER = "🛒 Натисніть назву — товар одразу в кошику, кількість зміните при оформленні."
+/** A promotion's post lists no products, only its page. */
+const HOW_TO_ORDER_PROMO = "🛒 Оберіть колір на сайті — кількість зміните при оформленні."
+
 interface Seen {
   in: boolean
   wasIn: boolean
   outSince?: number
+  announcedAt?: number
 }
 interface Queued {
   kind: "new" | "back"
@@ -102,13 +120,17 @@ export async function watchCatalog(products: Product[], now = Date.now()): Promi
     const inStock = p.stock > 0
     const prev: Seen | undefined = seenRaw[p.sku] ? JSON.parse(seenRaw[p.sku]) : undefined
     if (!seeding && inStock) {
+      const announcedLately = prev?.announcedAt !== undefined && now - prev.announcedAt < REPEAT_AFTER_MS
       if (!prev?.wasIn) queued.push([p.sku, { kind: "new", at: now }])
-      else if (!prev.in && now - (prev.outSince ?? now) >= BACK_AFTER_MS) queued.push([p.sku, { kind: "back", at: now }])
+      else if (!prev.in && now - (prev.outSince ?? now) >= BACK_AFTER_MS && !announcedLately) {
+        queued.push([p.sku, { kind: "back", at: now }])
+      }
     }
     // At the first run everything counts as seen in stock, so products sold
     // out then come back as «back», not as new colours.
     const s: Seen = { in: inStock, wasIn: seeding || inStock || Boolean(prev?.wasIn) }
     if (!inStock) s.outSince = prev && !prev.in && prev.outSince ? prev.outSince : now
+    if (prev?.announcedAt) s.announcedAt = prev.announcedAt
     next[p.sku] = JSON.stringify(s)
   }
 
@@ -124,16 +146,34 @@ export async function watchCatalog(products: Product[], now = Date.now()): Promi
   }
 }
 
+/** Remembers when products were posted, so they aren't posted again soon (watchCatalog). */
+async function markAnnounced(skus: string[], now: number): Promise<void> {
+  if (!skus.length) return
+  const r = await redis()
+  const raw = await r.hmGet(KEY_SEEN, skus)
+  const updates: Record<string, string> = {}
+  skus.forEach((sku, i) => {
+    const s: Seen = raw[i] ? JSON.parse(raw[i]!) : { in: true, wasIn: true }
+    updates[sku] = JSON.stringify({ ...s, announcedAt: now })
+  })
+  await r.hSet(KEY_SEEN, updates)
+}
+
 // ---------------------------------------------------------------------------
 // Posts
 
 export interface NewsItem {
   product: Product
   kind: Queued["kind"]
+  rubric: Rubric
 }
 
+/**
+ * A news post covers one rubric, or several (`rubric: null`): the day's
+ * smaller updates together.
+ */
 export type Post =
-  | { type: "news"; rubric: Rubric; items: NewsItem[] }
+  | { type: "news"; rubric: Rubric | null; items: NewsItem[] }
   | { type: "promo"; rubric: Rubric; promo: PromoConfig; key: string; products: Product[] }
 
 /** Where a post is read: the channel, or a subscriber's chat with the bot. Goes into the links' UTM tags. */
@@ -144,6 +184,12 @@ export interface Rendered {
   caption: string
   buttons: InlineButton[][]
 }
+
+/** The rubrics a post carries. */
+export const postRubrics = (post: Post): Rubric[] =>
+  post.type === "promo" || post.rubric
+    ? [post.rubric!]
+    : RUBRICS.filter((r) => post.items.some((i) => i.rubric.key === r.key))
 
 const promoKey = (p: PromoConfig) => [p.category, p.name, p.percent, p.price ?? "", p.from ?? "", p.to ?? ""].join("|")
 
@@ -156,18 +202,22 @@ function runningPromos(now: number): PromoConfig[] {
 
 const sameCategory = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-/** What the daily post would carry now, in posting order, before the daily limit. */
+/** New colours before restocks, newest first. */
+const byNews = (a: NewsItem, b: NewsItem) =>
+  a.kind === b.kind ? b.product.offerId - a.product.offerId : a.kind === "new" ? -1 : 1
+
+/** What the next daily post will carry, in posting order: at most MAX_POSTS posts. */
 export async function plannedPosts(products: Product[], now = Date.now()): Promise<{ posts: Post[]; stale: string[] }> {
   const r = await redis()
   const [queueRaw, announced] = await Promise.all([r.hGetAll(KEY_QUEUE), r.sMembers(KEY_PROMOS)])
   const bySku = new Map(products.map((p) => [p.sku, p]))
 
-  const posts: Post[] = []
+  const promos: Post[] = []
   for (const promo of runningPromos(now)) {
     const key = promoKey(promo)
     if (announced.includes(key)) continue
     const onSale = products.filter((p) => p.stock > 0 && sameCategory(p.category, promo.category))
-    if (onSale.length) posts.push({ type: "promo", rubric: rubricByKey("sale")!, promo, key, products: onSale })
+    if (onSale.length) promos.push({ type: "promo", rubric: rubricByKey("sale")!, promo, key, products: onSale })
   }
 
   const stale: string[] = []
@@ -179,18 +229,38 @@ export async function plannedPosts(products: Product[], now = Date.now()): Promi
       if (!product || now - q.at > QUEUE_TTL_MS) stale.push(sku)
       continue
     }
-    const key = rubricOf(product.category, product.name).key
-    byRubric.set(key, [...(byRubric.get(key) ?? []), { product, kind: q.kind }])
+    const rubric = rubricOf(product.category, product.name)
+    byRubric.set(rubric.key, [...(byRubric.get(rubric.key) ?? []), { product, kind: q.kind, rubric }])
   }
-  // Bigger updates first; within a rubric, new colours before restocks, newest first.
-  const news = [...byRubric.entries()]
-    .map(([key, items]) => ({
-      type: "news" as const,
-      rubric: rubricByKey(key)!,
-      items: items.sort((a, b) => (a.kind === b.kind ? b.product.offerId - a.product.offerId : a.kind === "new" ? -1 : 1)),
-    }))
-    .sort((a, b) => b.items.length - a.items.length || RUBRICS.indexOf(a.rubric) - RUBRICS.indexOf(b.rubric))
-  return { posts: [...posts, ...news], stale }
+  return { posts: arrangePosts(promos, [...byRubric.values()]), stale }
+}
+
+/**
+ * The day's posts, at most MAX_POSTS: promotions take their slots first (one
+ * is left for the news, if any); the biggest rubrics get posts of their own
+ * while slots last, the rest share the last one.
+ */
+export function arrangePosts(promos: Post[], rubricItems: NewsItem[][]): Post[] {
+  const groups = rubricItems
+    .filter((items) => items.length)
+    .map((items) => [...items].sort(byNews))
+    .sort((a, b) => b.length - a.length || RUBRICS.indexOf(a[0].rubric) - RUBRICS.indexOf(b[0].rubric))
+  const today = promos.slice(0, Math.max(0, MAX_POSTS - (groups.length ? 1 : 0)))
+  let slots = MAX_POSTS - today.length
+  const own: Post[] = []
+  const shared: NewsItem[] = []
+  groups.forEach((items, i) => {
+    const lastSlot = slots === 1 && i < groups.length - 1
+    if (slots > 0 && items.length >= OWN_POST_MIN && !lastSlot) {
+      own.push({ type: "news", rubric: items[0].rubric, items })
+      slots--
+    } else shared.push(...items)
+  })
+  if (shared.length && slots > 0) {
+    const one = shared.every((i) => i.rubric.key === shared[0].rubric.key)
+    own.push({ type: "news", rubric: one ? shared[0].rubric : null, items: shared })
+  }
+  return [...today, ...own]
 }
 
 const visibleLength = (html: string) =>
@@ -198,13 +268,13 @@ const visibleLength = (html: string) =>
     .replace(/<[^>]+>/g, "")
     .replace(/&(amp|lt|gt|quot);/g, "_").length
 
-const utmFor = (audience: Audience, rubric: Rubric): Utm => ({
+const utmFor = (audience: Audience, campaign: string): Utm => ({
   utm_source: "telegram",
   utm_medium: audience,
-  utm_campaign: rubric.key,
+  utm_campaign: campaign,
 })
 
-/** The query part of a site link with the post's UTM tags. */
+/** A site link with the post's UTM tags. */
 const withUtm = (path: string, utm: Utm) => `${SITE_URL}${path}?${new URLSearchParams(utm as Record<string, string>)}`
 
 const isByWeight = (p: Product) => p.priceUnit === "г"
@@ -215,13 +285,15 @@ function priceText(p: Product): string {
   return p.oldPrice ? `<s>${per(p.oldPrice)}</s> ${per(p.price)}${unit}` : `${per(p.price)}${unit}`
 }
 
-function itemLine(p: Product, utm: Utm): string {
+function itemLine(item: NewsItem, utm: Utm, markBack: boolean): string {
+  const p = item.product
   const color = p.color && !p.name.toLowerCase().includes(p.color.toLowerCase()) ? ` — ${p.color}` : ""
   const length = p.length > 0 ? ` · ${p.length} м${isByWeight(p) ? " / 100 г" : ""}` : ""
-  return `• <a href="${esc(buyUrl(p.sku, utm))}">${esc(p.name + color)}</a>${esc(length)} · ${priceText(p)}`
+  const back = markBack && item.kind === "back" ? " · знову є" : ""
+  return `• <a href="${esc(buyUrl(p.sku, utm))}">${esc(p.name + color)}</a>${esc(length)} · ${priceText(p)}${back}`
 }
 
-/** The category with the most products among these: the post's «see all» page. */
+/** The category with the most products among these: the «see all» page. */
 function mainCategory(products: Product[]): string {
   const counts = new Map<string, number>()
   for (const p of products) counts.set(p.category, (counts.get(p.category) ?? 0) + 1)
@@ -243,124 +315,278 @@ function plural(n: number, one: string, few: string, many: string): string {
   return many
 }
 
-function footer(rubric: Rubric, audience: Audience, bot: string | null): string {
-  if (audience === "bot") return `\n${rubric.hashtag}\nЗмінити рубрики: /start`
-  const subscribe = bot
-    ? ` · <a href="https://t.me/${bot}?start=${rubric.key}">🔔 «${esc(rubric.title)}» в особисті</a>`
-    : ""
-  return `\n${rubric.hashtag}${subscribe}`
+interface Section {
+  /** Bold line over the products (HTML); none for a post's only section. */
+  title?: string
+  /** The site category «і ще N» leads to, named on the section's button. */
+  category?: string
+  items: NewsItem[]
+  /** Where «і ще N» leads. */
+  moreUrl: string
 }
 
-export function renderPost(post: Post, audience: Audience, bot: string | null): Rendered {
-  const utm = utmFor(audience, post.rubric)
-  const end = footer(post.rubric, audience, bot)
+/**
+ * Head, sections and footer in one caption of at most CAPTION_MAX visible
+ * characters: sections lose their last lines, largest first, and say how many
+ * more there are instead. Returns the text and the products it lists.
+ */
+function fitSections(
+  head: string,
+  sections: Section[],
+  end: string,
+  utm: Utm,
+  markBack: boolean,
+): { text: string; shown: Product[] } {
+  const limits = sections.map((s) => s.items.length)
+  for (;;) {
+    let text = head
+    const shown: Product[] = []
+    sections.forEach((s, i) => {
+      text += s.title ? `\n\n<b>${s.title}</b>` : "\n"
+      for (const item of s.items.slice(0, limits[i])) {
+        text += `\n${itemLine(item, utm, markBack)}`
+        shown.push(item.product)
+      }
+      const more = s.items.length - limits[i]
+      if (more > 0) {
+        const what = limits[i] === 0 ? `${more} ${plural(more, "новинка", "новинки", "новинок")}` : `і ще ${more}`
+        text += `\n<a href="${esc(s.moreUrl)}">${what} — дивитися всі</a>`
+      }
+    })
+    text += `\n\n${end}`
+    if (visibleLength(text) <= CAPTION_MAX) return { text, shown }
+    const largest = limits.indexOf(Math.max(...limits))
+    if (limits[largest] === 0) return { text: text.slice(0, CAPTION_MAX), shown }
+    limits[largest]--
+  }
+}
+
+function channelFooter(rubrics: Rubric[], bot: string | null, hint = HOW_TO_ORDER): string {
+  const tags = rubrics.map((r) => r.hashtag).join(" ")
+  if (!bot) return `${hint}\n${tags}`
+  const one = rubrics.length === 1 ? rubrics[0] : null
+  const subscribe = one
+    ? `<a href="https://t.me/${bot}?start=${one.key}">🔔 Лише «${esc(one.title)}» в особисті</a>`
+    : `<a href="https://t.me/${bot}?start">🔔 Лише ваші категорії в особисті</a>`
+  return `${hint}\n${tags} · ${subscribe}`
+}
+
+function renderPromo(post: Extract<Post, { type: "promo" }>, utm: Utm, end: string): { caption: string; url: string } {
+  const { promo, products } = post
+  const cheapest = products.reduce((a, b) => (b.price < a.price ? b : a))
+  const { end: ends } = promoWindow(promo)
+  const until = Number.isFinite(ends)
+    ? `до ${new Date(ends - 1).toLocaleDateString("uk-UA", { day: "numeric", month: "long", timeZone: KYIV })}`
+    : "поки є в наявності"
+  const url = withUtm(categoryPath(promo.category), utm)
+  const lines = [
+    `🔥 <b>Акція: ${esc(promoLabel(promo))}</b>`,
+    `<b>${esc(promo.title ?? promo.category)}</b>${promo.tagline ? ` · ${esc(promo.tagline)}` : ""}`,
+    "",
+    `Ціна: від ${priceText(cheapest)}`,
+    `Діє ${until}`,
+    `У наявності ${products.length} ${plural(products.length, "колір", "кольори", "кольорів")}: <a href="${esc(url)}">обрати на сайті</a>`,
+    "",
+    end,
+  ]
+  return { caption: lines.join("\n"), url }
+}
+
+/** A post as the channel shows it. */
+export function renderPost(post: Post, bot: string | null): Rendered {
+  const rubrics = postRubrics(post)
+  const utm = utmFor("channel", post.rubric?.key ?? "mixed")
+  const end = channelFooter(rubrics, bot, post.type === "promo" ? HOW_TO_ORDER_PROMO : HOW_TO_ORDER)
 
   if (post.type === "promo") {
-    const { promo, products } = post
-    const cheapest = products.reduce((a, b) => (b.price < a.price ? b : a))
-    const { end: ends } = promoWindow(promo)
-    const until = Number.isFinite(ends)
-      ? `до ${new Date(ends - 1).toLocaleDateString("uk-UA", { day: "numeric", month: "long", timeZone: KYIV })}`
-      : "поки є в наявності"
-    const categoryUrl = withUtm(categoryPath(promo.category), utm)
-    const lines = [
-      `🔥 <b>Акція: ${esc(promoLabel(promo))}</b>`,
-      `<b>${esc(promo.title ?? promo.category)}</b>${promo.tagline ? ` · ${esc(promo.tagline)}` : ""}`,
-      "",
-      `Ціна: від ${priceText(cheapest)}`,
-      `Діє ${until}`,
-      `У наявності ${products.length} ${plural(products.length, "колір", "кольори", "кольорів")}: <a href="${esc(categoryUrl)}">обрати на сайті</a>`,
-      end,
-    ]
+    const { caption, url } = renderPromo(post, utm, end)
     return {
-      photos: photosOf(products, PROMO_PHOTOS),
-      caption: lines.join("\n"),
-      buttons: [[{ text: "Обрати колір", url: categoryUrl }]],
+      photos: photosOf(post.products, PROMO_PHOTOS),
+      caption,
+      buttons: [[{ text: "🔥 Обрати колір зі знижкою", url, style: "success" }]],
     }
   }
 
   const { rubric, items } = post
   const products = items.map((i) => i.product)
   const categoryUrl = withUtm(categoryPath(mainCategory(products)), utm)
-  const allBack = items.every((i) => i.kind === "back")
-  const head = `${allBack ? "↩️" : "🆕"} <b>${allBack ? "Знову в наявності" : "Оновлення"}: ${esc(rubric.title)}</b>`
-  const sections: { title: string; items: NewsItem[] }[] = allBack
-    ? [{ title: "", items }]
-    : [
-        { title: "Нові кольори", items: items.filter((i) => i.kind === "new") },
-        { title: "Знову в наявності", items: items.filter((i) => i.kind === "back") },
-      ].filter((s) => s.items.length)
-  const titled = sections.length > 1
-
-  // As many lines as the caption takes; the rest are counted under «і ще».
-  const moreLine = (n: number) => `і ще ${n} — <a href="${esc(categoryUrl)}">дивитися всі</a>`
-  const reserve = visibleLength(end) + visibleLength(moreLine(999)) + 4
-  let text = head
-  let shown = 0
-  outer: for (const s of sections) {
-    const title = titled ? `\n\n<b>${s.title}:</b>` : "\n"
-    let first = true
-    for (const item of s.items) {
-      const line = `${first ? title : ""}\n${itemLine(item.product, utm)}`
-      if (visibleLength(text + line) + reserve > CAPTION_MAX) break outer
-      text += line
-      first = false
-      shown++
-    }
+  let head: string
+  let sections: Section[]
+  if (rubric) {
+    const allBack = items.every((i) => i.kind === "back")
+    head = `${allBack ? "↩️" : "🆕"} <b>${allBack ? "Знову в наявності" : "Новинки"}: ${esc(rubric.title)}</b>`
+    const split = [
+      { title: "Нові кольори", items: items.filter((i) => i.kind === "new"), moreUrl: categoryUrl },
+      { title: "Знову в наявності", items: items.filter((i) => i.kind === "back"), moreUrl: categoryUrl },
+    ].filter((s) => s.items.length)
+    sections = split.length > 1 ? split : [{ items, moreUrl: categoryUrl }]
+  } else {
+    head = "🆕 <b>Новинки дня</b>"
+    sections = rubrics.map((r) => {
+      const theirs = items.filter((i) => i.rubric.key === r.key)
+      return {
+        title: esc(r.title),
+        category: mainCategory(theirs.map((i) => i.product)),
+        items: theirs,
+        moreUrl: withUtm(categoryPath(mainCategory(theirs.map((i) => i.product))), utm),
+      }
+    })
   }
-  const more = items.length - shown
-  text += more > 0 ? `\n${moreLine(more)}\n${end}` : `\n${end}`
+  const { text, shown } = fitSections(head, sections, end, utm, !rubric)
 
   const single = items.length === 1 ? products[0] : null
   return {
-    photos: photosOf(products.slice(0, Math.max(shown, 1)), ALBUM_MAX),
+    photos: photosOf(shown.length ? shown : products, ALBUM_MAX),
     caption: text,
     buttons: single
-      ? [[{ text: "Купити", url: buyUrl(single.sku, utm) }, { text: "Уся категорія", url: categoryUrl }]]
-      : [[{ text: "Дивитися всі", url: categoryUrl }]],
+      ? [[
+          { text: "🛒 Купити", url: buyUrl(single.sku, utm), style: "success" },
+          { text: "🧶 Уся категорія", url: categoryUrl, style: "primary" },
+        ]]
+      : rubric
+        ? [[{ text: "🧶 Дивитися всі на сайті", url: categoryUrl, style: "success" }]]
+        : sectionButtons(sections),
   }
 }
 
 /**
- * Sends a post: an album when it has several photos (Telegram puts no buttons
- * under an album, so its links are in the text), one photo with buttons, or
- * text alone. A photo Telegram can't fetch turns it into text.
- * Returns the photos' file ids, to send the same post on without fetching them again.
+ * A green button per site category the sections lead to, two to a row, named
+ * after the category: new yarn of several kinds often comes in one stock lot,
+ * and a «Кашемір» button opening «Сток Шанель» would mislead.
  */
-export async function sendPost(chatId: string | number, m: Rendered): Promise<{ fileIds: string[] }> {
+function sectionButtons(sections: Section[]): InlineButton[][] {
+  const pages = [...new Map(sections.map((s) => [s.moreUrl, s.category ?? ""])).entries()]
+  const buttons: InlineButton[] = pages.map(([url, category]) => ({
+    text: pages.length === 1 || !category ? "🧶 Дивитися всі на сайті" : `🧶 ${category}`,
+    url,
+    style: "success",
+  }))
+  // Two to a row while the names are short enough not to be cut off.
+  const perRow = buttons.every((b) => b.text.length <= 18) ? 2 : 1
+  const rows: InlineButton[][] = []
+  for (let i = 0; i < buttons.length; i += perRow) rows.push(buttons.slice(i, i + perRow))
+  return rows
+}
+
+/**
+ * One subscriber's message of the day: what the day's posts carried in their
+ * rubrics, in one photo with one caption, however many rubrics they follow.
+ */
+export function renderDigest(posts: Post[], rubricKeys: string[], photo: string | undefined): Rendered | null {
+  const utm = utmFor("bot", "digest")
+  const promos = posts.filter((p): p is Extract<Post, { type: "promo" }> => p.type === "promo" && rubricKeys.includes("sale"))
+  const items = posts.flatMap((p) => (p.type === "news" ? p.items.filter((i) => rubricKeys.includes(i.rubric.key)) : []))
+  if (!promos.length && !items.length) return null
+
+  const promoLines = promos.map((p) => {
+    const url = withUtm(categoryPath(p.promo.category), utm)
+    return `🔥 <b>Акція: ${esc(promoLabel(p.promo))}</b> — ${esc(p.promo.title ?? p.promo.category)}, <a href="${esc(url)}">обрати колір</a>`
+  })
+  const head = `🧶 <b>Новинки ваших категорій</b>${promoLines.length ? `\n\n${promoLines.join("\n")}` : ""}`
+  const sections: Section[] = RUBRICS.filter((r) => items.some((i) => i.rubric.key === r.key)).map((r) => {
+    const theirs = items.filter((i) => i.rubric.key === r.key).sort(byNews)
+    return {
+      title: esc(r.title),
+      category: mainCategory(theirs.map((i) => i.product)),
+      items: theirs,
+      moreUrl: withUtm(categoryPath(mainCategory(theirs.map((i) => i.product))), utm),
+    }
+  })
+  const hint = items.length ? HOW_TO_ORDER : HOW_TO_ORDER_PROMO
+  const { text } = fitSections(head, sections, `${hint}\nЗмінити категорії: /start`, utm, true)
+  return { photos: photo ? [photo] : [], caption: text, buttons: sectionButtons(sections) }
+}
+
+/**
+ * Sends a post: several photos tiled into one picture (lib/telegram-collage.ts)
+ * with the buttons under it, one photo with buttons, or text alone. When the
+ * picture can't be made the photos go as an album, which Telegram shows
+ * without buttons (its links are in the text). A photo Telegram can't fetch
+ * turns the post into text.
+ * Returns the photos' file ids, to send them on without fetching them again.
+ */
+export async function sendPost(chatId: string | number, m: Rendered): Promise<{ fileIds: string[]; messageId?: number }> {
   const fileIds = (messages: any[]) => messages.map((msg) => msg.photo?.at(-1)?.file_id).filter(Boolean)
+  const markup = m.buttons.length ? { reply_markup: keyboard(m.buttons) } : {}
   try {
     if (m.photos.length >= 2) {
+      const picture = await collage(m.photos).catch((e: Error) => {
+        console.warn("[telegram] collage failed:", e.message)
+        return null
+      })
+      if (picture) {
+        const msg = await tg(
+          "sendPhoto",
+          { chat_id: chatId, caption: m.caption, parse_mode: "HTML", ...markup },
+          { field: "photo", data: picture, name: "novynky.jpg", type: "image/jpeg" },
+        )
+        return { fileIds: fileIds([msg]), messageId: msg.message_id }
+      }
       const media = m.photos.map((photo, i) => ({
         type: "photo",
         media: photo,
         ...(i === 0 ? { caption: m.caption, parse_mode: "HTML" } : {}),
       }))
-      return { fileIds: fileIds(await tg<any[]>("sendMediaGroup", { chat_id: chatId, media })) }
+      const messages = await tg<any[]>("sendMediaGroup", { chat_id: chatId, media })
+      return { fileIds: fileIds(messages), messageId: messages[0]?.message_id }
     }
     if (m.photos.length === 1) {
-      const msg = await tg("sendPhoto", {
-        chat_id: chatId,
-        photo: m.photos[0],
-        caption: m.caption,
-        parse_mode: "HTML",
-        reply_markup: keyboard(m.buttons),
-      })
-      return { fileIds: fileIds([msg]) }
+      const msg = await tg("sendPhoto", { chat_id: chatId, photo: m.photos[0], caption: m.caption, parse_mode: "HTML", ...markup })
+      return { fileIds: fileIds([msg]), messageId: msg.message_id }
     }
   } catch (e) {
     // Blocked or a wrong chat: no point retrying as text.
     if (!(e instanceof TelegramError) || e.code !== 400 || !/photo|file|media|url|image/i.test(e.description)) throw e
     console.warn("[telegram] photos failed, sending text:", e.message)
   }
-  await tg("sendMessage", {
+  const msg = await tg("sendMessage", {
     chat_id: chatId,
     text: m.caption,
     parse_mode: "HTML",
-    reply_markup: keyboard(m.buttons),
     link_preview_options: { is_disabled: true },
+    ...markup,
   })
-  return { fileIds: [] }
+  return { fileIds: [], messageId: msg.message_id }
+}
+
+// ---------------------------------------------------------------------------
+// The pinned «how to order» post
+
+export function introPost(bot: string | null): Rendered {
+  const tags = RUBRICS.map((r) => r.hashtag).join(" ")
+  const caption = [
+    "📌 <b>Як замовити пряжу з каналу</b>",
+    "",
+    `Новинки й акції SINCERITA виходять тут увечері о ${POST_HOUR}:12, по категоріях: ${tags}. Не частіше ніж раз на день і без повторів.`,
+    "",
+    "🛒 <b>Замовлення в один дотик.</b> Натисніть назву товару в пості — він одразу опиниться в кошику на сайті, на сторінці оформлення. Там можна змінити кількість (від 100 г, кашемір від 50 г), додати інші товари й обрати доставку та оплату.",
+    "",
+    bot
+      ? `🔔 <b>Лише свої категорії.</b> Бот @${bot} надсилає одне повідомлення на день — тільки з категоріями, які ви оберете. Що вже показав, не повторює.`
+      : "",
+  ]
+    .filter((l, i, all) => l || all[i - 1])
+    .join("\n")
+  return {
+    photos: [],
+    caption,
+    buttons: [
+      [{ text: "🛍 Перейти на сайт", url: withUtm("/", utmFor("channel", "intro")), style: "primary" }],
+      ...(bot ? [[{ text: "🔔 Обрати свої категорії", url: `https://t.me/${bot}?start`, style: "success" as const }]] : []),
+    ],
+  }
+}
+
+/** Posts and pins the «how to order» post once, before the first daily post. */
+async function ensureIntro(channel: string, bot: string | null): Promise<string | undefined> {
+  const r = await redis()
+  if (await r.get(KEY_INTRO)) return undefined
+  const { messageId } = await sendPost(channel, introPost(bot))
+  await r.set(KEY_INTRO, new Date().toISOString())
+  // Pinning needs the «Pin messages» right; without it the post just stays unpinned.
+  return tg("pinChatMessage", { chat_id: channel, message_id: messageId, disable_notification: true })
+    .then(() => "pinned")
+    .catch((e: Error) => `posted, not pinned: ${e.message}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -368,19 +594,25 @@ export async function sendPost(chatId: string | number, m: Rendered): Promise<{ 
 
 export interface PublishReport {
   day: string
+  intro?: string
   posted: { rubric: string; type: Post["type"]; products: number }[]
   failed?: string[]
-  leftForTomorrow?: number
   dropped?: number
   subscribers?: { sent: number; removed: number; failed: number; unfinished?: boolean }
 }
 
 export interface LogEntry {
   at: string
-  rubric: string
   title: string
   type: Post["type"]
   products: number
+}
+
+function logTitle(post: Post): string {
+  if (post.type === "promo") return `Акція: ${promoLabel(post.promo)}`
+  const n = post.items.length
+  const what = `${n} ${plural(n, "товар", "товари", "товарів")}`
+  return post.rubric ? `${post.rubric.title}: ${what}` : `Новинки дня (${postRubrics(post).map((r) => r.title).join(", ")}): ${what}`
 }
 
 export async function publishDaily(products: Product[], deadline: number, now = Date.now()): Promise<PublishReport | null> {
@@ -391,38 +623,36 @@ export async function publishDaily(products: Product[], deadline: number, now = 
 
   const { posts, stale } = await plannedPosts(products, now)
   if (stale.length) await r.hDel(KEY_QUEUE, stale)
-  const today = posts.slice(0, MAX_POSTS)
+  const report: PublishReport = { day, posted: [], dropped: stale.length }
+  if (!posts.length) return report
+
   const bot = await botUsername().catch(() => null)
   const channel = telegramChannel()
+  report.intro = await ensureIntro(channel, bot).catch((e: Error) => `failed: ${e.message}`)
 
-  const report: PublishReport = { day, posted: [], dropped: stale.length }
   const sent: { post: Post; fileIds: string[] }[] = []
-  for (const post of today) {
-    const rendered = renderPost(post, "channel", bot)
+  for (const post of posts) {
     try {
-      const { fileIds } = await sendPost(channel, rendered)
+      const { fileIds } = await sendPost(channel, renderPost(post, bot))
       sent.push({ post, fileIds })
       const count = post.type === "promo" ? post.products.length : post.items.length
-      report.posted.push({ rubric: post.rubric.key, type: post.type, products: count })
+      report.posted.push({ rubric: post.rubric?.key ?? "mixed", type: post.type, products: count })
       if (post.type === "promo") await r.sAdd(KEY_PROMOS, post.key)
-      else await r.hDel(KEY_QUEUE, post.items.map((i) => i.product.sku))
-      const entry: LogEntry = {
-        at: new Date().toISOString(),
-        rubric: post.rubric.title,
-        title: post.type === "promo" ? promoLabel(post.promo) : `${post.rubric.title}: ${count} ${plural(count, "товар", "товари", "товарів")}`,
-        type: post.type,
-        products: count,
+      else {
+        const skus = post.items.map((i) => i.product.sku)
+        await r.hDel(KEY_QUEUE, skus)
+        await markAnnounced(skus, now)
       }
+      const entry: LogEntry = { at: new Date().toISOString(), title: logTitle(post), type: post.type, products: count }
       await r.multi().lPush(KEY_LOG, JSON.stringify(entry)).lTrim(KEY_LOG, 0, 99).exec()
     } catch (e) {
-      ;(report.failed ??= []).push(`${post.rubric.key}: ${(e as Error).message}`)
+      ;(report.failed ??= []).push(`${post.rubric?.key ?? "mixed"}: ${(e as Error).message}`)
     }
     // Telegram allows about 20 messages a minute to one channel; an album counts per photo.
     await new Promise((res) => setTimeout(res, 3000))
   }
-  report.leftForTomorrow = posts.length - today.length
 
-  if (sent.length) report.subscribers = await deliverToSubscribers(sent, bot, deadline)
+  if (sent.length) report.subscribers = await deliverToSubscribers(sent, deadline)
   return report
 }
 
@@ -436,42 +666,44 @@ export async function queueSize(): Promise<number> {
 }
 
 /**
- * Sends the day's posts on to the bot's subscribers, each only the rubrics
- * they chose. People who blocked the bot are dropped. Stops at `deadline`
- * (the function's time limit); whoever is left gets the next day's post.
+ * Sends each subscriber one message with the day's posts in their rubrics.
+ * People who blocked the bot are dropped. Stops at `deadline` (the function's
+ * time limit); whoever is left gets the next day's message.
  */
 async function deliverToSubscribers(
   sent: { post: Post; fileIds: string[] }[],
-  bot: string | null,
   deadline: number,
 ): Promise<NonNullable<PublishReport["subscribers"]>> {
   const subscribers = await readSubscribers()
   const result = { sent: 0, removed: 0, failed: 0, unfinished: false }
   for (const [chatId, rubrics] of subscribers) {
-    const theirs = sent.filter((s) => rubrics.includes(s.post.rubric.key))
-    for (const { post, fileIds } of theirs) {
-      if (Date.now() > deadline) {
-        result.unfinished = true
-        return result
-      }
-      const rendered = renderPost(post, "bot", bot)
-      // The channel's copies of the photos, so Telegram doesn't fetch them for every subscriber.
-      if (fileIds.length === rendered.photos.length) rendered.photos = fileIds
-      try {
-        await sendPost(chatId, rendered)
-        result.sent++
-      } catch (e) {
-        if (e instanceof TelegramError && (e.code === 403 || /chat not found/i.test(e.description))) {
-          await removeSubscriber(chatId)
-          result.removed++
-          break
-        }
+    if (Date.now() > deadline) {
+      result.unfinished = true
+      break
+    }
+    const theirs = sent.filter(({ post }) => postRubrics(post).some((r) => rubrics.includes(r.key)))
+    // The channel's copy of a photo, so Telegram doesn't fetch it for every subscriber.
+    const photo = theirs.find((s) => s.fileIds.length)?.fileIds[0]
+    const digest = renderDigest(
+      theirs.map((s) => s.post),
+      rubrics,
+      photo,
+    )
+    if (!digest) continue
+    try {
+      await sendPost(chatId, digest)
+      result.sent++
+    } catch (e) {
+      if (e instanceof TelegramError && (e.code === 403 || /chat not found/i.test(e.description))) {
+        await removeSubscriber(chatId)
+        result.removed++
+      } else {
         result.failed++
         console.warn("[telegram] subscriber", chatId, (e as Error).message)
       }
-      // Well under Telegram's 30 messages a second.
-      await new Promise((res) => setTimeout(res, 50))
     }
+    // Well under Telegram's 30 messages a second.
+    await new Promise((res) => setTimeout(res, 50))
   }
   return result
 }

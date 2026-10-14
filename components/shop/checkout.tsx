@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, MapPin, Clock } from "lucide-react"
+import { ArrowLeft, MapPin, Clock, Minus, Plus, X } from "lucide-react"
 import { useCart } from "./cart-context"
-import { formatPrice, formatQuantity, TAIL_DISCOUNT, lineTotal, tailGrams } from "./data"
+import { formatPrice, formatQuantity, TAIL_DISCOUNT, lineTotal, quantityRules, stepQuantity, tailGrams } from "./data"
 import { OldPrice } from "./promo-price"
 import { NovaPoshtaFields } from "./nova-poshta-fields"
 import { UkrposhtaFields } from "./ukrposhta-fields"
@@ -41,7 +41,7 @@ const CARRIER_LOGOS: Partial<Record<DeliveryMethod, string>> = {
 
 export function Checkout() {
   const router = useRouter()
-  const { cart, priced, total, saved, clearCart, hydrated, refresh } = useCart()
+  const { cart, priced, total, saved, clearCart, hydrated, refresh, updateQuantity, removeFromCart } = useCart()
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -392,11 +392,46 @@ export function Checkout() {
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {cart.map((item, index) => {
                 const line = priced[index]
+                const { min, max } = quantityRules(item)
                 return (
                 <li key={item.id} className="flex justify-between gap-3 py-3 text-sm">
-                  <span className="text-zinc-600 dark:text-zinc-300">
-                    {item.name} <span className="whitespace-nowrap text-zinc-500">× {formatQuantity(item.quantity, item.priceUnit)}</span>
+                  <span className="min-w-0 text-zinc-600 dark:text-zinc-300">
+                    {item.name}
                     {item.promo && <span className="block text-xs text-emerald-700">{item.promo.name}</span>}
+                    {/* Here too, not only in the cart: buy links from Telegram and ads open checkout directly. */}
+                    <span className="mt-1.5 flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-md border border-zinc-200 dark:border-zinc-700">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, stepQuantity(item, item.quantity, -1))}
+                          disabled={item.quantity <= min}
+                          aria-label={`Зменшити кількість: ${item.name}`}
+                          className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="min-w-[4rem] px-1 text-center tabular-nums text-zinc-900 dark:text-zinc-100">
+                          {formatQuantity(item.quantity, item.priceUnit)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, stepQuantity(item, item.quantity, 1))}
+                          disabled={item.quantity >= max}
+                          aria-label={`Збільшити кількість: ${item.name}`}
+                          className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item.id)}
+                        aria-label={`Прибрати ${item.name}`}
+                        className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
                     {tailGrams(item, item.quantity) > 0 && (
                       <span className="block text-xs text-emerald-700">
                         З них {formatQuantity(tailGrams(item, item.quantity), item.priceUnit)} — залишок бобіни зі знижкою {TAIL_DISCOUNT * 100}%

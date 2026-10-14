@@ -3,8 +3,18 @@ import { readCatalog } from "@/lib/catalog"
 import { redisConfigured } from "@/lib/redis"
 import { telegramConfigured } from "@/lib/telegram"
 import { botUsername, ensureWebhook } from "@/lib/telegram-bot"
-import { rubricOf } from "@/lib/telegram-rubrics"
-import { POST_HOUR, kyivHour, plannedPosts, publishDaily, renderPost, watchCatalog } from "@/lib/telegram-news"
+import { RUBRICS, rubricOf } from "@/lib/telegram-rubrics"
+import {
+  POST_HOUR,
+  type Post,
+  introPost,
+  kyivHour,
+  plannedPosts,
+  publishDaily,
+  renderDigest,
+  renderPost,
+  watchCatalog,
+} from "@/lib/telegram-news"
 
 // The Telegram channel (lib/telegram-news.ts): every half hour notes what's new
 // in the catalog; in the hour of the daily post, posts it. Run by Vercel Cron
@@ -46,23 +56,20 @@ export async function GET(req: NextRequest) {
 
 async function preview(products: Awaited<ReturnType<typeof readCatalog>>, sample: boolean) {
   const bot = await botUsername().catch(() => null)
-  const { posts } = sample
-    ? {
-        posts: [
-          {
-            type: "news" as const,
-            rubric: rubricOf(products.find((p) => p.stock > 0)?.category ?? "", products.find((p) => p.stock > 0)?.name),
-            items: products
-              .filter((p) => p.stock > 0)
-              .slice(0, 6)
-              .map((product, i) => ({ product, kind: i < 4 ? ("new" as const) : ("back" as const) })),
-          },
-        ],
-      }
-    : await plannedPosts(products)
+  let posts: Post[]
+  if (sample) {
+    // The newest products in stock, as if they had all come in today.
+    const items = products
+      .filter((p) => p.stock > 0)
+      .slice(0, 12)
+      .map((product, i) => ({ product, kind: i % 4 === 3 ? ("back" as const) : ("new" as const), rubric: rubricOf(product.category, product.name) }))
+    posts = [{ type: "news", rubric: null, items }]
+  } else posts = (await plannedPosts(products)).posts
   return {
     postHourKyiv: POST_HOUR,
     bot,
-    posts: posts.map((post) => ({ rubric: post.rubric.key, type: post.type, ...renderPost(post, "channel", bot) })),
+    intro: introPost(bot),
+    posts: posts.map((post) => ({ rubric: post.rubric?.key ?? "mixed", type: post.type, ...renderPost(post, bot) })),
+    digestForAllCategories: renderDigest(posts, RUBRICS.map((r) => r.key), undefined),
   }
 }
