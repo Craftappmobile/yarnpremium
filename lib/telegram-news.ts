@@ -179,7 +179,7 @@ export async function plannedPosts(products: Product[], now = Date.now()): Promi
       if (!product || now - q.at > QUEUE_TTL_MS) stale.push(sku)
       continue
     }
-    const key = rubricOf(product.category).key
+    const key = rubricOf(product.category, product.name).key
     byRubric.set(key, [...(byRubric.get(key) ?? []), { product, kind: q.kind }])
   }
   // Bigger updates first; within a rubric, new colours before restocks, newest first.

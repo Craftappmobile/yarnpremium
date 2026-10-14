@@ -51,7 +51,7 @@ async function preview(products: Awaited<ReturnType<typeof readCatalog>>, sample
         posts: [
           {
             type: "news" as const,
-            rubric: rubricOf(products.find((p) => p.stock > 0)?.category ?? ""),
+            rubric: rubricOf(products.find((p) => p.stock > 0)?.category ?? "", products.find((p) => p.stock > 0)?.name),
             items: products
               .filter((p) => p.stock > 0)
               .slice(0, 6)
