@@ -644,16 +644,47 @@ export function introPost(bot: string | null): Rendered {
   }
 }
 
-/** Posts and pins the «how to order» post once, before the first daily post. */
-async function ensureIntro(channel: string, bot: string | null): Promise<string | undefined> {
+/** When the «how to order» post went out, and which message it is (to unpin it when it is replaced). */
+export interface IntroState {
+  at: string
+  messageId?: number
+  pinned?: boolean
+}
+
+export async function readIntro(): Promise<IntroState | null> {
+  const raw = await (await redis()).get(KEY_INTRO)
+  if (!raw) return null
+  // The first version stored only the time.
+  return raw.startsWith("{") ? JSON.parse(raw) : { at: raw }
+}
+
+/**
+ * Posts and pins the «how to order» post; a previous one is unpinned, so the
+ * channel shows the current text. Pinning in a channel needs the bot's «Edit
+ * messages» right; without it the post goes out unpinned and `pinned` is false.
+ */
+export async function publishIntro(): Promise<IntroState & { pinError?: string }> {
   const r = await redis()
-  if (await r.get(KEY_INTRO)) return undefined
+  const channel = telegramChannel()
+  const bot = await botUsername().catch(() => null)
+  const before = await readIntro()
   const { messageId } = await sendPost(channel, introPost(bot))
-  await r.set(KEY_INTRO, new Date().toISOString())
-  // Pinning needs the «Pin messages» right; without it the post just stays unpinned.
-  return tg("pinChatMessage", { chat_id: channel, message_id: messageId, disable_notification: true })
-    .then(() => "pinned")
-    .catch((e: Error) => `posted, not pinned: ${e.message}`)
+  const pinError = await tg("pinChatMessage", { chat_id: channel, message_id: messageId, disable_notification: true })
+    .then(() => undefined)
+    .catch((e: Error) => e.message)
+  if (!pinError && before?.messageId) {
+    await tg("unpinChatMessage", { chat_id: channel, message_id: before.messageId }).catch(() => {})
+  }
+  const state: IntroState = { at: new Date().toISOString(), messageId, pinned: !pinError }
+  await r.set(KEY_INTRO, JSON.stringify(state))
+  return { ...state, ...(pinError ? { pinError } : {}) }
+}
+
+/** Posts and pins the «how to order» post once, before the first daily post. */
+async function ensureIntro(): Promise<string | undefined> {
+  if (await readIntro()) return undefined
+  const result = await publishIntro()
+  return result.pinned ? "pinned" : `posted, not pinned: ${result.pinError}`
 }
 
 // ---------------------------------------------------------------------------
@@ -695,7 +726,7 @@ export async function publishDaily(products: Product[], deadline: number, now = 
 
   const bot = await botUsername().catch(() => null)
   const channel = telegramChannel()
-  report.intro = await ensureIntro(channel, bot).catch((e: Error) => `failed: ${e.message}`)
+  report.intro = await ensureIntro().catch((e: Error) => `failed: ${e.message}`)
 
   const sent: { post: Post; fileIds: string[] }[] = []
   for (const post of posts) {

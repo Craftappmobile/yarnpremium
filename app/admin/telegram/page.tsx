@@ -5,7 +5,7 @@ import { redisConfigured } from "@/lib/redis"
 import { statsKeyValid } from "@/lib/assistant/stats"
 import { telegramConfigured } from "@/lib/telegram"
 import { botStatus, subscriberCounts } from "@/lib/telegram-bot"
-import { MAX_POSTS, POST_HOUR, introPost, plannedPosts, queueSize, readPostLog, renderPost } from "@/lib/telegram-news"
+import { MAX_POSTS, POST_HOUR, introPost, plannedPosts, queueSize, readIntro, readPostLog, renderPost } from "@/lib/telegram-news"
 import { RUBRICS } from "@/lib/telegram-rubrics"
 import { readTelegramStats } from "@/lib/telegram-stats"
 import { TelegramResults } from "@/components/admin/telegram-results"
@@ -50,14 +50,17 @@ export default async function TelegramAdminPage({
   }
 
   const days = PERIODS.includes(Number(params.days)) ? Number(params.days) : 30
-  const [status, subs, queued, log, products, daily] = await Promise.all([
+  const [status, subs, queued, log, products, daily, intro] = await Promise.all([
     botStatus().catch((e: Error) => ({ error: e.message })),
     subscriberCounts(),
     queueSize(),
     readPostLog(),
     readCatalog(),
     readTelegramStats(days),
+    readIntro(),
   ])
+  const introResult = typeof params.intro === "string" ? params.intro : ""
+  const introReason = typeof params.reason === "string" ? params.reason : ""
   const { posts } = await plannedPosts(products)
   const bot = "username" in status ? status.username : null
 
@@ -152,7 +155,32 @@ export default async function TelegramAdminPage({
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Закріплений пост «Як замовити»</h2>
-        <p className="text-sm text-zinc-500">Виходить один раз, перед першими новинками, і закріплюється вгорі каналу.</p>
+        <p className="text-sm text-zinc-500">
+          {intro
+            ? `Опубліковано ${new Date(intro.at).toLocaleString("uk-UA", { timeZone: "Europe/Kiev", dateStyle: "long", timeStyle: "short" })}${intro.pinned === false ? ", але не закріплено" : ""}. Нова публікація замінить його вгорі каналу.`
+            : "Ще не публікувався. Вийде сам перед першими новинками, або опублікуйте його зараз."}
+        </p>
+        {introResult === "pinned" && (
+          <p className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800">Пост опубліковано і закріплено вгорі каналу.</p>
+        )}
+        {introResult === "notpinned" && (
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Пост опубліковано, але не закріплено. Дайте боту в каналі право «Редагування повідомлень» і опублікуйте ще раз
+            {introReason ? ` (Telegram: ${introReason})` : ""}.
+          </p>
+        )}
+        {introResult === "error" && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">Не вдалося опублікувати: {introReason}</p>
+        )}
+        <form method="post" action="/api/telegram/intro">
+          <input type="hidden" name="key" value={key} />
+          <button
+            type="submit"
+            className="rounded-lg bg-[#1A78B4] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#15659A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1A78B4]"
+          >
+            {intro ? "Опублікувати знову і закріпити" : "Опублікувати зараз і закріпити"}
+          </button>
+        </form>
         <article className="rounded-2xl border border-zinc-200 bg-white p-4">
           <div
             className="whitespace-pre-wrap text-sm leading-relaxed [&_a]:text-[#1A78B4] [&_a]:underline"
