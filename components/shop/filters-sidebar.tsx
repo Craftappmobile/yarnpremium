@@ -343,7 +343,8 @@ function CategoryRow({ category, checked, count, onToggle }: CategoryRowProps) {
   const empty = count === 0
   return (
     <li>
-      <label className="flex items-center gap-3 cursor-pointer group">
+      {/* `relative`: the hidden checkbox stays in the list, so ticking it scrolls only the list. */}
+      <label className="relative flex items-center gap-3 cursor-pointer group">
         <input type="checkbox" checked={checked} onChange={onToggle} className="peer sr-only" />
         <span
           className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-zinc-900 peer-focus-visible:ring-offset-2 ${
