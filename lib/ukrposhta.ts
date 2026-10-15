@@ -21,6 +21,10 @@ export async function upGet(method: string, params: Record<string, string>): Pro
     // The classifier changes rarely; cache lookups for a day.
     next: { revalidate: 86400 },
   })
+  if (res.status === 401 || res.status === 403) {
+    // The bearer is issued for a limited term; a rejection usually means it has expired.
+    console.error(`Ukrposhta rejected UKRPOSHTA_BEARER (HTTP ${res.status}): the token may have expired`)
+  }
   if (!res.ok) throw new Error(`Ukrposhta HTTP ${res.status}`)
   const json = await res.json()
   // A single match comes back as an object rather than a one-item array.

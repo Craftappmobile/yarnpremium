@@ -20,12 +20,16 @@ function toOffice(e: UpEntry) {
 export async function POST(req: NextRequest) {
   if (!upConfigured()) return NextResponse.json({ configured: false, offices: [] })
 
-  const { cityId, query } = await req.json().catch(() => ({}))
+  const { cityId, regionId, query } = await req.json().catch(() => ({}))
   const id = cleanQuery(cityId, 20)
   if (!/^\d+$/.test(id)) return NextResponse.json({ configured: true, offices: [] })
+  const region = cleanQuery(regionId, 20)
 
   try {
-    let entries = await upGet("get_postoffices_by_city_id", { city_id: id })
+    // The classifier docs (v3.20) list region_id as required for this method.
+    const params: Record<string, string> = { city_id: id }
+    if (/^\d+$/.test(region)) params.region_id = region
+    let entries = await upGet("get_postoffices_by_city_id", params)
     // Villages without their own office are served by one in a neighbouring settlement.
     if (!entries.length) entries = await upGet("get_postoffices_by_postindex", { pdCityId: id })
 

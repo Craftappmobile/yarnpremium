@@ -48,12 +48,27 @@ export function UkrposhtaFields({ delivery, onChange, errors, inputClass }: Ukrp
     configured && city?.ref
       ? {
           cityId: city.ref,
+          regionId: city.regionId ?? "",
           // Once an office is picked its name fills the input; don't search by it.
           query: pointQuery === delivery.point?.name ? "" : pointQuery,
         }
       : null,
     "offices",
   )
+
+  // Ukrposhta stopped answering (e.g. the bearer expired): switch to plain text fields,
+  // keeping what the customer already typed, so the order can still be placed.
+  const lookupFailed = cities.failed || offices.failed
+  useEffect(() => {
+    if (!lookupFailed) return
+    setConfigured(false)
+    onChange({
+      city: city ?? (cityQuery.trim() ? { name: cityQuery } : undefined),
+      point: delivery.point ?? (pointQuery.trim() ? { name: pointQuery } : undefined),
+    })
+    // Runs once, when a lookup first fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookupFailed])
 
   const plainInput = (err?: string) =>
     `${inputClass} ${err ? "border-red-500" : "border-zinc-300 dark:border-zinc-700"}`
