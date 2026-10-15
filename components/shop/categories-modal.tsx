@@ -121,7 +121,10 @@ export function CategoriesModal({
                 const count = categoryCounts[category] ?? 0
                 return (
                   <li key={category}>
-                    <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
+                    {/* `relative` keeps the hidden checkbox inside the scrolling list. Without it the
+                        checkbox sits against the whole dialog: ticking a category low in the list
+                        scrolled the dialog to it, and the dialog went blank white. */}
+                    <label className="relative flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
                       <input
                         type="checkbox"
                         checked={checked}
