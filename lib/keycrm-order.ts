@@ -4,7 +4,7 @@
 import { keycrmGet, keycrmGetAll, keycrmSend } from "@/lib/keycrm"
 import { redis } from "@/lib/redis"
 import { ADD_ON, TAIL_DISCOUNT } from "@/components/shop/data"
-import { PAYMENT_LABELS, PICKUP_POINT, describeDelivery, type Order } from "@/lib/order"
+import { PAYMENT_LABELS, PICKUP_POINT, describeDelivery, ukrposhtaPostcode, type Order } from "@/lib/order"
 
 /** KeyCRM order source «yarnpremium» (yarnpremium.com.ua). */
 const SOURCE_ID = 8
@@ -75,12 +75,18 @@ export function toKeycrmOrder(
         .join(", ")
     : undefined
 
+  const upPostcode = ukrposhtaPostcode(d)
+  const city = d.method === "pickup" ? undefined : d.city?.title || d.city?.name
+
   const managerNotes = [
     isTestOrderEnvironment() && "ТЕСТ — не обробляти (замовлення з тестової версії сайту)",
     order.addOnTo &&
       `ДОПОВНЕННЯ до замовлення №${order.addOnTo.number ?? "?"} (додано на сайті одразу після нього) — відправити однією посилкою з ним`,
     `Доставка: ${describeDelivery(d)}`,
-    d.method === "ukrposhta" && d.point?.postcode && `Укрпошта: індекс ${d.point.postcode}`,
+    d.method === "ukrposhta" &&
+      (upPostcode
+        ? `Укрпошта: індекс ${upPostcode}`
+        : `Укрпошта: індекс не вказано — уточнити в покупця (вказано: «${d.point?.name ?? ""}»)`),
     `Оплата: ${PAYMENT_LABELS[order.payment.method]}` +
       (order.payment.onReceipt > 0 ? ` — зараз ${order.payment.now} ₴, при отриманні ${order.payment.onReceipt} ₴` : ""),
     `Номер на сайті: ${siteOrderId}`,
@@ -125,10 +131,13 @@ export function toKeycrmOrder(
         deliveryServiceId && (d.method === "np_warehouse" || d.method === "np_postomat") ? d.point?.ref : undefined,
       shipping_service: carrier(d.method),
       shipping_address_country: "Україна",
-      shipping_address_city: d.method === "pickup" ? undefined : d.city?.title || d.city?.name,
+      shipping_address_city: city,
       shipping_address_region: d.city?.region,
-      shipping_address_zip: d.point?.postcode,
-      shipping_receive_point: d.method === "pickup" ? PICKUP_POINT.address : d.point?.name,
+      // Ukrposhta goes by the office index: «Адреса» is the settlement, the index its own field,
+      // as managers fill them in; the office itself is in the manager's comment (Доставка: …).
+      shipping_address_zip: d.method === "ukrposhta" ? upPostcode : d.point?.postcode,
+      shipping_receive_point:
+        d.method === "pickup" ? PICKUP_POINT.address : d.method === "ukrposhta" ? city : d.point?.name,
       shipping_secondary_line: address,
       recipient_full_name: fullName,
       recipient_phone: c.phone,

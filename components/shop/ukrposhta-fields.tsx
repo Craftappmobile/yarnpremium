@@ -100,7 +100,7 @@ export function UkrposhtaFields({ delivery, onChange, errors, inputClass }: Ukrp
             aria-invalid={Boolean(errors.point)}
             value={delivery.point?.name ?? ""}
             onChange={(e) => onChange({ point: { name: e.target.value } })}
-            placeholder="Індекс або номер відділення"
+            placeholder="Індекс відділення, наприклад 69027"
             className={plainInput(errors.point)}
           />
           {errors.point && <p className="mt-1 text-xs text-red-600">{errors.point}</p>}
