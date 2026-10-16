@@ -198,6 +198,15 @@ export function effectivePaymentMethod(method: PaymentMethod, delivery: Delivery
 }
 
 /** Single-line delivery summary for confirmations. */
+/**
+ * The Ukrposhta office index: the one picked from the classifier, or a 5-digit
+ * number in what the buyer typed when the lookup was unavailable.
+ */
+export function ukrposhtaPostcode(d: OrderDelivery): string | undefined {
+  if (d.method !== "ukrposhta") return undefined
+  return d.point?.postcode || d.point?.name.match(/(?<!\d)\d{5}(?!\d)/)?.[0]
+}
+
 export function describeDelivery(d: OrderDelivery): string {
   const label = DELIVERY_METHODS.find((m) => m.value === d.method)?.label ?? d.method
   if (d.method === "pickup") return `${label}: ${PICKUP_POINT.address}`
