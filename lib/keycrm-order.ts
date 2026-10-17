@@ -80,6 +80,7 @@ export function toKeycrmOrder(
 
   const managerNotes = [
     isTestOrderEnvironment() && "ТЕСТ — не обробляти (замовлення з тестової версії сайту)",
+    order.partner && `З сайту майстер-класів ${order.partner.site} (замовлення ${order.partner.ref})`,
     order.addOnTo &&
       `ДОПОВНЕННЯ до замовлення №${order.addOnTo.number ?? "?"} (додано на сайті одразу після нього) — відправити однією посилкою з ним`,
     `Доставка: ${describeDelivery(d)}`,
