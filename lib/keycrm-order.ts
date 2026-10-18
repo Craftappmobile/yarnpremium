@@ -165,6 +165,22 @@ async function deliveryServiceId(method: Order["delivery"]["method"]): Promise<n
   return found?.id
 }
 
+/**
+ * KeyCRM order source for orders from the master-class site (lib/partner.ts): KEYCRM_MK_SOURCE_ID, or the
+ * source whose name or alias mentions «yarnmk», looked up once a day. Without one they stay in «yarnpremium».
+ */
+export async function mkSourceId(): Promise<number | undefined> {
+  const fixed = Number(process.env.KEYCRM_MK_SOURCE_ID)
+  if (fixed > 0) return fixed
+  const r = await redis()
+  const cached = await r.get("keycrm:mk_source")
+  if (cached !== null) return Number(cached) || undefined
+  const sources = await keycrmGetAll<{ id: number; name?: string; alias?: string }>("/order/source")
+  const found = sources.find((s) => /yarnmk/i.test(`${s.name ?? ""} ${s.alias ?? ""}`))
+  await r.set("keycrm:mk_source", String(found?.id ?? 0), { EX: 86400 })
+  return found?.id
+}
+
 /** Creates the order in KeyCRM and returns its id. */
 export async function createKeycrmOrder(
   order: Order,
@@ -177,7 +193,15 @@ export async function createKeycrmOrder(
     console.error("[orders] delivery services lookup failed:", (e as Error).message)
     return undefined
   })
-  const created = await keycrmSend<{ id: number }>("POST", "/order", toKeycrmOrder(order, siteOrderId, utm, serviceId, assistant))
+  const body = toKeycrmOrder(order, siteOrderId, utm, serviceId, assistant)
+  if (order.partner) {
+    const source = await mkSourceId().catch((e) => {
+      console.error("[orders] KeyCRM sources lookup failed:", (e as Error).message)
+      return undefined
+    })
+    if (source) body.source_id = source
+  }
+  const created = await keycrmSend<{ id: number }>("POST", "/order", body)
   if (!created?.id) throw new Error("KeyCRM did not return an order id")
   return created.id
 }
