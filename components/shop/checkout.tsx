@@ -86,6 +86,9 @@ export function Checkout() {
       name: `${firstName.trim()} ${lastName.trim()}`.trim(),
       email: email.trim(),
       items: cart.map((i) => ({ sku: i.sku, quantity: i.quantity })),
+      // Where the buyer came from and whether they wrote to the assistant, for the manager and the statistics.
+      utm: readUtm(),
+      assistantMessages: readAssistantAttribution()?.messages ?? 0,
     })
     if (draft === draftSent.current) return
     const timer = setTimeout(() => {

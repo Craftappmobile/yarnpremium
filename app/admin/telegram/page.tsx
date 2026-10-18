@@ -105,8 +105,8 @@ export default async function TelegramAdminPage({
       </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile label="Підписники бота" value={String(subs.total)} note="отримують обрані рубрики в особисті" />
-        <Tile label="Товарів у черзі" value={String(queued)} note="чекають на щоденний пост" />
+        <Tile label="Підписники бота" value={String(subs.total)} note="отримують обрані категорії в особисті" />
+        <Tile label="Товарів у черзі" value={String(queued)} note="розпродані серед них чекають до 14 днів, чи повернуться" />
         <Tile label="Постів наступного разу" value={String(posts.length)} note={`не більше ${MAX_POSTS} на день`} />
         <Tile label="Опубліковано" value={String(log.length)} note="останні 100 постів" />
       </section>

@@ -1,7 +1,12 @@
 // Server-only: checkouts left unfinished. Once a buyer has typed a valid phone
-// at checkout, the page saves a draft (contact and cart). An order with the same
-// checkout id deletes it. A draft still there an hour later becomes a lead in
-// KeyCRM («Кинутий кошик»), so a manager can write to the buyer in Viber.
+// at checkout, the page saves a draft (contact, cart, where the buyer came from,
+// whether they wrote to the assistant). An order with the same checkout id
+// deletes it. A draft still there an hour later becomes a lead in KeyCRM
+// («Кинутий кошик»), so a manager can write to the buyer in Viber, and is
+// counted in the statistics (assistant and Telegram pages).
+//
+// The lead goes to the pipeline KEYCRM_ABANDONED_PIPELINE_ID names, else to one
+// whose name says «кинут…» («Кинуті кошики»), else to the first pipeline.
 //
 // Redis keys:
 //   draft:<checkout id>    JSON Draft (expires after 3 days)
@@ -13,6 +18,8 @@ import { keycrmGetAll, keycrmSend } from "@/lib/keycrm"
 import { isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { redis } from "@/lib/redis"
 import { formatQuantity } from "@/components/shop/data"
+import { countStats } from "@/lib/assistant/stats"
+import { campaignTitle, countTelegram, cleanCampaign } from "@/lib/telegram-stats"
 
 const DRAFT_KEY = (id: string) => `draft:${id}`
 const PENDING = "drafts:pending"
@@ -30,6 +37,10 @@ export interface Draft {
   name: string
   email: string
   items: { sku: string; quantity: number }[]
+  /** utm_* tags of the visit, if it came by a tagged link. */
+  utm?: Record<string, string>
+  /** Messages the buyer wrote to the assistant in the week before. */
+  assistantMessages?: number
   updatedAt: number
 }
 
@@ -57,17 +68,35 @@ export async function markOrdered(id: string, phone: string): Promise<void> {
   await r.multi().del(DRAFT_KEY(id)).zRem(PENDING, id).set(PHONE_KEY(phone), `order:${id}`, { EX: 86400 }).exec()
 }
 
-let pipelineId: number | null | undefined
+let pipeline: { id: number; title: string } | null | undefined
 
-/** KEYCRM_ABANDONED_PIPELINE_ID, or else the first lead pipeline in KeyCRM. */
-async function leadPipeline(): Promise<number | null> {
+/** Where abandoned checkouts go: see the top of this file. */
+export async function abandonedPipeline(): Promise<{ id: number; title: string } | null> {
+  if (pipeline !== undefined) return pipeline
+  const pipelines: any[] = await keycrmGetAll("/pipelines").catch(() => [])
+  const named = (p: any) => ({ id: Number(p.id), title: String(p.title ?? p.name ?? "") })
   const configured = Number(process.env.KEYCRM_ABANDONED_PIPELINE_ID)
-  if (configured > 0) return configured
-  if (pipelineId === undefined) {
-    const pipelines = await keycrmGetAll("/pipelines").catch(() => [])
-    pipelineId = pipelines[0]?.id ?? null
+  const chosen =
+    (configured > 0 && pipelines.find((p) => Number(p.id) === configured)) ||
+    pipelines.find((p) => /кинут/i.test(String(p.title ?? p.name ?? ""))) ||
+    pipelines[0]
+  // A configured id KeyCRM didn't list is used as given.
+  pipeline = chosen ? named(chosen) : configured > 0 ? { id: configured, title: "" } : null
+  return pipeline
+}
+
+async function leadPipeline(): Promise<number | null> {
+  return (await abandonedPipeline())?.id ?? null
+}
+
+/** Where the buyer came from, in words, for the manager. */
+export function sourceLine(utm: Record<string, string> = {}): string {
+  if (utm.utm_source === "telegram") {
+    const where = utm.utm_medium === "bot" ? "бот" : "канал"
+    return `Telegram (${where}), пост «${campaignTitle(cleanCampaign(utm.utm_campaign))}»`
   }
-  return pipelineId ?? null
+  const tags = ["utm_source", "utm_medium", "utm_campaign"].filter((k) => utm[k]).map((k) => `${k}=${utm[k]}`)
+  return tags.length ? `посилання з мітками: ${tags.join(", ")}` : "без міток (прямий захід, пошук або закладка)"
 }
 
 /**
@@ -89,8 +118,9 @@ export async function processAbandoned(ordered: (id: string) => Promise<boolean>
       continue
     }
     try {
-      await createLead(id, draft)
+      const value = await createLead(id, draft)
       report.leads++
+      await countAbandoned(draft, value)
     } catch (e) {
       console.error("[abandoned] lead failed:", (e as Error).message)
       report.failed++
@@ -103,7 +133,24 @@ export async function processAbandoned(ordered: (id: string) => Promise<boolean>
   return report
 }
 
-async function createLead(id: string, draft: Draft): Promise<void> {
+/** The statistics of the assistant's page and, for a visit from Telegram, of the Telegram page. */
+async function countAbandoned(draft: Draft, value: number): Promise<void> {
+  if (isTestOrderEnvironment()) return
+  const assisted = (draft.assistantMessages ?? 0) > 0
+  await countStats({
+    abandoned: 1,
+    abandoned_value: value,
+    abandoned_assisted: assisted ? 1 : 0,
+    abandoned_assisted_value: assisted ? value : 0,
+  })
+  if (draft.utm?.utm_source === "telegram") {
+    const campaign = cleanCampaign(draft.utm.utm_campaign)
+    await countTelegram({ abandoned: 1, abandoned_value: value, [`abandoned:c:${campaign}`]: 1 })
+  }
+}
+
+/** Makes the lead; returns what the cart was worth. */
+async function createLead(id: string, draft: Draft): Promise<number> {
   const products = new Map((await readProducts(draft.items.map((i) => i.sku))).map((p) => [p.sku, p]))
   const lines = draft.items.flatMap((i) => {
     const p = products.get(i.sku)
@@ -118,6 +165,8 @@ async function createLead(id: string, draft: Draft): Promise<void> {
     manager_comment: [
       isTestOrderEnvironment() && "ТЕСТ — не обробляти (з тестової версії сайту)",
       "Почала оформлювати замовлення на сайті і не завершила годину тому. Напишіть у Viber.",
+      `Звідки: ${sourceLine(draft.utm)}`,
+      (draft.assistantMessages ?? 0) > 0 && `Писала консультанту на сайті: ${draft.assistantMessages} повід.`,
       summary,
       `Чернетка на сайті: ${id}`,
     ]
@@ -133,4 +182,5 @@ async function createLead(id: string, draft: Draft): Promise<void> {
       picture: p.image || undefined,
     })),
   })
+  return sum
 }

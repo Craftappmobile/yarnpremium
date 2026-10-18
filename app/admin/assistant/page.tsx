@@ -14,11 +14,14 @@ import {
   soldProducts,
   statsKeyValid,
   summarize,
+  summarizeAbandoned,
   summarizeAddOn,
+  type AbandonedSummary,
   summarizeVideo,
 } from "@/lib/assistant/stats"
 import { ADD_ON, formatPrice } from "@/components/shop/data"
 import { BarChart } from "@/components/admin/bar-chart"
+import { abandonedPipeline } from "@/lib/checkout-draft"
 
 // Whether the shopping assistant pays off, for the shop's owner:
 // /admin/assistant?key=<ASSISTANT_STATS_KEY>&days=30. The same figures as
@@ -213,6 +216,33 @@ function SoldSection({ orders, days, ordersAssisted }: { orders: AssistedOrder[]
   )
 }
 
+function AbandonedSection({ a, days, pipeline }: { a: AbandonedSummary; days: number; pipeline: string | null }) {
+  const period = `${days} ${plural(days, "день", "дні", "днів")}`
+  const verdict =
+    a.checkouts === 0
+      ? `За ${period} кинутих оформлень не було: усі, хто ввів телефон, оформили замовлення.`
+      : `За ${period} ${a.checkouts} ${plural(a.checkouts, "людина ввела", "людини ввели", "людей ввели")} телефон на оформленні, але не замовили (${percent(a.rate)} тих, хто дійшов до телефону). Кошики на ${uah(a.value)}.` +
+        (a.assisted
+          ? ` З них ${a.assisted} писали консультанту (${percent(a.rateAssisted)} серед тих, хто писав).`
+          : " Серед них ніхто не писав консультанту.")
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Кинуті оформлення</h2>
+      <p className="rounded-2xl border border-zinc-200 bg-white p-5 text-base leading-relaxed text-zinc-800">{verdict}</p>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Tile label="Кинули оформлення" value={String(a.checkouts)} note={`${percent(a.rate)} тих, хто ввів телефон`} />
+        <Tile label="Сума кинутих кошиків" value={uah(a.value)} />
+        <Tile label="З них писали консультанту" value={String(a.assisted)} note={`кошики на ${uah(a.assistedValue)}`} />
+        <Tile label="Кидають серед тих, хто писав" value={percent(a.rateAssisted)} note={`загалом: ${percent(a.rate)}`} />
+      </div>
+      <p className="text-sm text-zinc-500">
+        Кожне кинуте оформлення — угода «Кинутий кошик» у KeyCRM{pipeline ? `, воронка «${pipeline}»` : ""}: з
+        телефоном, товарами і рядком «Звідки», щоб менеджер написав покупцю. Рахуються з 18 жовтня 2026.
+      </p>
+    </section>
+  )
+}
+
 function AddOnSection({ a, days }: { a: AddOnSummary; days: number }) {
   const period = `${days} ${plural(days, "день", "дні", "днів")}`
   const verdict =
@@ -349,6 +379,8 @@ export default async function AssistantStatsPage({
   const s = summarize(daily)
   const video = summarizeVideo(daily)
   const addOn = summarizeAddOn(daily)
+  const abandoned = summarizeAbandoned(daily)
+  const pipeline = await abandonedPipeline().catch(() => null)
   const catalogMeta = await readCatalogMeta().catch(() => null)
   const chronological = [...daily].reverse()
 
@@ -427,6 +459,8 @@ export default async function AssistantStatsPage({
       <SoldSection orders={assistedOrders} days={days} ordersAssisted={s.ordersAssisted} />
 
       <DayTable daily={daily} />
+
+      <AbandonedSection a={abandoned} days={days} pipeline={pipeline?.title || null} />
 
       <AddOnSection a={addOn} days={days} />
 
