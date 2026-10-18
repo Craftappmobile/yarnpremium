@@ -8,6 +8,7 @@ import { botStatus, subscriberCounts } from "@/lib/telegram-bot"
 import { MAX_POSTS, POST_HOUR, introPost, plannedPosts, queueSize, readIntro, readPostLog, renderPost } from "@/lib/telegram-news"
 import { RUBRICS } from "@/lib/telegram-rubrics"
 import { readTelegramStats } from "@/lib/telegram-stats"
+import { readStaffChat, staffCode } from "@/lib/telegram-staff"
 import { TelegramResults } from "@/components/admin/telegram-results"
 
 // The Telegram channel's daily post, for the shop's owner:
@@ -59,6 +60,7 @@ export default async function TelegramAdminPage({
     readTelegramStats(days),
     readIntro(),
   ])
+  const staff = await readStaffChat().catch(() => null)
   const introResult = typeof params.intro === "string" ? params.intro : ""
   const introReason = typeof params.reason === "string" ? params.reason : ""
   const { posts } = await plannedPosts(products)
@@ -102,6 +104,29 @@ export default async function TelegramAdminPage({
             </li>
           </ul>
         )}
+      </section>
+
+      <section className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
+        <h2 className="text-lg font-semibold">Кинуті кошики в робочу групу</h2>
+        {staff ? (
+          <p className="text-green-700">
+            Бот повідомляє про кожен кинутий кошик у «{staff.title}» (з{" "}
+            {new Date(staff.at).toLocaleDateString("uk-UA", { timeZone: "Europe/Kiev", dateStyle: "long" })}).
+          </p>
+        ) : (
+          <p className="text-zinc-600">Ще не налаштовано: бот поки нікуди не повідомляє про кинуті кошики.</p>
+        )}
+        <ol className="list-decimal space-y-1 pl-5 text-zinc-700">
+          <li>
+            Лише <b>закрита</b> група вашої команди: у повідомленнях імʼя і телефон покупця. Не канал і не відкрита група.
+          </li>
+          <li>Додайте @{bot ?? "бота"} у групу (адміністратором, якщо в групі ввімкнено теми).</li>
+          <li>
+            У потрібній гілці (темі) надішліть:{" "}
+            <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-900">/abandoned_here {staffCode()}</code>
+          </li>
+          <li>Бот відповість «✅ Тут зʼявлятимуться кинуті кошики». Вимкнути: /abandoned_off {staffCode()}</li>
+        </ol>
       </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
