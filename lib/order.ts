@@ -105,6 +105,8 @@ export interface Order {
    * the same as `addOnTo.number`); only when KeyCRM won't take them is it its own order.
    */
   addOnTo?: { id: string; number?: number }
+  /** Placed from the master-class site (lib/partner.ts): its order id and the page to return to after paying. */
+  partner?: { site: string; ref: string; returnUrl: string }
   createdAt: string
 }
 

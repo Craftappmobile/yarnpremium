@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { paymentStatus, readResult, recordApprovedPayment, verifyResult, type PaymentResult } from "@/lib/wayforpay"
+import { redis, redisConfigured } from "@/lib/redis"
+import type { Order } from "@/lib/order"
 
 // WayForPay's returnUrl: the buyer comes back here (usually by POST) from the
 // payment page and is shown the order page with the outcome. The outcome comes
@@ -33,12 +35,25 @@ async function handle(req: NextRequest, posted: PaymentResult | null) {
   if (status === "ok") {
     await recordApprovedPayment(result!).catch((e) => console.error("[wayforpay] return booking failed:", (e as Error).message))
   }
-  const to = new URL("/checkout/success", req.nextUrl.origin)
-  to.searchParams.set("payment", status)
   const order = req.nextUrl.searchParams.get("order")
-  if (order) to.searchParams.set("order", order)
+  // An order from the master-class site: the buyer goes back to its order page.
+  const back = order ? await partnerReturn(order) : null
+  const to = new URL(back ?? "/checkout/success", req.nextUrl.origin)
+  to.searchParams.set("payment", status)
+  if (order && !back) to.searchParams.set("order", order)
   // 303: the browser follows with a GET.
   return NextResponse.redirect(to, 303)
+}
+
+async function partnerReturn(siteOrderId: string): Promise<string | null> {
+  if (!redisConfigured()) return null
+  const saved = await (await redis()).get(`order:${siteOrderId}`).catch(() => null)
+  if (!saved || saved === "pending") return null
+  try {
+    return (JSON.parse(saved) as Order).partner?.returnUrl ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function POST(req: NextRequest) {
