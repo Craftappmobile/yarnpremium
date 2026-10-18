@@ -167,17 +167,19 @@ async function deliveryServiceId(method: Order["delivery"]["method"]): Promise<n
 
 /**
  * KeyCRM order source for orders from the master-class site (lib/partner.ts): KEYCRM_MK_SOURCE_ID, or the
- * source whose name or alias mentions «yarnmk», looked up once a day. Without one they stay in «yarnpremium».
+ * source whose name or alias mentions «yarnmk» (KeyCRM: «YarnMK»), looked up once a day, rechecked every 10 minutes
+ * while it is missing. Without one they stay in «yarnpremium».
  */
 export async function mkSourceId(): Promise<number | undefined> {
   const fixed = Number(process.env.KEYCRM_MK_SOURCE_ID)
   if (fixed > 0) return fixed
   const r = await redis()
-  const cached = await r.get("keycrm:mk_source")
+  const cached = await r.get("keycrm:mk_source:v2")
   if (cached !== null) return Number(cached) || undefined
   const sources = await keycrmGetAll<{ id: number; name?: string; alias?: string }>("/order/source")
   const found = sources.find((s) => /yarnmk/i.test(`${s.name ?? ""} ${s.alias ?? ""}`))
-  await r.set("keycrm:mk_source", String(found?.id ?? 0), { EX: 86400 })
+  // Знайдене пам'ятаємо добу; «немає» — 10 хвилин, щоб щойно створене джерело підхопилося швидко.
+  await r.set("keycrm:mk_source:v2", String(found?.id ?? 0), { EX: found ? 86400 : 600 })
   return found?.id
 }
 
