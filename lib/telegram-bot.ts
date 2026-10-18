@@ -13,6 +13,7 @@
 import { redis } from "@/lib/redis"
 import { SITE_URL, TELEGRAM_URL } from "@/lib/site"
 import { RUBRICS, rubricByKey } from "@/lib/telegram-rubrics"
+import { handleStaffCommand } from "@/lib/telegram-staff"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg, webhookSecret } from "@/lib/telegram"
 
 const KEY_SUBS = "tg:subs"
@@ -151,6 +152,8 @@ async function sendMenu(chatId: number, rubrics: string[], note?: string) {
 /** Handles one update from Telegram's webhook. */
 export async function handleUpdate(update: any): Promise<void> {
   const message = update.message
+  // The shop's own group: where abandoned checkouts are reported (lib/telegram-staff.ts).
+  if ((message?.chat?.type === "group" || message?.chat?.type === "supergroup") && (await handleStaffCommand(message))) return
   if (message?.chat?.type === "private") {
     const chatId: number = message.chat.id
     const text = String(message.text ?? "").trim()

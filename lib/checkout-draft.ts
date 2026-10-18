@@ -20,6 +20,7 @@ import { redis } from "@/lib/redis"
 import { formatQuantity } from "@/components/shop/data"
 import { countStats } from "@/lib/assistant/stats"
 import { campaignTitle, countTelegram, cleanCampaign } from "@/lib/telegram-stats"
+import { notifyAbandoned } from "@/lib/telegram-staff"
 
 const DRAFT_KEY = (id: string) => `draft:${id}`
 const PENDING = "drafts:pending"
@@ -89,8 +90,12 @@ async function leadPipeline(): Promise<number | null> {
   return (await abandonedPipeline())?.id ?? null
 }
 
-/** Where the buyer came from, in words, for the manager. */
-export function sourceLine(utm: Record<string, string> = {}): string {
+/**
+ * Where the buyer came from, in words, for the manager. A draft saved before
+ * checkouts sent their tags has none at all: unknown, not «без міток».
+ */
+export function sourceLine(utm: Record<string, string> | undefined): string {
+  if (!utm) return "невідомо (кошик збережено до того, як сайт почав це записувати)"
   if (utm.utm_source === "telegram") {
     const where = utm.utm_medium === "bot" ? "бот" : "канал"
     return `Telegram (${where}), пост «${campaignTitle(cleanCampaign(utm.utm_campaign))}»`
@@ -118,9 +123,21 @@ export async function processAbandoned(ordered: (id: string) => Promise<boolean>
       continue
     }
     try {
-      const value = await createLead(id, draft)
+      const { value, lines } = await createLead(id, draft)
       report.leads++
       await countAbandoned(draft, value)
+      if (!isTestOrderEnvironment()) {
+        await notifyAbandoned({
+          name: draft.name,
+          phone: draft.phone,
+          email: draft.email,
+          value,
+          lines,
+          source: sourceLine(draft.utm),
+          assistantMessages: draft.assistantMessages ?? 0,
+          pipeline: (await abandonedPipeline())?.title || null,
+        })
+      }
     } catch (e) {
       console.error("[abandoned] lead failed:", (e as Error).message)
       report.failed++
@@ -149,14 +166,15 @@ async function countAbandoned(draft: Draft, value: number): Promise<void> {
   }
 }
 
-/** Makes the lead; returns what the cart was worth. */
-async function createLead(id: string, draft: Draft): Promise<number> {
+/** Makes the lead; returns what the cart was worth and its lines, in words. */
+async function createLead(id: string, draft: Draft): Promise<{ value: number; lines: string[] }> {
   const products = new Map((await readProducts(draft.items.map((i) => i.sku))).map((p) => [p.sku, p]))
   const lines = draft.items.flatMap((i) => {
     const p = products.get(i.sku)
     return p ? [{ p, quantity: i.quantity }] : []
   })
-  const summary = lines.map(({ p, quantity }) => `${p.name} — ${formatQuantity(quantity, p.priceUnit)}`).join("\n")
+  const described = lines.map(({ p, quantity }) => `${p.name} — ${formatQuantity(quantity, p.priceUnit)}`)
+  const summary = described.join("\n")
   const sum = Math.round(lines.reduce((s, { p, quantity }) => s + p.price * quantity, 0))
   await keycrmSend("POST", "/pipelines/cards", {
     title: `${isTestOrderEnvironment() ? "ТЕСТ — " : ""}Кинутий кошик · ${sum} ₴`,
@@ -182,5 +200,5 @@ async function createLead(id: string, draft: Draft): Promise<number> {
       picture: p.image || undefined,
     })),
   })
-  return sum
+  return { value: sum, lines: described }
 }
