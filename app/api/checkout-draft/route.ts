@@ -23,6 +23,12 @@ export async function POST(req: NextRequest) {
   if (!/^[\w-]{8,64}$/.test(id) || !phone || items.length === 0) {
     return NextResponse.json({ ok: false }, { status: 400 })
   }
-  await saveDraft(id, { phone, name: text(body?.name), email: text(body?.email), items })
+  const utm = Object.fromEntries(
+    Object.entries(body?.utm && typeof body.utm === "object" ? body.utm : {})
+      .filter(([k]) => /^utm_(source|medium|campaign|term|content)$/.test(k))
+      .map(([k, v]) => [k, text(v)]),
+  )
+  const assistantMessages = Math.min(Math.max(Math.floor(Number(body?.assistantMessages) || 0), 0), 1000)
+  await saveDraft(id, { phone, name: text(body?.name), email: text(body?.email), items, utm, assistantMessages })
   return NextResponse.json({ ok: true })
 }

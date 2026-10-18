@@ -10,6 +10,9 @@
 //   orders_add_on, revenue_add_on, discount_add_on   add-ons placed on the confirmation page (ADD_ON):
 //                                                how many, what they brought, what their discount gave away
 //                                                (not in orders/revenue, which count checkouts)
+//   abandoned, abandoned_value                   checkouts left unfinished for an hour (a phone typed in,
+//                                                no order): leads made in KeyCRM, and their carts' worth
+//   abandoned_assisted, abandoned_assisted_value of them, buyers who wrote to the assistant that week
 //   video_pages, video_<review|sample>_<started|completed>   visitors (once a day each) who opened a
 //                                                product page with a video / started / finished a video
 //   orders_video_page, orders_video_<review|sample>_completed, revenue_video_sample_completed
@@ -160,6 +163,8 @@ export interface DayStats {
     revenueSampleCompleted: number
   }
   addOn: { orders: number; revenue: number; discount: number }
+  /** Checkouts left unfinished (lib/checkout-draft.ts): all, and of buyers who wrote to the assistant. */
+  abandoned: { checkouts: number; value: number; assisted: number; assistedValue: number }
   /** Model spend in USD; null when a model without a known price ran. */
   costUsd: number | null
   tokens: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }>
@@ -208,6 +213,12 @@ function toDay(day: string, h: Record<string, string>): DayStats {
       revenueSampleCompleted: n("revenue_video_sample_completed"),
     },
     addOn: { orders: n("orders_add_on"), revenue: n("revenue_add_on"), discount: n("discount_add_on") },
+    abandoned: {
+      checkouts: n("abandoned"),
+      value: n("abandoned_value"),
+      assisted: n("abandoned_assisted"),
+      assistedValue: n("abandoned_assisted_value"),
+    },
     costUsd: costUsd === null ? null : Math.round(costUsd * 10000) / 10000,
     tokens,
   }
@@ -317,6 +328,30 @@ export function summarizeAddOn(daily: DayStats[]) {
 }
 
 export type AddOnSummary = ReturnType<typeof summarizeAddOn>
+
+/**
+ * Checkouts left unfinished, against those finished: how many buyers stop
+ * there and what their carts were worth, and the same for buyers who wrote to
+ * the assistant.
+ */
+export function summarizeAbandoned(daily: DayStats[]) {
+  const sum = (f: (d: DayStats) => number) => round(daily.reduce((s, d) => s + f(d), 0))
+  const checkouts = sum((d) => d.abandoned.checkouts)
+  const assisted = sum((d) => d.abandoned.assisted)
+  const orders = sum((d) => d.orders)
+  const ordersAssisted = sum((d) => d.ordersAssisted)
+  return {
+    checkouts,
+    value: sum((d) => d.abandoned.value),
+    assisted,
+    assistedValue: sum((d) => d.abandoned.assistedValue),
+    /** Of the checkouts with a phone typed in, the share left unfinished. */
+    rate: ratio(checkouts, checkouts + orders, 4),
+    rateAssisted: ratio(assisted, assisted + ordersAssisted, 4),
+  }
+}
+
+export type AbandonedSummary = ReturnType<typeof summarizeAbandoned>
 
 /** Checks the password of the statistics pages (ASSISTANT_STATS_KEY); false while it isn't set. */
 export function statsKeyValid(given: string | null | undefined): boolean {

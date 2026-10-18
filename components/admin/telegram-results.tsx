@@ -48,17 +48,24 @@ export function TelegramResults({
   const orders = sum((d) => d.orders)
   const revenue = sum((d) => d.revenue)
   const posts = sum((d) => d.posts)
+  const abandoned = sum((d) => d.abandoned)
+  const abandonedValue = sum((d) => d.abandonedValue)
   // Newest first: the latest known audience, and the oldest known one in the period.
   const known = daily.filter((d) => d.members !== null)
   const members = known[0]?.members ?? null
   const membersGrowth = known.length > 1 ? members! - known[known.length - 1].members! : null
   const subscribers = daily.find((d) => d.subscribers !== null)?.subscribers ?? null
 
-  const campaigns = new Map<string, { visits: number; orders: number; revenue: number }>()
+  const campaigns = new Map<string, { visits: number; orders: number; revenue: number; abandoned: number }>()
   for (const d of daily) {
     for (const [c, v] of Object.entries(d.campaigns)) {
-      const t = campaigns.get(c) ?? { visits: 0, orders: 0, revenue: 0 }
-      campaigns.set(c, { visits: t.visits + v.visits, orders: t.orders + v.orders, revenue: t.revenue + v.revenue })
+      const t = campaigns.get(c) ?? { visits: 0, orders: 0, revenue: 0, abandoned: 0 }
+      campaigns.set(c, {
+        visits: t.visits + v.visits,
+        orders: t.orders + v.orders,
+        revenue: t.revenue + v.revenue,
+        abandoned: t.abandoned + (v.abandoned ?? 0),
+      })
     }
   }
   const byCampaign = [...campaigns.entries()].sort((a, b) => b[1].revenue - a[1].revenue || b[1].visits - a[1].visits)
@@ -93,10 +100,13 @@ export function TelegramResults({
             (orders
               ? `Після цього оформили ${orders} ${plural(orders, "замовлення", "замовлення", "замовлень")} на ${uah(revenue)}.`
               : "Замовлень після переходів поки не було.") +
+            (abandoned
+              ? ` Ще ${abandoned} ${plural(abandoned, "людина ввела", "людини ввели", "людей ввели")} телефон, але не завершили (кошики на ${uah(abandonedValue)}): вони в KeyCRM як «Кинутий кошик».`
+              : "") +
             (posts ? ` Опубліковано ${posts} ${plural(posts, "пост", "пости", "постів")}.` : "")}
       </p>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile
           label="Переходи на сайт"
           value={String(visits)}
@@ -104,11 +114,17 @@ export function TelegramResults({
         />
         <Tile label="Натиснули «купити»" value={String(buys)} note="товар одразу в кошику" />
         <Tile
+          label="Кинули оформлення"
+          value={String(abandoned)}
+          note={abandoned ? `кошики на ${uah(abandonedValue)} · угоди в KeyCRM` : "ввели телефон, але не замовили"}
+        />
+        <Tile
           label="Замовлення"
           value={String(orders)}
           note={visits ? `${((orders / visits) * 100).toLocaleString("uk-UA", { maximumFractionDigits: 1 })}% переходів` : undefined}
         />
         <Tile label="Виторг" value={uah(revenue)} note={orders ? `середній чек ${uah(revenue / orders)}` : undefined} />
+        <Tile label="Опубліковано постів" value={String(posts)} note="у каналі за період" />
         <Tile
           label="Підписники каналу"
           value={members === null ? "—" : String(members)}
@@ -141,6 +157,7 @@ export function TelegramResults({
               <tr className="text-left text-xs uppercase tracking-wide text-zinc-500">
                 <th className="py-1.5 font-semibold">Пост</th>
                 <th className="py-1.5 text-right font-semibold">Переходи</th>
+                <th className="py-1.5 text-right font-semibold">Кинули</th>
                 <th className="py-1.5 text-right font-semibold">Замовлення</th>
                 <th className="py-1.5 text-right font-semibold">Виторг</th>
               </tr>
@@ -150,6 +167,7 @@ export function TelegramResults({
                 <tr key={c} className="border-t border-zinc-100">
                   <td className="py-1.5">{campaignTitle(c)}</td>
                   <td className="py-1.5 text-right tabular-nums">{v.visits}</td>
+                  <td className="py-1.5 text-right tabular-nums">{v.abandoned}</td>
                   <td className="py-1.5 text-right tabular-nums">{v.orders}</td>
                   <td className="py-1.5 text-right tabular-nums">{uah(v.revenue)}</td>
                 </tr>

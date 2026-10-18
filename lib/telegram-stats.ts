@@ -8,6 +8,9 @@
 //   orders, revenue, orders:c:<campaign>, revenue:c:<campaign>
 //                                                    orders placed in a visit that began with a
 //                                                    Telegram link (its utm_* tags)
+//   abandoned, abandoned_value, abandoned:c:<campaign>
+//                                                    checkouts of such visits left unfinished for an
+//                                                    hour (lib/checkout-draft.ts), and their carts' worth
 //   posts                                            posts published in the channel
 //   members, subscribers                             channel members and bot subscribers, as of
 //                                                    the day's last check (not added up)
@@ -87,12 +90,14 @@ export interface TelegramDay {
   buys: number
   orders: number
   revenue: number
+  abandoned: number
+  abandonedValue: number
   posts: number
   /** Null on days nobody checked. */
   members: number | null
   subscribers: number | null
   /** campaign -> its figures */
-  campaigns: Record<string, { visits: number; orders: number; revenue: number }>
+  campaigns: Record<string, { visits: number; orders: number; revenue: number; abandoned: number }>
 }
 
 function toDay(day: string, h: Record<string, string>): TelegramDay {
@@ -100,10 +105,10 @@ function toDay(day: string, h: Record<string, string>): TelegramDay {
   const snap = (f: string) => (h[f] === undefined ? null : Number(h[f]))
   const campaigns: TelegramDay["campaigns"] = {}
   for (const [field, value] of Object.entries(h)) {
-    const m = field.match(/^(visits|orders|revenue):c:(.+)$/)
+    const m = field.match(/^(visits|orders|revenue|abandoned):c:(.+)$/)
     if (!m) continue
-    const c = (campaigns[m[2]] ??= { visits: 0, orders: 0, revenue: 0 })
-    c[m[1] as "visits" | "orders" | "revenue"] += Number(value)
+    const c = (campaigns[m[2]] ??= { visits: 0, orders: 0, revenue: 0, abandoned: 0 })
+    c[m[1] as "visits" | "orders" | "revenue" | "abandoned"] += Number(value)
   }
   return {
     day,
@@ -113,6 +118,8 @@ function toDay(day: string, h: Record<string, string>): TelegramDay {
     buys: n("buys"),
     orders: n("orders"),
     revenue: n("revenue"),
+    abandoned: n("abandoned"),
+    abandonedValue: n("abandoned_value"),
     posts: n("posts"),
     members: snap("members"),
     subscribers: snap("subscribers"),
