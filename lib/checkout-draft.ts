@@ -42,6 +42,8 @@ export interface Draft {
   utm?: Record<string, string>
   /** Messages the buyer wrote to the assistant in the week before. */
   assistantMessages?: number
+  /** A checkout on the master-class site (app/api/partner/checkout-draft): the master-class the yarn is for. */
+  course?: string
   updatedAt: number
 }
 
@@ -94,8 +96,9 @@ async function leadPipeline(): Promise<number | null> {
  * Where the buyer came from, in words, for the manager. A draft saved before
  * checkouts sent their tags has none at all: unknown, not «без міток».
  */
-export function sourceLine(utm: Record<string, string> | undefined): string {
+export function sourceLine(utm: Record<string, string> | undefined, course?: string): string {
   if (!utm) return "невідомо (кошик збережено до того, як сайт почав це записувати)"
+  if (utm.utm_source === "yarnmk") return `сайт майстер-класів yarnmk.com.ua${course ? `, пряжа до МК «${course}»` : ""}`
   if (utm.utm_source === "telegram") {
     const where = utm.utm_medium === "bot" ? "бот" : "канал"
     return `Telegram (${where}), пост «${campaignTitle(cleanCampaign(utm.utm_campaign))}»`
@@ -133,7 +136,7 @@ export async function processAbandoned(ordered: (id: string) => Promise<boolean>
           email: draft.email,
           value,
           lines,
-          source: sourceLine(draft.utm),
+          source: sourceLine(draft.utm, draft.course),
           assistantMessages: draft.assistantMessages ?? 0,
           pipeline: (await abandonedPipeline())?.title || null,
         })
@@ -183,7 +186,7 @@ async function createLead(id: string, draft: Draft): Promise<{ value: number; li
     manager_comment: [
       isTestOrderEnvironment() && "ТЕСТ — не обробляти (з тестової версії сайту)",
       "Почала оформлювати замовлення на сайті і не завершила годину тому. Напишіть у Viber.",
-      `Звідки: ${sourceLine(draft.utm)}`,
+      `Звідки: ${sourceLine(draft.utm, draft.course)}`,
       (draft.assistantMessages ?? 0) > 0 && `Писала консультанту на сайті: ${draft.assistantMessages} повід.`,
       summary,
       `Чернетка на сайті: ${id}`,

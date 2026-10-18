@@ -1,5 +1,6 @@
 // Server-only: the shop's own Telegram group, where the bot reports each
-// abandoned checkout (lib/checkout-draft.ts) as it becomes a KeyCRM lead, in
+// abandoned checkout (lib/checkout-draft.ts) as it becomes a KeyCRM lead, and
+// each master-class order left unpaid on yarnmk.com.ua (lib/mk-unpaid.ts), in
 // the topic («гілка») chosen for it, so a manager sees it at once.
 //
 // The messages carry buyers' names and phones, so they go only to the chat
@@ -107,5 +108,43 @@ export async function notifyAbandoned(n: AbandonedNotice): Promise<void> {
     })
   } catch (e) {
     console.error("[abandoned] Telegram notice failed:", (e as Error).message)
+  }
+}
+
+export interface UnpaidCourseNotice {
+  total: number
+  name: string
+  email: string
+  /** What the order was for, in words: «Майстер-клас «Светр Аліса» — 990 ₴». */
+  items: string[]
+  createdAt: string
+}
+
+/** A master-class order on yarnmk.com.ua left unpaid (lib/mk-unpaid.ts), to the same staff topic. Never throws. */
+export async function notifyUnpaidCourse(n: UnpaidCourseNotice): Promise<void> {
+  if (!telegramConfigured()) return
+  try {
+    const chat = await readStaffChat()
+    if (!chat) return
+    const at = new Date(n.createdAt).toLocaleString("uk-UA", { timeZone: "Europe/Kiev", dateStyle: "short", timeStyle: "short" })
+    const text = [
+      `💳 <b>Не оплатили на yarnmk.com.ua · ${n.total.toLocaleString("uk-UA")} ₴</b>`,
+      "",
+      `👤 ${esc(n.name || "без імені")}`,
+      n.email ? `✉️ <code>${esc(n.email)}</code>` : "✉️ email невідомий",
+      "",
+      ...n.items.map((l) => `• ${esc(l)}`),
+      "",
+      `Замовлення ${esc(at)}, оплати немає вже годину. Напишіть на email.`,
+    ].join("\n")
+    await tg("sendMessage", {
+      chat_id: chat.chatId,
+      ...(chat.threadId ? { message_thread_id: chat.threadId } : {}),
+      text,
+      parse_mode: "HTML",
+      link_preview_options: { is_disabled: true },
+    })
+  } catch (e) {
+    console.error("[mk-unpaid] Telegram notice failed:", (e as Error).message)
   }
 }
