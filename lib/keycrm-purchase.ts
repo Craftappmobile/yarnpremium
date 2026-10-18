@@ -13,11 +13,17 @@
 // the cron off: both at once would count each purchase twice.
 
 import { keycrmGet, keycrmGetPages } from "@/lib/keycrm"
+import { mkSourceId } from "@/lib/keycrm-order"
 import { type ServerEvent, sendMetaEvents, userData } from "@/lib/meta-capi"
 import { redis } from "@/lib/redis"
 
 /** KeyCRM order source «yarnpremium» (the site), as in lib/keycrm-order.ts. */
 export const SITE_SOURCE_ID = 8
+/** Sources the sites report themselves: this shop and the master-class site (its orders go through this shop). */
+async function siteSources(): Promise<number[]> {
+  const mk = await mkSourceId().catch(() => undefined)
+  return mk ? [SITE_SOURCE_ID, mk] : [SITE_SOURCE_ID]
+}
 export const SENT_KEY = (id: number) => `meta:crm-purchase:${id}`
 /** Set after a sweep of the whole week; until it expires, runs read the last two days only. */
 const WEEK_SWEPT_KEY = "meta:crm-purchase:week-swept"
@@ -31,8 +37,8 @@ const num = (v: unknown) => (v === null || v === undefined || v === "" ? NaN : N
  * The Purchase for a KeyCRM order, or why there is none. Dated when the order
  * was placed, or now if that is too long ago for Meta.
  */
-export function purchaseEvent(order: any, now = Date.now()): { event?: ServerEvent; skip?: string } {
-  if (Number(order.source_id) === SITE_SOURCE_ID) return { skip: "an order from the site: the site reports it itself" }
+export function purchaseEvent(order: any, now = Date.now(), sites = [SITE_SOURCE_ID]): { event?: ServerEvent; skip?: string } {
+  if (sites.includes(Number(order.source_id))) return { skip: "an order from the site: the site reports it itself" }
   // Only when KeyCRM gives the field: an order that isn't (fully) paid is not a purchase yet.
   if (order.payment_status && !["paid", "overpaid"].includes(order.payment_status)) {
     return { skip: `payment status is ${order.payment_status}` }
@@ -79,7 +85,7 @@ export function purchaseEvent(order: any, now = Date.now()): { event?: ServerEve
 /** One order read back from KeyCRM, and its Purchase or why there is none. */
 export async function purchaseFor(orderId: number): Promise<{ event?: ServerEvent; skip?: string; order: any }> {
   const order = await keycrmGet<any>(`/order/${orderId}`, { include: INCLUDE })
-  return { ...purchaseEvent(order), order }
+  return { ...purchaseEvent(order, Date.now(), await siteSources()), order }
 }
 
 export interface PurchaseSyncReport {
@@ -109,12 +115,13 @@ export async function syncPurchases({ maxPages = 30 } = {}): Promise<PurchaseSyn
     maxPages,
   )
 
+  const sites = await siteSources()
   const report: PurchaseSyncReport = { days, orders: items.length, total, paid: 0, sent: 0, alreadySent: 0, skipped: {} }
   const batch: { id: number; event: ServerEvent }[] = []
   for (const order of items) {
     if (order.payment_status !== "paid" && order.payment_status !== "overpaid") continue
     report.paid++
-    const { event, skip } = purchaseEvent(order, now)
+    const { event, skip } = purchaseEvent(order, now, sites)
     if (!event) {
       report.skipped[skip!] = (report.skipped[skip!] ?? 0) + 1
       continue
