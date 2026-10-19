@@ -32,6 +32,8 @@ const SALE_CATEGORY = "акційний товар"
 export interface ReviewPhoto {
   /** Telegram's file_unique_id; the file is served by app/review-photo (lib/reviews-intake.ts). */
   id: string
+  /** A photo kept with the site instead (the imported history, public/reviews). */
+  src?: string
   w: number
   h: number
 }
@@ -155,15 +157,25 @@ export async function readReview(id: string): Promise<Review | null> {
 
 /** Saves a review, new or changed (its products may differ), and rebuilds the pages that show it. */
 export async function saveReview(review: Review, catalog: Product[]): Promise<void> {
+  await saveReviews([review], catalog)
+}
+
+/** Many at once (the imported history): the pages are rebuilt once, all of them if need be. */
+export async function saveReviews(reviews: Review[], catalog: Product[]): Promise<void> {
+  if (reviews.length === 0) return
   const r = await redis()
-  const before = await readReview(review.id)
-  const score = Date.parse(review.at) || Date.now()
+  const raw = await r.hmGet(KEY_ITEMS, reviews.map((x) => x.id))
+  const before = raw.map((j) => (j ? (JSON.parse(j) as Review) : null))
   const m = r.multi()
-  if (before) for (const k of indexKeys(before)) m.zRem(k, review.id)
-  m.hSet(KEY_ITEMS, review.id, JSON.stringify(review))
-  for (const k of indexKeys(review)) m.zAdd(k, { score, value: review.id })
+  reviews.forEach((review, i) => {
+    const old = before[i]
+    if (old) for (const k of indexKeys(old)) m.zRem(k, review.id)
+    m.hSet(KEY_ITEMS, review.id, JSON.stringify(review))
+    const score = Date.parse(review.at) || Date.now()
+    for (const k of indexKeys(review)) m.zAdd(k, { score, value: review.id })
+  })
   await m.exec()
-  refreshPages([before, review], catalog)
+  refreshPages([...before, ...reviews], catalog)
 }
 
 export async function deleteReview(id: string, catalog: Product[]): Promise<Review | null> {
@@ -181,7 +193,7 @@ export async function deleteReview(id: string, catalog: Product[]): Promise<Revi
 /**
  * Product pages are cached for an hour (app/product/[sku]): the reviewed
  * products and other colours of the same yarn are rebuilt at once, the rest
- * of the category within the hour.
+ * of the category within the hour (all of them at once after an import).
  */
 function refreshPages(reviews: (Review | null)[], catalog: Product[]) {
   const skus = new Set<string>()
@@ -192,7 +204,9 @@ function refreshPages(reviews: (Review | null)[], catalog: Product[]) {
   }
   try {
     revalidatePath("/vidguky")
-    for (const s of [...skus].slice(0, 400)) revalidatePath(`/product/${encodeURIComponent(s)}`)
+    // Many at once (the import): every product page, the category's ones included.
+    if (reviews.length > 20 || skus.size > 400) revalidatePath("/product/[sku]", "page")
+    else for (const s of skus) revalidatePath(`/product/${encodeURIComponent(s)}`)
   } catch {
     // Outside a request (the import script): nothing is cached there.
   }

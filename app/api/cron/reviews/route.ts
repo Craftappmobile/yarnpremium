@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { redisConfigured } from "@/lib/redis"
+import { loadArchive } from "@/lib/reviews-archive"
 import { processReviews } from "@/lib/reviews-intake"
 import { telegramConfigured } from "@/lib/telegram"
 
@@ -18,7 +19,10 @@ export async function GET(req: NextRequest) {
   if (!telegramConfigured() || !redisConfigured() || !process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN, REDIS_URL or ANTHROPIC_API_KEY is not set" }, { status: 500 })
   }
+  // The topic's history, once per version of content/reviews-archive.json.
+  const archive = await loadArchive().catch((e: Error) => ({ error: e.message }))
+  if (archive) console.log("[reviews] archive", JSON.stringify(archive))
   const run = await processReviews()
   if (run.messages) console.log("[reviews]", JSON.stringify(run))
-  return NextResponse.json(run)
+  return NextResponse.json({ ...run, archive })
 }
