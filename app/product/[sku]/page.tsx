@@ -1,6 +1,7 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { readCatalog, readProducts } from "@/lib/catalog"
+import { openGraph } from "@/lib/og"
 import { SITE_URL } from "@/lib/site"
 import { similarProducts } from "@/lib/similar-products"
 import { readProductVideos } from "@/lib/product-videos"
@@ -43,12 +44,8 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
     alternates: { canonical: url },
     // A sold-out page stays reachable from old links but shouldn't be indexed.
     robots: product.stock > 0 ? undefined : { index: false },
-    openGraph: {
-      title: product.name,
-      description,
-      url,
-      images: product.image ? [{ url: product.image, alt: product.name }] : undefined,
-    },
+    // The preview picture, 1200×630, is the product's photo on the shop's domain: ./opengraph-image.tsx.
+    openGraph: openGraph({ title: product.name, description, url }, { ownImage: true }),
   }
 }
 

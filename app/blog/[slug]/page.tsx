@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { getAllPosts, getPost, formatDate, readingTime } from "@/lib/blog"
+import { ogImage, openGraph } from "@/lib/og"
 
 // Only posts that exist in content/blog render; other URLs 404.
 export const dynamicParams = false
@@ -17,24 +18,25 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const post = getPost(slug)
   if (!post) return { title: "Статтю не знайдено" }
   const description = post.excerpt ?? post.content.slice(0, 155)
+  const cover = await ogImage(post.cover, post.title)
   return {
     title: post.title,
     alternates: { canonical: `/blog/${post.slug}` },
     description,
     robots: post.draft ? { index: false } : undefined,
-    openGraph: {
+    openGraph: openGraph({
       title: post.title,
       description,
       type: "article",
       url: `/blog/${post.slug}`,
       publishedTime: post.date,
-      images: post.cover ? [{ url: post.cover }] : undefined,
-    },
+      images: cover ? [cover] : undefined,
+    }),
     twitter: {
       card: "summary_large_image",
       title: post.title,
       description,
-      images: post.cover ? [post.cover] : undefined,
+      images: cover ? [cover] : undefined,
     },
   }
 }
