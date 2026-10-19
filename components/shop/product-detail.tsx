@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence } from "motion/react"
 import { ArrowLeft, Check, X, Heart, MessageCircle, Play, ShoppingBag } from "lucide-react"
@@ -37,6 +37,8 @@ interface ProductDetailProps {
   similar?: Product[]
   /** `similar` was picked by colour, not by category alone. */
   similarByColor?: boolean
+  /** «Відгуки покупців» (components/shop/reviews.tsx), rendered on the server. */
+  reviews?: ReactNode
 }
 
 /** Yarn by weight is priced per gram; the card shows the price of 100 g, which people compare. */
@@ -44,7 +46,7 @@ const PRICE_GRAMS = 100
 /** KeyCRM fields about the yarn itself; the rest of `specs` describe the shop's knitted sample. */
 const YARN_SPECS = ["Склад"]
 
-export function ProductDetail({ product, videos = null, similar = [], similarByColor = false }: ProductDetailProps) {
+export function ProductDetail({ product, videos = null, similar = [], similarByColor = false, reviews }: ProductDetailProps) {
   const inStock = product.stock > 0
   const byWeight = product.priceUnit === "г"
   const yarnSpecs = (product.specs ?? []).filter((s) => YARN_SPECS.includes(s.name))
@@ -368,6 +370,8 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               </div>
             </section>
           )}
+
+          {reviews}
         </div>
 
         {inStock && (

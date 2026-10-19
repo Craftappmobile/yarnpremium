@@ -9,6 +9,8 @@ import { MAX_POSTS, POST_HOUR, introPost, plannedPosts, queueSize, readIntro, re
 import { RUBRICS } from "@/lib/telegram-rubrics"
 import { readTelegramStats } from "@/lib/telegram-stats"
 import { readStaffChat, staffCode } from "@/lib/telegram-staff"
+import { reviewCount } from "@/lib/reviews"
+import { readReviewsTopic } from "@/lib/reviews-intake"
 import { TelegramResults } from "@/components/admin/telegram-results"
 
 // The Telegram channel's daily post, for the shop's owner:
@@ -60,7 +62,11 @@ export default async function TelegramAdminPage({
     readTelegramStats(days),
     readIntro(),
   ])
-  const staff = await readStaffChat().catch(() => null)
+  const [staff, reviewsTopic, reviews] = await Promise.all([
+    readStaffChat().catch(() => null),
+    readReviewsTopic().catch(() => null),
+    reviewCount().catch(() => 0),
+  ])
   const introResult = typeof params.intro === "string" ? params.intro : ""
   const introReason = typeof params.reason === "string" ? params.reason : ""
   const { posts } = await plannedPosts(products)
@@ -126,6 +132,35 @@ export default async function TelegramAdminPage({
             <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-900">/abandoned_here {staffCode()}</code>
           </li>
           <li>Бот відповість «✅ Тут зʼявлятимуться кинуті кошики». Вимкнути: /abandoned_off {staffCode()}</li>
+        </ol>
+      </section>
+
+      <section className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
+        <h2 className="text-lg font-semibold">Відгуки з робочої групи на сайт</h2>
+        {reviewsTopic ? (
+          <p className="text-green-700">
+            Відгуки з «{reviewsTopic.title}» самі з&apos;являються на картках товарів і на{" "}
+            <a className="underline" href="/vidguky">
+              сторінці відгуків
+            </a>
+            . Опубліковано: {reviews}.
+          </p>
+        ) : (
+          <p className="text-zinc-600">Ще не налаштовано. Опубліковано відгуків: {reviews}.</p>
+        )}
+        <ol className="list-decimal space-y-1 pl-5 text-zinc-700">
+          <li>
+            У гілці «Відгуки» тієї ж групи надішліть:{" "}
+            <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-900">/reviews_here {staffCode()}</code>
+          </li>
+          <li>
+            Менеджер публікує скриншот відповіді покупця (і фото виробу, якщо є) та посилання на товар або артикул. За
+            кілька хвилин бот відповідає, що опублікував.
+          </li>
+          <li>
+            Не той товар — відповісти боту посиланням чи артикулом. Прибрати — відповісти боту /review_delete. Вимкнути
+            все: /reviews_off {staffCode()}
+          </li>
         </ol>
       </section>
 

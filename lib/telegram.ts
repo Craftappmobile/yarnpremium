@@ -99,3 +99,14 @@ export interface InlineButton {
 }
 
 export const keyboard = (rows: InlineButton[][]) => ({ inline_keyboard: rows })
+
+/** Downloads a file the bot can see (a photo in a group it is in) by its file id. */
+export async function tgFile(fileId: string): Promise<{ data: Buffer; path: string }> {
+  const file = await tg<{ file_path?: string }>("getFile", { file_id: fileId })
+  if (!file.file_path) throw new TelegramError("getFile", 400, "file too big or gone")
+  const res = await fetch(`https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`, {
+    signal: AbortSignal.timeout(30_000),
+  })
+  if (!res.ok) throw new TelegramError("getFile", res.status, res.statusText)
+  return { data: Buffer.from(await res.arrayBuffer()), path: file.file_path }
+}
