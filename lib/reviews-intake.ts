@@ -8,7 +8,8 @@
 // (`processReviews`) gives each manager's messages to Claude, which picks out
 // the buyer's words and first name, and which photos show the item rather than
 // the chat. The review is published at once, and the bot answers in the topic
-// with what it published and how to correct it:
+// with what it published and how to correct it (complaints are not published:
+// the bot says so):
 //   reply to the bot with a link or SKU      — another product
 //   reply to the bot with /review_delete     — off the site
 //
@@ -207,6 +208,7 @@ The reviews you find are published on the shop's product pages. For each review,
 - product_mentions: every link, SKU, article and product name the manager wrote or the screenshots show, copied exactly.
 - product_title: the yarn as the manager named it, short («Меринос 100% Cashwool», «Кашемір шовк Jaipur»); empty if not named.
 - category: the shop category the yarn belongs to, from the list in the schema; empty if unclear.
+- negative: true when the buyer is mainly complaining or disappointed (the colour isn't what they expected, the yarn pricks, sheds, stains, the quality isn't worth the price). Mostly praise with a small «but» is not negative. Negative reviews are not published; the shop deals with them.
 
 A post is a review only if the buyer says what they think of the yarn, the item, the order or the shop. A screenshot of a question, an order or a delivery detail without such words is not one. If nothing is a review, return an empty list.`
 
@@ -221,7 +223,7 @@ function schema(categories: string[]) {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["message_ids", "author", "text", "item_photos", "product_mentions", "product_title", "category"],
+          required: ["message_ids", "author", "text", "item_photos", "product_mentions", "product_title", "category", "negative"],
           properties: {
             message_ids: { type: "array", items: { type: "integer" } },
             author: { type: "string" },
@@ -230,6 +232,7 @@ function schema(categories: string[]) {
             product_mentions: { type: "array", items: { type: "string" } },
             product_title: { type: "string" },
             category: { type: "string", enum: [...new Set(["", ...categories])] },
+            negative: { type: "boolean" },
           },
         },
       },
@@ -245,6 +248,7 @@ export interface Extracted {
   product_mentions: string[]
   product_title: string
   category: string
+  negative: boolean
 }
 
 /** A post as Claude reads it: its words and its photos, already downloaded. */
@@ -361,11 +365,21 @@ async function publish(
   batch: PendingMessage[],
   labels: Map<string, { message: PendingMessage; w: number; h: number }>,
   catalog: Product[],
-): Promise<Review | null> {
+): Promise<Review | "negative" | null> {
   const ids = found.message_ids.filter((id) => batch.some((m) => m.messageId === id)).sort((a, b) => a - b)
   const text = found.text.trim()
   if (!ids.length || !text) return null
   const first = batch.find((m) => m.messageId === ids[0])!
+  // The owner's choice: complaints stay in the group, for the shop to deal with.
+  if (found.negative) {
+    await replyTo(
+      first.chatId,
+      first.threadId,
+      first.messageId,
+      `🙈 Це негативний відгук, на сайт його не публікую.\n«${esc(text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text)}»`,
+    ).catch(() => {})
+    return "negative"
+  }
   const photos: ReviewPhoto[] = []
   const r = await redis()
   for (const label of found.item_photos) {
@@ -415,8 +429,13 @@ async function processBatch(batch: PendingMessage[], catalog: Product[], categor
   }
   const found = await extractReviews(posts, categories)
   let published = 0
-  for (const f of found) if (await publish(f, batch, labels, catalog)) published++
-  if (published === 0 && batch.some((m) => m.photo)) {
+  let negative = 0
+  for (const f of found) {
+    const done = await publish(f, batch, labels, catalog)
+    if (done === "negative") negative++
+    else if (done) published++
+  }
+  if (published === 0 && negative === 0 && batch.some((m) => m.photo)) {
     const first = batch[0]
     await replyTo(
       first.chatId,
