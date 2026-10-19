@@ -18,13 +18,13 @@ export function ReviewCard({ review, currentSku }: { review: Review; currentSku?
           {review.photos.slice(0, 3).map((p) => (
             <a
               key={p.id}
-              href={`/review-photo/${p.id}`}
+              href={p.src ?? `/review-photo/${p.id}`}
               target="_blank"
               rel="noopener"
               className="block aspect-square overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800"
             >
               <Image
-                src={`/review-photo/${p.id}`}
+                src={p.src ?? `/review-photo/${p.id}`}
                 alt={`Фото від покупця${review.about ? `: ${review.about}` : ""}`}
                 width={p.w || 800}
                 height={p.h || 800}
