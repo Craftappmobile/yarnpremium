@@ -4,6 +4,7 @@ import { sitePages } from "./site-content"
 // Посилання беруться напряму зі сторінок контенту, тож футер завжди синхронний
 const links = [
   { label: "Журнал", href: "/blog" },
+  { label: "Відгуки", href: "/vidguky" },
   ...sitePages.map((page) => ({ label: page.navLabel, href: `/${page.slug}` })),
 ]
 

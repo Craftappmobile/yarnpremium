@@ -24,6 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     })),
     { url: `${SITE_URL}/blog`, changeFrequency: "weekly", priority: 0.5 },
+    { url: `${SITE_URL}/vidguky`, changeFrequency: "weekly", priority: 0.5 },
     ...posts.map((post) => ({ url: `${SITE_URL}/blog/${post.slug}`, lastModified: post.date, priority: 0.5 })),
     ...sitePages.map((page) => ({ url: `${SITE_URL}/${page.slug}`, priority: 0.3 })),
   ]

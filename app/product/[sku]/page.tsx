@@ -4,9 +4,11 @@ import { readCatalog, readProducts } from "@/lib/catalog"
 import { SITE_URL } from "@/lib/site"
 import { similarProducts } from "@/lib/similar-products"
 import { readProductVideos } from "@/lib/product-videos"
+import { reviewsForProduct } from "@/lib/reviews"
 import { fallbackSearch, matchOldProduct, rankOldProduct } from "@/lib/old-urls"
 import { formatPrice, type Product } from "@/components/shop/data"
 import { ProductDetail } from "@/components/shop/product-detail"
+import { ProductReviews } from "@/components/shop/reviews"
 
 // Pages are rendered on first visit and rebuilt when the product changes
 // (webhook, order, catalog sync); the hourly rebuild only refreshes the
@@ -119,13 +121,14 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
   const product = await findProduct(sku)
   if (!product) return resolveOldAddress(sku)
 
-  const [similar, videos] = await Promise.all([
+  const [similar, videos, reviews] = await Promise.all([
     product.stock > 0
       ? null
       : readCatalog()
           .catch(() => [])
           .then((catalog) => similarProducts(product, catalog)),
     readProductVideos(product.sku).catch(() => null),
+    reviewsForProduct(product).catch(() => null),
   ])
   return (
     <>
@@ -139,6 +142,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
         videos={videos}
         similar={similar?.products}
         similarByColor={similar?.byColor}
+        reviews={reviews && <ProductReviews reviews={reviews} sku={product.sku} />}
       />
     </>
   )
