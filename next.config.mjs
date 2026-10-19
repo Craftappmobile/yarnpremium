@@ -12,7 +12,11 @@ const nextConfig = {
   // (billed per transformation, so the size list is short and results are
   // cached for a month — KeyCRM gives every upload a new file name).
   images: {
-    remotePatterns: [{ protocol: "https", hostname: "sincerita.api.keycrm.app", pathname: "/file-storage/**" }],
+    // The second is where KeyCRM's API says files uploaded through it live (lib/telegram-photos.ts).
+    remotePatterns: [
+      { protocol: "https", hostname: "sincerita.api.keycrm.app", pathname: "/file-storage/**" },
+      { protocol: "https", hostname: "openapi.keycrm.app", pathname: "/storage/**" },
+    ],
     formats: ["image/webp"],
     deviceSizes: [640, 828, 1080, 1200],
     imageSizes: [96, 192, 256, 384],

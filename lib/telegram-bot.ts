@@ -16,13 +16,15 @@ import { RUBRICS, rubricByKey } from "@/lib/telegram-rubrics"
 import { handleReviewsMessage } from "@/lib/reviews-intake"
 import { handleStaffCommand } from "@/lib/telegram-staff"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg, webhookSecret } from "@/lib/telegram"
+import { handleChannelPost } from "@/lib/telegram-photos"
 
 const KEY_SUBS = "tg:subs"
 /** The bot id is the token's part before the colon. */
 const keyMe = () => `tg:me:${(process.env.TELEGRAM_BOT_TOKEN ?? "").split(":")[0]}`
 
 export const WEBHOOK_PATH = "/api/telegram/webhook"
-const ALLOWED_UPDATES = ["message", "callback_query", "my_chat_member"]
+// Channel posts: product photos (lib/telegram-photos.ts).
+const ALLOWED_UPDATES = ["message", "callback_query", "my_chat_member", "channel_post", "edited_channel_post"]
 
 // ---------------------------------------------------------------------------
 // Subscribers
@@ -93,8 +95,9 @@ const profileKey = () => `${keyMe()}:profile`
  */
 export async function ensureWebhook(): Promise<{ url: string; changed: boolean; profile?: boolean }> {
   const url = `${SITE_URL}${WEBHOOK_PATH}`
-  const info = await tg<{ url: string }>("getWebhookInfo")
-  const changed = info.url !== url
+  const info = await tg<{ url: string; allowed_updates?: string[] }>("getWebhookInfo")
+  // A new kind of update (channel posts: lib/telegram-photos.ts) needs the webhook set again.
+  const changed = info.url !== url || !ALLOWED_UPDATES.every((u) => info.allowed_updates?.includes(u))
   if (changed) await tg("setWebhook", { url, secret_token: webhookSecret(), allowed_updates: ALLOWED_UPDATES })
 
   const r = await redis()
@@ -152,6 +155,10 @@ async function sendMenu(chatId: number, rubrics: string[], note?: string) {
 
 /** Handles one update from Telegram's webhook. */
 export async function handleUpdate(update: any): Promise<void> {
+  if (update.channel_post || update.edited_channel_post) {
+    await handleChannelPost(update.channel_post ?? update.edited_channel_post, Boolean(update.edited_channel_post))
+    return
+  }
   const message = update.message
   // The shop's own group: where abandoned checkouts are reported (lib/telegram-staff.ts),
   // and the topic whose reviews go to the site (lib/reviews-intake.ts).

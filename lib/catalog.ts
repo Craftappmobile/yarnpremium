@@ -12,6 +12,10 @@
 //   catalog:offer_sku  hash  KeyCRM offer id -> sku (webhooks may name offers by id only)
 //   catalog:image_color hash photo URL -> yarn colour worked out from it (kept across syncs)
 //   catalog:videos     hash  sku -> videos from Google Drive (lib/product-videos.ts)
+//   catalog:photos     hash  sku -> JSON list of photo URLs sent through the Telegram photo
+//                      channel (lib/telegram-photos.ts); shown instead of KeyCRM's, kept across syncs
+//   catalog:sku_product hash sku -> JSON {offerId, productId, offers}: every non-archived
+//                      KeyCRM offer, sold here or not, and how many offers its product has
 //   catalog:meta       JSON  report of the last sync
 //   catalog:lock       lock  held while a sync runs
 
@@ -30,6 +34,10 @@ const KEY_OFFER_SKU = "catalog:offer_sku"
 const KEY_META = "catalog:meta"
 const KEY_LOCK = "catalog:lock"
 const KEY_IMAGE_COLOR = "catalog:image_color"
+const KEY_PHOTOS = "catalog:photos"
+const KEY_SKU_PRODUCT = "catalog:sku_product"
+/** KeyCRM keeps at most 6 photos per product, the first one being the main one. */
+export const MAX_PHOTOS = 6
 
 /** Photo colours are worked out after KeyCRM is read, until this long after the sync started. */
 const COLOR_DEADLINE_MS = 200_000
@@ -216,6 +224,18 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
     const categoryName = new Map<number, string>(categories.map((c: any) => [c.id, String(c.name ?? "").trim()]))
     const productById = new Map<number, any>(products.map((p: any) => [p.id, p]))
 
+    // Which KeyCRM product each SKU belongs to, and whether that product has other
+    // offers (colours): photos sent through Telegram go to the product then, or to the offer.
+    const activeOffers = offers.filter((o: any) => !o.is_archived && !(productById.get(o.product_id) ?? o.product)?.is_archived)
+    const offersOf = new Map<number, number>()
+    for (const o of activeOffers) offersOf.set(o.product_id, (offersOf.get(o.product_id) ?? 0) + 1)
+    const skuProduct: Record<string, string> = {}
+    for (const o of activeOffers) {
+      const sku = String(o.sku ?? "").trim()
+      if (sku && !skuProduct[sku])
+        skuProduct[sku] = JSON.stringify({ offerId: o.id, productId: o.product_id, offers: offersOf.get(o.product_id) })
+    }
+
     const skipped = { noSku: [] as string[], excludedCategory: 0, archived: 0, noProduct: 0 }
     const catalog: Product[] = []
     const seen = new Set<string>()
@@ -265,6 +285,14 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
       })),
     }
 
+    // Photos sent through Telegram take the place of KeyCRM's: KeyCRM keeps one
+    // photo per offer, so a colour's own gallery lives only here.
+    const telegramPhotos = await r.hGetAll(KEY_PHOTOS)
+    for (const p of catalog) {
+      const photos = telegramPhotos[p.sku] ? (JSON.parse(telegramPhotos[p.sku]) as string[]) : []
+      if (photos.length) Object.assign(p, { image: photos[0], images: photos.slice(0, MAX_PHOTOS) })
+    }
+
     // Colour of each yarn on sale, from its photo. The group comes from the colour's
     // name in KeyCRM where it's recognised (photos come out darker and greyer than
     // the yarn), else from the photo; the product's name can mark it multicoloured.
@@ -310,7 +338,8 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
     )
     const promos = runningPromosKey()
 
-    const tx = r.multi().del(KEY_PRODUCTS).del(KEY_STOCK).del(KEY_OFFER_SKU)
+    const tx = r.multi().del(KEY_PRODUCTS).del(KEY_STOCK).del(KEY_OFFER_SKU).del(KEY_SKU_PRODUCT)
+    if (Object.keys(skuProduct).length) tx.hSet(KEY_SKU_PRODUCT, skuProduct)
     if (catalog.length) {
       tx.hSet(KEY_OFFER_SKU, Object.fromEntries(catalog.map((p) => [String(p.offerId), p.sku])))
       tx.hSet(KEY_PRODUCTS, productsNow)
@@ -375,6 +404,40 @@ export async function readProducts(skus: string[]): Promise<Product[]> {
   const r = await redis()
   const [raw, stock] = await Promise.all([r.hmGet(KEY_PRODUCTS, skus), r.hmGet(KEY_STOCK, skus)])
   return raw.flatMap((json, i) => (json ? [withLiveStock(JSON.parse(json) as Product, stock[i])] : []))
+}
+
+export interface PhotoTarget {
+  /** As KeyCRM spells it. */
+  sku: string
+  offerId: number
+  productId: number
+  /** Offers (colours) of the product, this one included. */
+  offers: number
+}
+
+/** The KeyCRM offer and product of a SKU (any case), as of the last sync; null when unknown. */
+export async function photoTarget(sku: string): Promise<PhotoTarget | null> {
+  const r = await redis()
+  const exact = await r.hGet(KEY_SKU_PRODUCT, sku)
+  if (exact) return { sku, ...JSON.parse(exact) }
+  const wanted = sku.toLowerCase()
+  const match = (await r.hKeys(KEY_SKU_PRODUCT)).find((k) => k.toLowerCase() === wanted)
+  const json = match ? await r.hGet(KEY_SKU_PRODUCT, match) : null
+  return match && json ? { sku: match, ...JSON.parse(json) } : null
+}
+
+/**
+ * Makes these photos the SKU's gallery on the site at once (and at every later
+ * sync). Returns whether the site lists the SKU.
+ */
+export async function saveProductPhotos(sku: string, urls: string[]): Promise<boolean> {
+  const r = await redis()
+  const photos = urls.slice(0, MAX_PHOTOS)
+  await r.hSet(KEY_PHOTOS, sku, JSON.stringify(photos))
+  const json = await r.hGet(KEY_PRODUCTS, sku)
+  if (!json) return false
+  await r.hSet(KEY_PRODUCTS, sku, JSON.stringify({ ...JSON.parse(json), image: photos[0], images: photos }))
+  return true
 }
 
 export async function readCatalogMeta(): Promise<(SyncReport & { finishedAt?: string }) | null> {

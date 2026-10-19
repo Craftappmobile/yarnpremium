@@ -6,6 +6,8 @@ import { handleUpdate } from "@/lib/telegram-bot"
 // sends the secret set with the webhook in a header; anything without it is
 // turned away.
 export const dynamic = "force-dynamic"
+// Product photos from the photo channel are uploaded to KeyCRM after the answer (lib/telegram-photos.ts).
+export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   if (!telegramConfigured() || req.headers.get("x-telegram-bot-api-secret-token") !== webhookSecret()) {
