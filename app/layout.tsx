@@ -9,6 +9,7 @@ import { Analytics } from "@/components/shop/analytics"
 import { MotionProvider } from "@/components/shop/motion-provider"
 import { Assistant } from "@/components/shop/assistant"
 import { BRAND, HOME_TITLE, SITE_INDEXABLE, SITE_URL } from "@/lib/site"
+import { openGraph } from "@/lib/og"
 
 // Inter, Latin and Cyrillic only (Google's subsets of the variable font, OFL).
 // Each face is limited to its own characters, so anything else — the «₴» sign
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
   title: { default: HOME_TITLE, template: `%s — ${BRAND}` },
   description: DESCRIPTION,
   applicationName: BRAND,
-  openGraph: { type: "website", siteName: BRAND, locale: "uk_UA", description: DESCRIPTION },
+  openGraph: openGraph({ description: DESCRIPTION }),
   twitter: { card: "summary_large_image" },
   // Until the shop moves to its own domain, keep the *.vercel.app address out of search.
   robots: SITE_INDEXABLE ? undefined : { index: false, follow: false },

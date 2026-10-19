@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Mail, Phone, MapPin } from "lucide-react"
 import { sitePages, getSitePage, type ContentSection } from "@/components/shop/site-content"
+import { openGraph } from "@/lib/og"
 
 // Лише відомі сторінки з site-content.ts, інші URL → 404
 export const dynamicParams = false
@@ -24,7 +25,7 @@ export async function generateMetadata({
     title: { absolute: page.metaTitle },
     description: page.metaDescription,
     alternates: { canonical: `/${page.slug}` },
-    openGraph: { title: page.metaTitle, description: page.metaDescription, url: `/${page.slug}` },
+    openGraph: openGraph({ title: page.metaTitle, description: page.metaDescription, url: `/${page.slug}` }),
   }
 }
 

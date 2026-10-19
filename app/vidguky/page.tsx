@@ -3,6 +3,7 @@ import Link from "next/link"
 import { latestReviews } from "@/lib/reviews"
 import { redisConfigured } from "@/lib/redis"
 import { ReviewCard } from "@/components/shop/reviews"
+import { openGraph } from "@/lib/og"
 
 // Every buyer's review (lib/reviews.ts), newest first, 30 to a page.
 
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
   title: "Відгуки покупців",
   description: "Що пишуть покупці SINCERITA про італійську пряжу і вироби з неї: відгуки з фото готових робіт.",
   alternates: { canonical: "/vidguky" },
-  openGraph: { url: "/vidguky" },
+  openGraph: openGraph({ url: "/vidguky" }),
 }
 
 export default async function ReviewsPage({

@@ -3,10 +3,11 @@ import MinimalShop from "@/components/shop/minimal-shop"
 import { packCatalog } from "@/components/shop/catalog-pack"
 import { FIRST_SCREEN } from "@/components/shop/catalog-summary"
 import { catalogPageData } from "@/lib/catalog-page"
+import { openGraph } from "@/lib/og"
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
-  openGraph: { url: "/" },
+  openGraph: openGraph({ url: "/" }),
 }
 
 // Rebuilt when stock or the catalog changes (webhook, order, catalog sync:

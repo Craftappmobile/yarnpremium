@@ -9,6 +9,7 @@ import { RENAMED_CATEGORIES } from "@/lib/categories"
 import { categoryBySlug, categoryPath, categorySlug, categoryTitle } from "@/lib/category-url"
 import { similarCategories } from "@/lib/similar-categories"
 import { pluralUk } from "@/lib/utils"
+import { openGraph } from "@/lib/og"
 
 // A category's own page: the catalog opened on it, rendered on the first
 // visit and refreshed like the home page. A category with nothing left says
@@ -57,7 +58,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { url, title, description },
+    openGraph: openGraph({ url, title, description }),
     // Nothing to buy on it: reachable from old links, but not for search results.
     ...(soldOut ? { robots: { index: false, follow: true } } : {}),
   }

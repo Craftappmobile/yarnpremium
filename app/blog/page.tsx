@@ -1,11 +1,12 @@
 import Link from "next/link"
 import { getAllPosts, formatDate, readingTime } from "@/lib/blog"
+import { openGraph } from "@/lib/og"
 
 export const metadata = {
   title: "Журнал",
   description: "Поради з вʼязання, гайди по пряжі та історії майстрів.",
   alternates: { canonical: "/blog" },
-  openGraph: { url: "/blog" },
+  openGraph: openGraph({ url: "/blog" }),
 }
 
 function DraftBadge() {
