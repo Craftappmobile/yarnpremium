@@ -24,7 +24,7 @@ import type { YarnColor } from "@/lib/image-color"
 import { familyFromName } from "@/components/shop/yarn-colors"
 import { type KeycrmUsage, keycrmBackground, keycrmGetAll, keycrmGetPages } from "@/lib/keycrm"
 import { redis, redisConfigured } from "@/lib/redis"
-import { type DriveVideoReport, KEY_VIDEOS, driveVideosConfigured, matchDriveVideos } from "@/lib/product-videos"
+import { type DriveVideoReport, KEY_VIDEOS, driveVideosConfigured, matchDriveVideos, skuKey } from "@/lib/product-videos"
 import { runningPromosKey, withPromo } from "@/lib/promo"
 
 const KEY_PRODUCTS = "catalog:products"
@@ -415,13 +415,14 @@ export interface PhotoTarget {
   offers: number
 }
 
-/** The KeyCRM offer and product of a SKU (any case), as of the last sync; null when unknown. */
+/** The KeyCRM offer and product of a SKU (any case, spaces or dashes), as of the last sync; null when unknown. */
 export async function photoTarget(sku: string): Promise<PhotoTarget | null> {
   const r = await redis()
   const exact = await r.hGet(KEY_SKU_PRODUCT, sku)
   if (exact) return { sku, ...JSON.parse(exact) }
-  const wanted = sku.toLowerCase()
-  const match = (await r.hKeys(KEY_SKU_PRODUCT)).find((k) => k.toLowerCase() === wanted)
+  // «st180-3», «ST180 - 3» and «SТ180-3» (Cyrillic Т) are one SKU.
+  const wanted = skuKey(sku)
+  const match = (await r.hKeys(KEY_SKU_PRODUCT)).find((k) => skuKey(k) === wanted)
   const json = match ? await r.hGet(KEY_SKU_PRODUCT, match) : null
   return match && json ? { sku: match, ...JSON.parse(json) } : null
 }

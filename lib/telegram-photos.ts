@@ -37,6 +37,7 @@ import { after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { MAX_PHOTOS, type PhotoTarget, photoTarget, saveProductPhotos } from "@/lib/catalog"
 import { KeycrmError, keycrmBackground, keycrmGet, keycrmGetPages, keycrmSend, keycrmUpload } from "@/lib/keycrm"
+import { skuKey } from "@/lib/product-videos"
 import { redis } from "@/lib/redis"
 import { staffCode } from "@/lib/telegram-staff"
 import { esc, tg } from "@/lib/telegram"
@@ -319,10 +320,8 @@ async function askKeycrm(sku: string): Promise<PhotoTarget | null> {
 
 async function findOffer(sku: string): Promise<PhotoTarget | null> {
   const res = await keycrmGet<{ data?: any[] }>("/offers", { "filter[sku]": sku, include: "product", limit: 50 })
-  const wanted = sku.toLowerCase()
-  const offer = (res.data ?? []).find(
-    (o) => String(o.sku ?? "").trim().toLowerCase() === wanted && !o.is_archived && !o.product?.is_archived,
-  )
+  const wanted = skuKey(sku)
+  const offer = (res.data ?? []).find((o) => skuKey(String(o.sku ?? "")) === wanted && !o.is_archived && !o.product?.is_archived)
   if (!offer) return null
   const { items } = await keycrmGetPages("/offers", { "filter[product_id]": offer.product_id, "filter[is_archived]": "false" })
   const offers = items.filter((o: any) => o.product_id === offer.product_id).length || 1
