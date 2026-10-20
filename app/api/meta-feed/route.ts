@@ -4,7 +4,7 @@ import { catalogImageUrl } from "@/lib/catalog-image"
 import { type ProductVideos, readAllProductVideos } from "@/lib/product-videos"
 import { BRAND, SITE_URL } from "@/lib/site"
 import { type PromoConfig, currentOrNextPromo, promoLabel, promoPrice, promoWindow, regularPrice } from "@/lib/promo"
-import type { Product } from "@/components/shop/data"
+import { type Product, isRemnant } from "@/components/shop/data"
 
 // Product feed for the Meta catalog (Commerce Manager fetches it hourly).
 // `id` is the SKU — the same id the pixel and the Conversions API send as
@@ -121,7 +121,8 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
     id: p.sku,
     title: (weight ? `${p.name}, ${WEIGHT_AD_GRAMS} г` : p.name).slice(0, 200),
     description: [p.description || details || p.name, priceNote].filter(Boolean).join(" ").slice(0, 5000),
-    availability: p.stock > 0 ? "in stock" : "out of stock",
+    // A spool end under the minimum is no «100 г» to advertise.
+    availability: p.stock > 0 && !isRemnant(p) ? "in stock" : "out of stock",
     condition: "new",
     price: `${perAd(regular).toFixed(2)} UAH`,
     sale_price: sale !== undefined ? `${perAd(sale).toFixed(2)} UAH` : "",
