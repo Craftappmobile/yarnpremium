@@ -427,6 +427,15 @@ export async function photoTarget(sku: string): Promise<PhotoTarget | null> {
   return match && json ? { sku: match, ...JSON.parse(json) } : null
 }
 
+/** The SKU's photos as the site shows them: those sent through Telegram, else KeyCRM's. */
+export async function readProductPhotos(sku: string): Promise<string[]> {
+  const r = await redis()
+  const sent = await r.hGet(KEY_PHOTOS, sku)
+  if (sent) return JSON.parse(sent)
+  const json = await r.hGet(KEY_PRODUCTS, sku)
+  return json ? ((JSON.parse(json) as Product).images ?? []) : []
+}
+
 /**
  * Makes these photos the SKU's gallery on the site at once (and at every later
  * sync). Returns whether the site lists the SKU.
