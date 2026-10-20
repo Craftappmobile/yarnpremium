@@ -54,6 +54,13 @@ const SALE_CATEGORY = "акційний товар"
 const GRAM_MIN = 100
 const CASHMERE_GRAM_MIN = 50
 const GRAM_STEP = 50
+/**
+ * A spool end under the minimum (someone sold too much of it) is sold whole,
+ * from 50 g (39 g for cashmere); less is taken for a warehouse mistake and
+ * stays off the site.
+ */
+const GRAM_REMNANT_MIN = 50
+const CASHMERE_GRAM_REMNANT_MIN = 39
 const DESCRIPTION_MAX = 1000
 /**
  * KeyCRM custom fields shown on the product page, when filled in. Only these:
@@ -374,16 +381,21 @@ export async function syncCatalog({ minIntervalMs = 0 } = {}): Promise<SyncRepor
 
 /**
  * Live stock and the price of the day. Yarn by weight with less than its
- * minimum left (a mistake in the warehouse, or crumbs after reserves) isn't
- * sold: it counts as sold out.
+ * minimum left is sold whole (components/shop/data.ts), but under
+ * GRAM_REMNANT_MIN (a mistake in the warehouse, or crumbs after reserves)
+ * it isn't sold: it counts as sold out.
  */
 function withLiveStock(p: Product, stock: string | null | undefined): Product {
-  const live = stock === null || stock === undefined ? p.stock : Number(stock)
+  const live = liveStock(p, stock)
   // Recomputed on read, so a change to the rules, or a promotion starting or
   // ending, applies at once, not after the next sync.
   const limits = quantityLimits(p.name, p.category, p.priceUnit)
-  return withPromo({ ...p, ...limits, stock: p.priceUnit === "г" && live < limits.minQty ? 0 : live })
+  const remnantMin = isCashmere(p.name, p.category) ? CASHMERE_GRAM_REMNANT_MIN : GRAM_REMNANT_MIN
+  return withPromo({ ...p, ...limits, stock: p.priceUnit === "г" && live < remnantMin ? 0 : live })
 }
+
+const liveStock = (p: Product, stock: string | null | undefined) =>
+  stock === null || stock === undefined ? p.stock : Number(stock)
 
 /** Every non-archived product, sold-out ones included, newest first. Empty until the first sync. */
 export async function readCatalog(): Promise<Product[]> {

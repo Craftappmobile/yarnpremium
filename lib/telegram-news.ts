@@ -24,7 +24,7 @@
 //   tg:posted:<day>  flag  the day's post went out (Kyiv day)
 //   tg:log           list  the last posts, newest first (admin page)
 
-import { type Product, formatPriceShort } from "@/components/shop/data"
+import { type Product, formatPriceShort, isRemnant } from "@/components/shop/data"
 import { type Utm, buyUrl } from "@/lib/buy-url"
 import { catalogImageUrl } from "@/lib/catalog-image"
 import { categoryPath } from "@/lib/category-url"
@@ -117,7 +117,8 @@ export async function watchCatalog(products: Product[], now = Date.now()): Promi
   const next: Record<string, string> = {}
   const queued: [string, Queued][] = []
   for (const p of products) {
-    const inStock = p.stock > 0
+    // A spool end under the minimum is on sale, but no news (components/shop/data.ts).
+    const inStock = p.stock > 0 && !isRemnant(p)
     const prev: Seen | undefined = seenRaw[p.sku] ? JSON.parse(seenRaw[p.sku]) : undefined
     if (!seeding && inStock) {
       const announcedLately = prev?.announcedAt !== undefined && now - prev.announcedAt < REPEAT_AFTER_MS
@@ -223,7 +224,7 @@ export async function plannedPosts(products: Product[], now = Date.now()): Promi
   for (const promo of runningPromos(now)) {
     const key = promoKey(promo)
     if (announced.includes(key)) continue
-    const onSale = products.filter((p) => p.stock > 0 && sameCategory(p.category, promo.category))
+    const onSale = products.filter((p) => p.stock > 0 && !isRemnant(p) && sameCategory(p.category, promo.category))
     if (onSale.length) promos.push({ type: "promo", rubric: rubricByKey("sale")!, promo, key, products: onSale })
   }
 
@@ -232,7 +233,7 @@ export async function plannedPosts(products: Product[], now = Date.now()): Promi
   for (const [sku, json] of Object.entries(queueRaw)) {
     const q = JSON.parse(json) as Queued
     const product = bySku.get(sku)
-    if (!product || product.stock <= 0) {
+    if (!product || product.stock <= 0 || isRemnant(product)) {
       if (!product || now - q.at > QUEUE_TTL_MS) stale.push(sku)
       continue
     }

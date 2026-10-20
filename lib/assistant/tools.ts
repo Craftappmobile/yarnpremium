@@ -4,7 +4,7 @@
 
 import type Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
-import { type Product, clampQuantity, formatPrice, lineTotal, promoDeadline } from "@/components/shop/data"
+import { type Product, clampQuantity, formatPrice, isRemnant, lineTotal, promoDeadline } from "@/components/shop/data"
 import { COLOR_FAMILIES, type ColorFamily } from "@/components/shop/yarn-colors"
 import { readCatalog, readProducts } from "@/lib/catalog"
 import type { ProductsEvent } from "@/lib/assistant/events"
@@ -239,9 +239,11 @@ async function details(sku: string): Promise<ToolOutcome> {
       description: p.description || undefined,
       // Composition, strands, needles, gauge, stitch of the shop's sample (from KeyCRM).
       specs: p.specs?.length ? Object.fromEntries(p.specs.map((s) => [s.name, s.value])) : undefined,
-      buying: byWeight(p)
-        ? `від ${p.minQty} г, далі кроком ${p.step} г; якщо після покупки лишилося б менше ${p.minQty} г, продається лише вся бобіна (на залишок знижка 10%)`
-        : `від ${p.minQty} ${p.priceUnit}`,
+      buying: !byWeight(p)
+        ? `від ${p.minQty} ${p.priceUnit}`
+        : isRemnant(p)
+          ? `залишок бобіни ${p.stock} г, менше мінімуму (${p.minQty} г): продається лише весь, за звичайною ціною`
+          : `від ${p.minQty} г, далі кроком ${p.step} г; якщо після покупки лишилося б менше ${p.minQty} г, продається лише вся бобіна (на залишок знижка 10%)`,
       url: `/product/${encodeURIComponent(p.sku)}`,
     }),
   }

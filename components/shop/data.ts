@@ -127,7 +127,8 @@ const byWeight = (p: Pick<Product, "priceUnit">) => p.priceUnit === "г"
  * Quantities that can be bought. Yarn by weight: from the minimum (100 g,
  * cashmere 50 g) in steps (50 g), and a purchase may not leave less than the
  * minimum behind — then only the whole spool can be taken. A spool already
- * under the minimum isn't sold at all (the catalog shows it as sold out).
+ * under the minimum is sold whole too (lib/catalog.ts lists it from 50 g,
+ * cashmere 39 g).
  */
 export function quantityRules(p: QuantityProduct): { min: number; max: number; step: number } {
   if (p.stock < p.minQty) return { min: p.stock, max: p.stock, step: p.stock }
@@ -136,9 +137,16 @@ export function quantityRules(p: QuantityProduct): { min: number; max: number; s
   return { min, max: p.stock, step: p.step }
 }
 
+/**
+ * Yarn by weight with less than its minimum left: sold, but only whole, and
+ * not advertised as stock (the Telegram channel, Meta's catalog).
+ */
+export function isRemnant(p: Pick<Product, "stock" | "minQty" | "priceUnit">): boolean {
+  return byWeight(p) && p.stock > 0 && p.stock < p.minQty
+}
+
 /** Whether `quantity` may be bought: the whole stock, or a step that leaves at least the minimum behind. */
 export function isValidQuantity(p: QuantityProduct, quantity: number): boolean {
-  if (byWeight(p) && p.stock < p.minQty) return false
   if (quantity === p.stock) return quantity > 0
   if (quantity < p.minQty || quantity > p.stock || !Number.isInteger((quantity - p.minQty) / p.step)) return false
   return !byWeight(p) || p.stock - quantity >= p.minQty

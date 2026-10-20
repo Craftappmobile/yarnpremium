@@ -6,6 +6,7 @@ import {
   TAIL_DISCOUNT,
   formatPriceShort,
   formatQuantity,
+  isRemnant,
   lineTotal,
   quantityRules,
   stepQuantity,
@@ -23,11 +24,13 @@ interface QuantityPickerProps {
  * +/− picker that follows the product's limits: yarn by weight starts at its
  * minimum (100 g, cashmere 50 g) and moves in 50 g steps; "Взяти все" takes the
  * whole spool. A purchase can't leave less than the minimum behind: past the
- * last such step it takes the whole spool, with the end of it 10% off.
+ * last such step it takes the whole spool, with the end of it 10% off. A
+ * spool already under the minimum is sold only whole.
  */
 export function QuantityPicker({ product, quantity, onChange }: QuantityPickerProps) {
   const { min, max } = quantityRules(product)
   const tail = tailGrams(product, quantity)
+  const remnant = isRemnant(product)
 
   return (
     <div className="space-y-2">
@@ -71,6 +74,11 @@ export function QuantityPicker({ product, quantity, onChange }: QuantityPickerPr
           Після {formatQuantity(quantity - tail, product.priceUnit)} на бобіні лишилося б{" "}
           {formatQuantity(tail, product.priceUnit)} — окремо ми їх не продаємо, тому вони додаються до покупки зі
           знижкою {TAIL_DISCOUNT * 100}%.
+        </p>
+      )}
+      {remnant && (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Залишок бобіни, менше {formatQuantity(product.minQty, product.priceUnit)}: продаємо лише весь.
         </p>
       )}
     </div>
