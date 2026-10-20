@@ -19,6 +19,8 @@
 //   4. makes them the SKU's gallery on the site at once (lib/catalog.ts,
 //      catalog:photos), and answers in the channel: 👌 and a reply, or 👎 and
 //      what went wrong. Editing the caption sends the album again.
+// «ST98» replaces the SKU's photos; «+ST98» adds the new ones before them
+// (the new main photo: photos are retaken to sell better), 6 in all.
 //
 // The channel is the one where an administrator posted «/photos_here <code>»
 // (the code of lib/telegram-staff.ts, shown on /admin/telegram);
@@ -35,7 +37,7 @@
 
 import { after } from "next/server"
 import { revalidatePath } from "next/cache"
-import { MAX_PHOTOS, type PhotoTarget, photoTarget, saveProductPhotos } from "@/lib/catalog"
+import { MAX_PHOTOS, type PhotoTarget, photoTarget, readProductPhotos, saveProductPhotos } from "@/lib/catalog"
 import { KeycrmError, keycrmBackground, keycrmGet, keycrmGetPages, keycrmSend, keycrmUpload } from "@/lib/keycrm"
 import { skuKey } from "@/lib/product-videos"
 import { redis } from "@/lib/redis"
@@ -137,6 +139,7 @@ async function channelCommand(post: any): Promise<boolean> {
       "✅ Фото з цього каналу тепер потрапляють на сайт і в KeyCRM.",
       "",
       "Альбом до 6 фото, у підписі — артикул, наприклад ST98. Перше фото — головне.",
+      "ST98 — замінити всі фото товару, +ST98 — додати нові першими до наявних.",
       "Артикула ще немає в KeyCRM — я відповім ⏳ і сам додам фото, щойно товар з'явиться.",
     ].join("\n"),
   )
@@ -203,7 +206,8 @@ async function handleAlbum(chatId: number, group: string, pending?: PendingAlbum
     return "gone"
   }
   const captioned = photos.find((p) => p.caption) ?? photos[0]
-  const sku = captioned.caption.split(/\s+/)[0] ?? ""
+  // «+ST98» (or «+ ST98»): the photos are added to the SKU's, first; «ST98»: they replace them.
+  const sku = captioned.caption.replace(/^\+\s+/, "+").split(/\s+/)[0] ?? ""
 
   let entry: PhotoLogEntry
   try {
@@ -252,10 +256,12 @@ export async function retryPendingAlbums(): Promise<{ done: number; waiting: num
 /** SKU not in KeyCRM yet: the album waits for it. */
 class NotYet extends Error {}
 
-async function saveAlbum(sku: string, photos: AlbumPhoto[], ask: boolean): Promise<PhotoLogEntry> {
-  if (!sku) throw new Error("У підписі немає артикула. Додайте його підписом до альбому, наприклад: ST98")
+async function saveAlbum(caption: string, photos: AlbumPhoto[], ask: boolean): Promise<PhotoLogEntry> {
+  const adding = caption.startsWith("+")
+  const sku = adding ? caption.slice(1) : caption
+  if (!sku) throw new Error("У підписі немає артикула. Додайте його підписом до альбому, наприклад: ST98 (або +ST98, щоб додати фото до наявних)")
   const kept = photos.slice(0, MAX_PHOTOS)
-  let found: { target: PhotoTarget; urls: string[] }
+  let found: { target: PhotoTarget; urls: string[]; added: number; dropped: number }
   try {
     found = (
       await keycrmBackground(async () => {
@@ -263,8 +269,16 @@ async function saveAlbum(sku: string, photos: AlbumPhoto[], ask: boolean): Promi
         if (!target) throw new NotYet()
         const uploaded: string[] = []
         for (const [i, photo] of kept.entries()) uploaded.push(await upload(photo, `${target.sku}-${i + 1}`))
-        await attach(target, uploaded)
-        return { target, urls: uploaded }
+        // Adding: the new photos first (the main one is new: they were taken to sell better), then the old ones.
+        const old = adding ? (await readProductPhotos(target.sku)).filter((u) => !uploaded.includes(u)) : []
+        const urls = [...uploaded, ...old].slice(0, MAX_PHOTOS)
+        await attach(target, urls).catch(async (e) => {
+          // KeyCRM may not take back photos stored elsewhere than its upload storage: the new ones, then (the site has all).
+          if (!(e instanceof KeycrmError) || old.length === 0) throw e
+          console.error("[telegram-photos] attach with old photos:", e.message)
+          await attach(target, uploaded)
+        })
+        return { target, urls, added: uploaded.length, dropped: uploaded.length + old.length - urls.length }
       })
     ).result
   } catch (e) {
@@ -278,7 +292,7 @@ async function saveAlbum(sku: string, photos: AlbumPhoto[], ask: boolean): Promi
       note: `Артикула ${sku} ще немає в KeyCRM. Щойно товар там з'явиться, фото самі підуть на сайт і в KeyCRM (перевіряю кожні 30 хвилин, 7 днів). Якщо артикул з помилкою, виправте підпис.`,
     }
   }
-  const { target, urls } = found
+  const { target, urls, added, dropped } = found
 
   const onSite = await saveProductPhotos(target.sku, urls)
   if (onSite) {
@@ -300,6 +314,9 @@ async function saveAlbum(sku: string, photos: AlbumPhoto[], ask: boolean): Promi
       ? "сайт: оновлено"
       : "сайт: фото збережені, з'являться разом із товаром після синхронізації каталогу (або категорія не продається на сайті)",
   ]
+  if (adding) {
+    notes.unshift(`додано ${added} нових першими, разом ${urls.length}${dropped ? ` (${dropped} старих прибрано з кінця: більше ${MAX_PHOTOS} не можна)` : ""}`)
+  }
   if (photos.length > MAX_PHOTOS) notes.push(`взято перші ${MAX_PHOTOS} з ${photos.length}`)
   return { at: new Date().toISOString(), sku: target.sku, photos: urls.length, ok: true, note: notes.join("; ") }
 }
