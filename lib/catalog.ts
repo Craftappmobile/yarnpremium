@@ -418,6 +418,29 @@ export async function readProducts(skus: string[]): Promise<Product[]> {
   return raw.flatMap((json, i) => (json ? [withLiveStock(JSON.parse(json) as Product, stock[i])] : []))
 }
 
+/** What is left of a SKU in KeyCRM, crumbs included, and the minimum it sells by. */
+export interface StockLevel {
+  sku: string
+  name: string
+  unit: string
+  minQty: number
+  /** Available (stock minus reserves), even when too little to sell on the site. */
+  stock: number
+}
+
+/** Stock levels of the given SKUs the site lists (others are left out), for checking sales made in KeyCRM. */
+export async function readStockLevels(skus: string[]): Promise<StockLevel[]> {
+  if (!redisConfigured() || skus.length === 0) return []
+  const r = await redis()
+  const [raw, stock] = await Promise.all([r.hmGet(KEY_PRODUCTS, skus), r.hmGet(KEY_STOCK, skus)])
+  return raw.flatMap((json, i) => {
+    if (!json) return []
+    const p = JSON.parse(json) as Product
+    const { minQty } = quantityLimits(p.name, p.category, p.priceUnit)
+    return [{ sku: p.sku, name: p.name, unit: p.priceUnit, minQty, stock: liveStock(p, stock[i]) }]
+  })
+}
+
 export interface PhotoTarget {
   /** As KeyCRM spells it. */
   sku: string

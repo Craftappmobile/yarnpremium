@@ -160,7 +160,7 @@ export async function handleUpdate(update: any): Promise<void> {
     return
   }
   const message = update.message
-  // The shop's own group: where abandoned checkouts are reported (lib/telegram-staff.ts),
+  // The shop's own group: where abandoned checkouts and remnants are reported (lib/telegram-staff.ts),
   // and the topic whose reviews go to the site (lib/reviews-intake.ts).
   if (message?.chat?.type === "group" || message?.chat?.type === "supergroup") {
     if ((await handleStaffCommand(message)) || (await handleReviewsMessage(message))) return

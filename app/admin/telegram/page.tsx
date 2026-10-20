@@ -63,8 +63,9 @@ export default async function TelegramAdminPage({
     readTelegramStats(days),
     readIntro(),
   ])
-  const [staff, reviewsTopic, reviews, photoChannel, photoPending, photoLog] = await Promise.all([
+  const [staff, remnantsTopic, reviewsTopic, reviews, photoChannel, photoPending, photoLog] = await Promise.all([
     readStaffChat().catch(() => null),
+    readStaffChat("remnants").catch(() => null),
     readReviewsTopic().catch(() => null),
     reviewCount().catch(() => 0),
     readPhotoChannel().catch(() => null),
@@ -136,6 +137,33 @@ export default async function TelegramAdminPage({
             <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-900">/abandoned_here {staffCode()}</code>
           </li>
           <li>Бот відповість «✅ Тут зʼявлятимуться кинуті кошики». Вимкнути: /abandoned_off {staffCode()}</li>
+        </ol>
+      </section>
+
+      <section className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
+        <h2 className="text-lg font-semibold">Залишки менше мінімуму в робочу групу</h2>
+        {remnantsTopic ? (
+          <p className="text-green-700">
+            Бот повідомляє в «{remnantsTopic.title}» про продажі в KeyCRM, після яких лишився замалий залишок або
+            продано менше мінімуму (з{" "}
+            {new Date(remnantsTopic.at).toLocaleDateString("uk-UA", { timeZone: "Europe/Kiev", dateStyle: "long" })}).
+          </p>
+        ) : (
+          <p className="text-zinc-600">Ще не налаштовано: бот поки нікуди не повідомляє про залишки.</p>
+        )}
+        <ol className="list-decimal space-y-1 pl-5 text-zinc-700">
+          <li>
+            Правило для пряжі на вагу: менше 100 г (кашемір — 50 г) продаємо лише весь залишок; після продажу на складі
+            лишається 0 або не менше 100 г (кашемір — 50 г). Замовлення з усіх джерел перевіряються кожні 15 хвилин.
+          </li>
+          <li>
+            У тій самій групі створіть окрему гілку і надішліть у ній:{" "}
+            <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-900">/remnants_here {staffCode()}</code>
+          </li>
+          <li>
+            Бот відповість «✅ Тут з&apos;являтимуться продажі…». Повідомлення приходять про замовлення, зроблені після
+            цього. Вимкнути: /remnants_off {staffCode()}
+          </li>
         </ol>
       </section>
 
