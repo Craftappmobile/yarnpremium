@@ -488,7 +488,8 @@ async function askKeycrm(sku: string): Promise<PhotoTarget | null> {
   }
 }
 
-async function findOffer(sku: string): Promise<PhotoTarget | null> {
+/** A SKU's offer in KeyCRM itself (spaces and case don't matter); null when KeyCRM has none. Throws when KeyCRM fails. */
+export async function findOffer(sku: string): Promise<PhotoTarget | null> {
   const res = await keycrmGet<{ data?: any[] }>("/offers", { "filter[sku]": sku, include: "product", limit: 50 })
   const wanted = spoolKey(sku)
   const offer = (res.data ?? []).find((o) => spoolKey(String(o.sku ?? "")) === wanted && !o.is_archived && !o.product?.is_archived)

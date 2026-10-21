@@ -12,6 +12,7 @@ import { readStaffChat, staffCode } from "@/lib/telegram-staff"
 import { reviewCount } from "@/lib/reviews"
 import { readReviewsTopic } from "@/lib/reviews-intake"
 import { readPhotoChannel, readPhotoLog, readWaitingColors } from "@/lib/telegram-photos"
+import { readWeighings, readWeightsTopic } from "@/lib/telegram-weights"
 import { TelegramResults } from "@/components/admin/telegram-results"
 
 // The Telegram channel's daily post, for the shop's owner:
@@ -72,6 +73,7 @@ export default async function TelegramAdminPage({
     readWaitingColors().catch(() => []),
     readPhotoLog().catch(() => []),
   ])
+  const [weightsTopic, weighings] = await Promise.all([readWeightsTopic().catch(() => null), readWeighings().catch(() => [])])
   const introResult = typeof params.intro === "string" ? params.intro : ""
   const introReason = typeof params.reason === "string" ? params.reason : ""
   const { posts } = await plannedPosts(products)
@@ -232,6 +234,41 @@ export default async function TelegramAdminPage({
                     {e.ok ? "✅" : e.waiting ? "⏳" : "❌"} {e.sku || "—"}
                   </td>
                   <td className="py-1.5">{e.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
+        <h2 className="text-lg font-semibold">Вага бобін у KeyCRM</h2>
+        {weightsTopic ? (
+          <p className="text-green-700">Вага з «{weightsTopic.title}» стає залишком бобіни в KeyCRM і на сайті.</p>
+        ) : (
+          <p className="text-zinc-600">Ще не налаштовано.</p>
+        )}
+        <ol className="list-decimal space-y-1 pl-5 text-zinc-700">
+          <li>
+            У гілці «Вага» робочої групи надішліть:{" "}
+            <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-900">/weights_here {staffCode()}</code>.
+            Вимкнути: /weights_off {staffCode()}
+          </li>
+          <li>Артикул бобіни і чиста вага в грамах, кожна бобіна з нового рядка: «MO362-1 326».</li>
+        </ol>
+        {weighings.length > 0 && (
+          <table className="mt-3 w-full">
+            <tbody>
+              {weighings.slice(0, 30).map((w, i) => (
+                <tr key={i} className="border-t border-zinc-100">
+                  <td className="whitespace-nowrap py-1.5 pr-4 tabular-nums text-zinc-500">
+                    {new Date(w.at).toLocaleString("uk-UA", { timeZone: "Europe/Kiev", dateStyle: "short", timeStyle: "short" })}
+                  </td>
+                  <td className="py-1.5 pr-4 font-medium">{w.sku}</td>
+                  <td className="py-1.5 pr-4 tabular-nums">
+                    {w.before} → {w.after} г
+                  </td>
+                  <td className="py-1.5 text-zinc-500">{w.by}</td>
                 </tr>
               ))}
             </tbody>
