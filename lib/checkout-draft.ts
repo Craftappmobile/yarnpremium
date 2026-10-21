@@ -14,7 +14,7 @@
 //   draft:phone:<phone>    set when a lead was made for this phone (24 h): one lead a day per buyer
 
 import { readProducts } from "@/lib/catalog"
-import { keycrmGetAll, keycrmSend } from "@/lib/keycrm"
+import { KeycrmError, keycrmGetAll, keycrmSend } from "@/lib/keycrm"
 import { isTestOrderEnvironment } from "@/lib/keycrm-order"
 import { redis } from "@/lib/redis"
 import { formatQuantity } from "@/components/shop/data"
@@ -142,7 +142,7 @@ export async function processAbandoned(ordered: (id: string) => Promise<boolean>
         })
       }
     } catch (e) {
-      console.error("[abandoned] lead failed:", (e as Error).message)
+      console.error("[abandoned] lead failed:", (e as Error).message, e instanceof KeycrmError ? e.body.slice(0, 500) : "")
       report.failed++
       // Free the phone for the next run's retry only if the draft is still fresh enough to matter.
       await r.del(PHONE_KEY(draft.phone))
@@ -179,7 +179,9 @@ async function createLead(id: string, draft: Draft): Promise<{ value: number; li
   const described = lines.map(({ p, quantity }) => `${p.name} — ${formatQuantity(quantity, p.priceUnit)}`)
   const summary = described.join("\n")
   const sum = Math.round(lines.reduce((s, { p, quantity }) => s + p.price * quantity, 0))
-  await keycrmSend("POST", "/pipelines/cards", {
+  // The checkout saves the email as typed, half-typed included: KeyCRM refuses a card with one that isn't valid.
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email) ? draft.email : undefined
+  const card = {
     title: `${isTestOrderEnvironment() ? "ТЕСТ — " : ""}Кинутий кошик · ${sum} ₴`,
     source_id: SOURCE_ID,
     pipeline_id: (await leadPipeline()) ?? undefined,
@@ -193,7 +195,7 @@ async function createLead(id: string, draft: Draft): Promise<{ value: number; li
     ]
       .filter(Boolean)
       .join("\n"),
-    contact: { full_name: draft.name || undefined, phone: draft.phone, email: draft.email || undefined },
+    contact: { full_name: draft.name || undefined, phone: draft.phone, email },
     products: lines.map(({ p, quantity }) => ({
       sku: p.sku,
       name: p.name,
@@ -202,6 +204,18 @@ async function createLead(id: string, draft: Draft): Promise<{ value: number; li
       unit_type: p.priceUnit,
       picture: p.image || undefined,
     })),
-  })
+  }
+  try {
+    await keycrmSend("POST", "/pipelines/cards", card)
+  } catch (e) {
+    if (!(e instanceof KeycrmError && e.status === 422)) throw e
+    // Something in the card KeyCRM won't take: the lead still matters more. The cart is in the comment.
+    console.error("[abandoned] KeyCRM refused the card, sent without products and email:", e.body.slice(0, 500))
+    await keycrmSend("POST", "/pipelines/cards", {
+      ...card,
+      contact: { full_name: card.contact.full_name, phone: draft.phone },
+      products: undefined,
+    })
+  }
   return { value: sum, lines: described }
 }
