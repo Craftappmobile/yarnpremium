@@ -70,6 +70,8 @@ const ALBUM_TTL = 7 * 24 * 3600
 const COLOR_DAYS = 90
 /** Telegram sends an album's photos one by one; it counts as complete after this long without a new one. */
 const SETTLE_MS = 6000
+/** Of the cron run (app/api/cron/telegram): no more spools are started after this. */
+const BUDGET_MS = 120_000
 /** KeyCRM's limit for one file. */
 const MAX_FILE_BYTES = 10 * 1024 * 1024
 
@@ -421,9 +423,12 @@ function report(color: ColorPhotos, result: Applied, posted: number): PhotoLogEn
  * are given their colour's photos (the newest album naming them), and
  * albums from before colours were remembered are handled once more.
  */
-export async function applyColorPhotos(): Promise<{ given: number; waiting: number }> {
+export async function applyColorPhotos(deadline = Date.now() + BUDGET_MS): Promise<{ given: number; waiting: number; old?: number }> {
   const r = await redis()
-  for (const [group, json] of Object.entries(await r.hGetAll(KEY_PENDING))) {
+  const old = Object.entries(await r.hGetAll(KEY_PENDING))
+  for (const [group, json] of old) {
+    // Each one uploads its photos: what doesn't fit goes with the next run, the daily post comes first.
+    if (Date.now() > deadline) return { given: 0, waiting: 0, old: (await r.hLen(KEY_PENDING)) }
     const p = JSON.parse(json) as { chatId: number; replyId?: number }
     await handleAlbum(p.chatId, group, p.replyId).catch((e) => console.error("[telegram-photos] old album", group, (e as Error).message))
     await r.hDel(KEY_PENDING, group)
@@ -447,6 +452,7 @@ export async function applyColorPhotos(): Promise<{ given: number; waiting: numb
   }
   let given = 0
   for (const [c, mine] of byAlbum) {
+    if (Date.now() > deadline) break
     try {
       const hadAny = c.applied.length > 0
       const { result } = await keycrmBackground(() => apply(c, mine))
