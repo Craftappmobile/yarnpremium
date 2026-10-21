@@ -114,7 +114,7 @@ function toProduct(offer: any, product: any, fields: Record<string, string>, cat
     category,
     sku: offer.sku,
     // quantity is the total over all warehouses; in_reserve is held by open orders.
-    stock: Math.max(0, Math.floor(Number(offer.quantity ?? 0) - Number(offer.in_reserve ?? 0))),
+    stock: Math.max(0, Math.floor(Number(offer.quantity ?? 0) - Math.max(0, Number(offer.in_reserve ?? 0)))),
     color: fields["Колір"] ?? "",
     length: Number.parseInt(fields["Метраж"] ?? "", 10) || 0,
     brand: fields["Виробник"] ?? "",
@@ -521,7 +521,8 @@ export async function applyStockUpdates(updates: StockUpdate[]): Promise<string[
 
   const resolved = updates.flatMap((u) => {
     const sku = u.sku || skuOf.get(String(u.offerId))
-    return sku ? [{ sku, stock: Math.max(0, Math.floor(u.inStock - u.inReserve)) }] : []
+    // KeyCRM sometimes reports a negative reserve for a moment while an order is edited: none, not extra stock.
+    return sku ? [{ sku, stock: Math.max(0, Math.floor(u.inStock - Math.max(0, u.inReserve))) }] : []
   })
   if (resolved.length === 0) return []
   const known = await r.hmGet(KEY_PRODUCTS, resolved.map((u) => u.sku))

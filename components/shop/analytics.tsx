@@ -211,7 +211,7 @@ export function trackBeginCheckout(cart: CartItem[]) {
  * `assisted`: the buyer wrote to the shopping assistant before ordering.
  */
 export function trackPurchase(order: Order, fallbackId: string, assisted = false) {
-  // An add-on joins its order under the same number: orderRef adds «-add», so GA4 and Meta keep both.
+  // An add-on of an older order may share its number: orderRef adds «-add», so GA4 and Meta keep both.
   const id = order.number ? orderRef(order) : fallbackId
   const lines = order.items.map((i) => ({
     sku: i.sku,
