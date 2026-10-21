@@ -36,6 +36,7 @@ import { RUBRICS, type Rubric, rubricByKey, rubricOf } from "@/lib/telegram-rubr
 import { countTelegram } from "@/lib/telegram-stats"
 import { CATEGORY_NOTES } from "@/lib/categories"
 import { MAX_TILES, collage, fullGrid } from "@/lib/telegram-collage"
+import { colourOf, spoolKey } from "@/lib/telegram-photos"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg } from "@/lib/telegram"
 
 const KEY_SEEN = "tg:seen"
@@ -164,9 +165,45 @@ async function markAnnounced(skus: string[], now: number): Promise<void> {
 // Posts
 
 export interface NewsItem {
+  /** The product the line links to; for several spools of one colour, the one with the most yarn. */
   product: Product
   kind: Queued["kind"]
   rubric: Rubric
+  /** Several spools of one colour (MO377-1, MO377-2…) in one line and one tile, the most yarn first. */
+  spools?: Product[]
+}
+
+/** Every product an item stands for. */
+const productsOf = (item: NewsItem) => item.spools ?? [item.product]
+
+/** The spool's number: «2» for «MO377 - 2»; none for a SKU that isn't a spool's. */
+const spoolNumber = (sku: string) => spoolKey(sku).match(/-(\d+)$/)?.[1]
+
+/**
+ * Spools of one colour arrive together, each a KeyCRM product of its own with
+ * the same photos: one line and one tile for them, not a tile each. Spools
+ * are yarn by weight whose SKUs differ in the last number only, in the same
+ * category, with the same colour.
+ */
+export function mergeSpools(items: NewsItem[]): NewsItem[] {
+  const groups = new Map<string, NewsItem[]>()
+  for (const item of items) {
+    const p = item.product
+    const key = isByWeight(p) && spoolNumber(p.sku)
+      ? [colourOf(spoolKey(p.sku)), p.category.trim().toLowerCase(), (p.color ?? "").trim().toLowerCase()].join("|")
+      : `sku|${p.sku}`
+    groups.set(key, [...(groups.get(key) ?? []), item])
+  }
+  return [...groups.values()].map((group) => {
+    if (group.length === 1) return group[0]
+    const spools = group.map((i) => i.product).sort((a, b) => b.stock - a.stock)
+    return {
+      product: spools[0],
+      kind: group.some((i) => i.kind === "new") ? "new" : "back",
+      rubric: group[0].rubric,
+      spools,
+    }
+  })
 }
 
 /**
@@ -240,7 +277,7 @@ export async function plannedPosts(products: Product[], now = Date.now()): Promi
     const rubric = rubricOf(product.category, product.name)
     byRubric.set(rubric.key, [...(byRubric.get(rubric.key) ?? []), { product, kind: q.kind, rubric }])
   }
-  return { posts: arrangePosts(promos, [...byRubric.values()]), stale }
+  return { posts: arrangePosts(promos, [...byRubric.values()].map(mergeSpools)), stale }
 }
 
 /**
@@ -317,11 +354,19 @@ function amounts(p: Product): string {
 /** One product: its number on the collage (or a bullet), its name linking to the purchase, colour, composition, amounts. */
 function itemLine(item: NewsItem, utm: Utm, markBack: boolean, num?: number): string {
   const p = item.product
+  const spools = item.spools ?? []
+  // «Мохер - альпака MO377 - 2» stands for all the colour's spools: «Мохер - альпака MO377».
+  const n = spools.length > 1 ? spoolNumber(p.sku) : undefined
+  const name = n ? p.name.replace(new RegExp(`(\\d)\\s*[-–—]\\s*${n}(?!\\d)`), "$1") : p.name
+  const weights = spools.map((s) => Math.round(s.stock))
+  const spoolText = n
+    ? ` · ${spools.length} ${plural(spools.length, "бобіна", "бобіни", "бобін")}: ${weights.slice(0, -1).join(", ")} і ${weights.at(-1)} г`
+    : ""
   const color = p.color && !p.name.toLowerCase().includes(p.color.toLowerCase()) ? ` — ${p.color}` : ""
   const made = composition(p)
   const back = markBack && item.kind === "back" ? " · знову є" : ""
   const mark = num ? `${KEYCAPS[num]} ` : "• "
-  return `${mark}<a href="${esc(buyUrl(p.sku, utm))}">${esc(p.name + color)}</a>${made ? ` · ${esc(made)}` : ""} · ${amounts(p)}${back}`
+  return `${mark}<a href="${esc(buyUrl(p.sku, utm))}">${esc(name + color)}</a>${made ? ` · ${esc(made)}` : ""} · ${amounts(p)}${spoolText}${back}`
 }
 
 /** The category with the most products among these: the «see all» page. */
@@ -738,7 +783,7 @@ export async function publishDaily(products: Product[], deadline: number, now = 
       report.posted.push({ rubric: post.rubric?.key ?? "mixed", type: post.type, products: count })
       if (post.type === "promo") await r.sAdd(KEY_PROMOS, post.key)
       else {
-        const skus = post.items.map((i) => i.product.sku)
+        const skus = post.items.flatMap((i) => productsOf(i).map((p) => p.sku))
         await r.hDel(KEY_QUEUE, skus)
         await markAnnounced(skus, now)
       }

@@ -138,7 +138,7 @@ export function spoolKey(sku: string): string {
 }
 
 /** The colour a spool belongs to: «mo374» for «mo374-2» and for «mo374» itself. */
-const colourOf = (key: string) => key.replace(/-\d+$/, "")
+export const colourOf = (key: string) => key.replace(/-\d+$/, "")
 
 /** «+MO374», «MO362-1, MO362-2», «mo 362 - 1»: the SKUs a caption names, and whether it adds. */
 export function parseCaption(caption: string): { adding: boolean; wanted: Wanted[] } {
