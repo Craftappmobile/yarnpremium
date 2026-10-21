@@ -1,26 +1,33 @@
 // Server-only: product photos sent through a private Telegram channel.
 //
-// The shop posts an album (or one photo) to the channel with the SKU as its
-// caption, e.g. «ST98»; the first photo is the main one, at most 6 are kept.
+// The shop posts an album (or one photo) to the channel with the SKU in its
+// caption; the first photo is the main one, at most 6 are kept. The caption
+// names a colour or spools of it:
+//   «MO374»              every spool of the colour: MO374, MO374-1, MO374-2…,
+//                        and the spools KeyCRM gets later (the shop takes
+//                        stock spool by spool, each with its own SKU)
+//   «MO362-1, MO362-2»   these spools only (commas, spaces or lines between)
+//   «+MO374»             the new photos go before the spools' own (the new
+//                        main photo: photos are retaken to sell better), else
+//                        they replace them
+//
 // The bot, an administrator of the channel, gets every post (channel_post), and
 // for each album:
-//   1. finds the SKU in KeyCRM: in the catalog snapshot, else by asking KeyCRM.
-//      A SKU KeyCRM doesn't have yet (the photos are taken during the day, the
-//      products are imported in the evening) waits: the bot answers ⏳ and
-//      tries again after every catalog sync (lib/catalog.ts, every 30 minutes)
-//      for as long as the album is kept, 7 days;
-//   2. downloads the largest size of each photo and uploads it to KeyCRM's
-//      storage (POST /storage/upload): KeyCRM doesn't copy photos given by
-//      link, and Telegram's file links carry the bot's token;
-//   3. attaches them in KeyCRM. A product with one offer gets them all as its
-//      photos (PUT /products/{id}, pictures); a colour of a product with
-//      several offers can hold one photo only, the main one (PUT /offers,
-//      image_url), since the product's photos are shared by all its colours;
-//   4. makes them the SKU's gallery on the site at once (lib/catalog.ts,
-//      catalog:photos), and answers in the channel: 👌 and a reply, or 👎 and
-//      what went wrong. Editing the caption sends the album again.
-// «ST98» replaces the SKU's photos; «+ST98» adds the new ones before them
-// (the new main photo: photos are retaken to sell better), 6 in all.
+//   1. uploads the largest size of each photo to KeyCRM's storage once
+//      (POST /storage/upload): KeyCRM doesn't copy photos given by link, and
+//      Telegram's file links carry the bot's token;
+//   2. finds the spools in the catalog snapshot (and a spool it lacks in KeyCRM
+//      itself), attaches the photos there — all of them to a product with one
+//      offer, the main one to an offer of a product with several, since the
+//      product's photos are shared by all its offers — and makes them the
+//      spools' gallery on the site (lib/catalog.ts, catalog:photos);
+//   3. remembers them for the colour (tg:photo:colors), for 90 days: after
+//      every catalog sync (`applyColorPhotos`) a spool KeyCRM got since gets
+//      them too, and the bot says so in the channel. A spool named but not in
+//      KeyCRM yet waits the same way;
+//   4. answers in the channel: 👌 and ✅ (in the site and KeyCRM), 👀 and ⏳
+//      (nothing in KeyCRM yet), 👎 and ❌ (what went wrong). Editing the
+//      caption sends the album again.
 //
 // The channel is the one where an administrator posted «/photos_here <code>»
 // (the code of lib/telegram-staff.ts, shown on /admin/telegram);
@@ -31,25 +38,36 @@
 //   tg:album:<group>       hash  message id -> photo of the album (7 days)
 //   tg:album:<group>:at    ms timestamp of the album's last photo
 //   tg:album:<group>:done  set once the album is handled (cleared by an edit)
-//   tg:photo:pending       hash  album group -> PendingAlbum JSON: SKU not in KeyCRM yet
+//   tg:photo:colors        hash  album group -> ColorPhotos JSON (90 days)
+//   tg:photo:pending       hash  albums from before tg:photo:colors, handled again once
 //   tg:photo:file          hash  Telegram file_unique_id -> KeyCRM file URL
 //   tg:photo:log           list  the last 50 albums handled, newest first
 
 import { after } from "next/server"
 import { revalidatePath } from "next/cache"
-import { MAX_PHOTOS, type PhotoTarget, photoTarget, readProductPhotos, saveProductPhotos } from "@/lib/catalog"
+import {
+  MAX_PHOTOS,
+  type PhotoTarget,
+  readPhotoTargets,
+  readProductPhotos,
+  readProducts,
+  saveProductPhotos,
+} from "@/lib/catalog"
 import { KeycrmError, keycrmBackground, keycrmGet, keycrmGetPages, keycrmSend, keycrmUpload } from "@/lib/keycrm"
-import { skuKey } from "@/lib/product-videos"
+import { LOOKALIKES } from "@/lib/product-videos"
 import { redis } from "@/lib/redis"
 import { staffCode } from "@/lib/telegram-staff"
 import { esc, tg } from "@/lib/telegram"
 
 const KEY_CHANNEL = "tg:photo:channel"
-const KEY_FILES = "tg:photo:file"
+const KEY_COLORS = "tg:photo:colors"
 const KEY_PENDING = "tg:photo:pending"
+const KEY_FILES = "tg:photo:file"
 const KEY_LOG = "tg:photo:log"
 const albumKey = (group: string) => `tg:album:${group}`
 const ALBUM_TTL = 7 * 24 * 3600
+/** How long a colour's photos are given to spools KeyCRM gets later. */
+const COLOR_DAYS = 90
 /** Telegram sends an album's photos one by one; it counts as complete after this long without a new one. */
 const SETTLE_MS = 6000
 /** KeyCRM's limit for one file. */
@@ -64,10 +82,11 @@ interface AlbumPhoto {
 
 export interface PhotoLogEntry {
   at: string
+  /** The caption's SKUs, as written. */
   sku: string
   photos: number
   ok: boolean
-  /** Not in KeyCRM yet: tried again after each catalog sync. */
+  /** Nothing in KeyCRM yet: given after a later catalog sync. */
   waiting?: boolean
   /** What happened: where the photos went, or what went wrong. */
   note: string
@@ -79,16 +98,64 @@ export interface PhotoChannel {
   at: string
 }
 
-/** A SKU KeyCRM didn't have when the album came: retried after each catalog sync. */
-interface PendingAlbum {
-  chatId: number
+/** A SKU of the caption: a colour (every spool of it) or one spool. */
+interface Wanted {
+  /** As written: «MO374», «MO362-1». */
+  label: string
+  /** spoolKey of it. */
+  key: string
+  /** No spool number: the colour and all its spools. */
+  colour: boolean
+}
+
+/** An album's photos, uploaded to KeyCRM, and the spools that have them. */
+export interface ColorPhotos {
   group: string
-  sku: string
+  chatId: number
   /** The captioned photo, which the bot's answers reply to. */
   messageId: number
-  /** The bot's ⏳ answer, edited once the photos are in. */
+  /** The bot's answer, edited when a waiting album gets its first spool. */
   replyId?: number
-  since: string
+  caption: string
+  wanted: Wanted[]
+  urls: string[]
+  adding: boolean
+  at: string
+  /** SKUs (as KeyCRM spells them) given these photos. */
+  applied: string[]
+}
+
+/** Spool numbers count: «MO 374 - 1» and «mo374-1» are one SKU, «MO374-1» and «MO3741» two. */
+export function spoolKey(sku: string): string {
+  return sku
+    .toLowerCase()
+    .replace(/[авеікмнорстух]/g, (c) => LOOKALIKES[c] ?? c)
+    .replace(/[–—_]/g, "-")
+    .replace(/\s+/g, "")
+    .replace(/-+/g, "-")
+}
+
+/** The colour a spool belongs to: «mo374» for «mo374-2» and for «mo374» itself. */
+const colourOf = (key: string) => key.replace(/-\d+$/, "")
+
+/** «+MO374», «MO362-1, MO362-2», «mo 362 - 1»: the SKUs a caption names, and whether it adds. */
+export function parseCaption(caption: string): { adding: boolean; wanted: Wanted[] } {
+  const adding = /^\s*\+/.test(caption)
+  const text = caption.replace(/\+/g, " ").replace(/\s*[-–—]\s*(?=\d)/g, "-")
+  const wanted = new Map<string, Wanted>()
+  for (const raw of text.split(/[\s,;]+/)) {
+    const label = raw.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
+    if (!/\p{L}/u.test(label) || !/\d/.test(label)) continue
+    const key = spoolKey(label)
+    if (!wanted.has(key)) wanted.set(key, { label, key, colour: colourOf(key) === key })
+  }
+  return { adding, wanted: [...wanted.values()] }
+}
+
+/** Whether a SKU (as KeyCRM spells it) is one the caption names. */
+function names(w: Wanted, sku: string): boolean {
+  const key = spoolKey(sku)
+  return w.colour ? colourOf(key) === w.key : key === w.key
 }
 
 export async function readPhotoChannel(): Promise<PhotoChannel | null> {
@@ -96,8 +163,14 @@ export async function readPhotoChannel(): Promise<PhotoChannel | null> {
   return raw ? JSON.parse(raw) : null
 }
 
-export async function readPendingAlbums(): Promise<PendingAlbum[]> {
-  return Object.values(await (await redis()).hGetAll(KEY_PENDING)).map((json) => JSON.parse(json))
+/** Albums no spool in KeyCRM has yet. */
+export async function readWaitingColors(): Promise<ColorPhotos[]> {
+  const all = Object.values(await (await redis()).hGetAll(KEY_COLORS)).map((json) => JSON.parse(json) as ColorPhotos)
+  return all.filter((c) => c.applied.length === 0)
+}
+
+export async function readPhotoLog(): Promise<PhotoLogEntry[]> {
+  return (await (await redis()).lRange(KEY_LOG, 0, 49)).map((json) => JSON.parse(json))
 }
 
 /** The largest size of a photo, or an image sent as a file (uncompressed). */
@@ -108,10 +181,6 @@ function photoOf(post: any): { fileId: string; uniqueId: string } | null {
   const doc = post.document
   if (doc && String(doc.mime_type ?? "").startsWith("image/")) return { fileId: doc.file_id, uniqueId: doc.file_unique_id }
   return null
-}
-
-export async function readPhotoLog(): Promise<PhotoLogEntry[]> {
-  return (await (await redis()).lRange(KEY_LOG, 0, 49)).map((json) => JSON.parse(json))
 }
 
 /** «/photos_here <code>» or «/photos_off <code>» posted in a channel. True when the post was one. */
@@ -138,9 +207,10 @@ async function channelCommand(post: any): Promise<boolean> {
     [
       "✅ Фото з цього каналу тепер потрапляють на сайт і в KeyCRM.",
       "",
-      "Альбом до 6 фото, у підписі — артикул, наприклад ST98. Перше фото — головне.",
-      "ST98 — замінити всі фото товару, +ST98 — додати нові першими до наявних.",
-      "Артикула ще немає в KeyCRM — я відповім ⏳ і сам додам фото, щойно товар з'явиться.",
+      "Альбом до 6 фото, у підписі — артикул. Перше фото — головне.",
+      "MO374 — фото на всі бобіни кольору (MO374-1, MO374-2…), і на ті, що з'являться в KeyCRM пізніше.",
+      "MO362-1, MO362-2 — лише на ці бобіни.",
+      "+MO374 — додати нові фото першими до наявних, без + — замінити.",
     ].join("\n"),
   )
   return true
@@ -188,148 +258,225 @@ async function albumPhotos(group: string): Promise<AlbumPhoto[]> {
     .sort((a, b) => a.messageId - b.messageId)
 }
 
-/** Sends an album on, or leaves it waiting for its SKU, and answers in the channel. */
-async function handleAlbum(chatId: number, group: string, pending?: PendingAlbum): Promise<"done" | "waiting" | "gone"> {
+const log = async (entry: PhotoLogEntry) =>
+  (await redis()).multi().lPush(KEY_LOG, JSON.stringify(entry)).lTrim(KEY_LOG, 0, 49).exec()
+
+/** Uploads an album, gives it to the spools KeyCRM has, remembers it for the rest, and answers. */
+async function handleAlbum(chatId: number, group: string, replyId?: number): Promise<void> {
   const r = await redis()
   const photos = await albumPhotos(group)
-  if (photos.length === 0) {
-    // Kept for 7 days: the SKU never came.
-    await r.hDel(KEY_PENDING, group)
-    if (pending?.replyId) {
-      await tg("editMessageText", {
-        chat_id: chatId,
-        message_id: pending.replyId,
-        text: `❌ <b>${esc(pending.sku)}</b>: за 7 днів такого артикула в KeyCRM так і не з'явилося, фото не збережені. Надішліть альбом ще раз, коли товар буде в KeyCRM.`,
-        parse_mode: "HTML",
-      }).catch(() => {})
-    }
-    return "gone"
-  }
+  if (photos.length === 0) return
   const captioned = photos.find((p) => p.caption) ?? photos[0]
-  // «+ST98» (or «+ ST98»): the photos are added to the SKU's, first; «ST98»: they replace them.
-  const sku = captioned.caption.replace(/^\+\s+/, "+").split(/\s+/)[0] ?? ""
-
-  let entry: PhotoLogEntry
+  const { adding, wanted } = parseCaption(captioned.caption)
+  // An edited caption: the same album, its earlier answer.
+  const before = await r.hGet(KEY_COLORS, group).then((j) => (j ? (JSON.parse(j) as ColorPhotos) : null))
+  const color: ColorPhotos = {
+    group,
+    chatId,
+    messageId: captioned.messageId,
+    replyId: replyId ?? before?.replyId,
+    caption: wanted.map((w) => w.label).join(", "),
+    wanted,
+    urls: [],
+    adding,
+    at: new Date().toISOString(),
+    applied: [],
+  }
+  let result: Applied
   try {
-    // A retry comes right after a catalog sync: the snapshot is as fresh as KeyCRM.
-    entry = await saveAlbum(sku, photos, !pending)
-  } catch (e) {
-    // KeyCRM's answer says what it didn't accept.
-    const note = e instanceof KeycrmError ? `${e.message} ${e.body.slice(0, 300)}` : (e as Error).message
-    entry = { at: new Date().toISOString(), sku, photos: photos.length, ok: false, note }
-  }
-
-  if (entry.waiting) {
-    // Already waiting (a retry after a sync): nothing new to say.
-    if (pending && pending.sku === sku) return "waiting"
-    const replyId = await answer(chatId, captioned.messageId, entry)
-    const wait: PendingAlbum = { chatId, group, sku, messageId: captioned.messageId, replyId, since: new Date().toISOString() }
-    await r.hSet(KEY_PENDING, group, JSON.stringify(wait))
-    await r.multi().lPush(KEY_LOG, JSON.stringify(entry)).lTrim(KEY_LOG, 0, 49).exec()
-    return "waiting"
-  }
-  const waited = pending ?? (await r.hGet(KEY_PENDING, group).then((j) => (j ? (JSON.parse(j) as PendingAlbum) : undefined)))
-  await r.hDel(KEY_PENDING, group)
-  await r.multi().lPush(KEY_LOG, JSON.stringify(entry)).lTrim(KEY_LOG, 0, 49).exec()
-  await answer(chatId, captioned.messageId, entry, waited?.replyId)
-  return "done"
-}
-
-/**
- * Run after each catalog sync (app/api/cron/telegram): albums whose SKU KeyCRM
- * didn't have go on now if it has it, and are given up with the album itself (7 days).
- */
-export async function retryPendingAlbums(): Promise<{ done: number; waiting: number }> {
-  const run = { done: 0, waiting: 0 }
-  for (const p of await readPendingAlbums()) {
-    try {
-      const result = await handleAlbum(p.chatId, p.group, p)
-      if (result === "done") run.done++
-      else if (result === "waiting") run.waiting++
-    } catch (e) {
-      console.error("[telegram-photos] retry", p.sku, (e as Error).message)
+    if (wanted.length === 0) {
+      throw new Error(
+        "У підписі немає артикула. Додайте його підписом до альбому, наприклад: MO374 (або MO362-1, MO362-2, або +MO374, щоб додати фото до наявних)",
+      )
     }
-  }
-  return run
-}
-
-/** SKU not in KeyCRM yet: the album waits for it. */
-class NotYet extends Error {}
-
-async function saveAlbum(caption: string, photos: AlbumPhoto[], ask: boolean): Promise<PhotoLogEntry> {
-  const adding = caption.startsWith("+")
-  const sku = adding ? caption.slice(1) : caption
-  if (!sku) throw new Error("У підписі немає артикула. Додайте його підписом до альбому, наприклад: ST98 (або +ST98, щоб додати фото до наявних)")
-  const kept = photos.slice(0, MAX_PHOTOS)
-  let found: { target: PhotoTarget; urls: string[]; added: number; dropped: number }
-  try {
-    found = (
+    result = (
       await keycrmBackground(async () => {
-        const target = (await photoTarget(sku)) ?? (ask ? await askKeycrm(sku) : null)
-        if (!target) throw new NotYet()
-        const uploaded: string[] = []
-        for (const [i, photo] of kept.entries()) uploaded.push(await upload(photo, `${target.sku}-${i + 1}`))
-        // Adding: the new photos first (the main one is new: they were taken to sell better), then the old ones.
-        const old = adding ? (await readProductPhotos(target.sku)).filter((u) => !uploaded.includes(u)) : []
-        const urls = [...uploaded, ...old].slice(0, MAX_PHOTOS)
-        await attach(target, urls).catch(async (e) => {
-          // KeyCRM may not take back photos stored elsewhere than its upload storage: the new ones, then (the site has all).
-          if (!(e instanceof KeycrmError) || old.length === 0) throw e
-          console.error("[telegram-photos] attach with old photos:", e.message)
-          await attach(target, uploaded)
-        })
-        return { target, urls, added: uploaded.length, dropped: uploaded.length + old.length - urls.length }
+        const kept = photos.slice(0, MAX_PHOTOS)
+        for (const [i, photo] of kept.entries()) color.urls.push(await upload(photo, `${wanted[0].label}-${i + 1}`))
+        const targets = await targetsFor(wanted, true)
+        return apply(color, targets)
       })
     ).result
   } catch (e) {
-    if (!(e instanceof NotYet)) throw e
-    return {
-      at: new Date().toISOString(),
-      sku,
-      photos: photos.length,
-      ok: false,
-      waiting: true,
-      note: `Артикула ${sku} ще немає в KeyCRM. Щойно товар там з'явиться, фото самі підуть на сайт і в KeyCRM (перевіряю кожні 30 хвилин, 7 днів). Якщо артикул з помилкою, виправте підпис.`,
-    }
+    // KeyCRM's answer says what it didn't accept.
+    const note = e instanceof KeycrmError ? `${e.message} ${e.body.slice(0, 300)}` : (e as Error).message
+    const entry: PhotoLogEntry = { at: new Date().toISOString(), sku: color.caption, photos: photos.length, ok: false, note }
+    await log(entry)
+    await answer(chatId, captioned.messageId, entry, color.replyId)
+    return
   }
-  const { target, urls, added, dropped } = found
+  const entry = report(color, result, photos.length)
+  color.replyId = await answer(chatId, captioned.messageId, entry, color.replyId)
+  await r.hSet(KEY_COLORS, group, JSON.stringify(color))
+  await r.hDel(KEY_PENDING, group)
+  await log(entry)
+}
 
-  const onSite = await saveProductPhotos(target.sku, urls)
-  if (onSite) {
-    try {
-      revalidatePath("/")
-      revalidatePath("/kategoriya/[slug]", "page")
-      revalidatePath(`/product/${target.sku}`)
-    } catch (e) {
-      // The pages catch up within the hour then (their revalidate time).
-      console.error("[telegram-photos] revalidate:", (e as Error).message)
-    }
-  }
-
-  const notes = [
-    target.offers > 1
-      ? `KeyCRM: головне фото — у варіант (у товарі ${target.offers} кольорів, а варіант тримає одне фото)`
-      : "KeyCRM: фото товару",
-    onSite
-      ? "сайт: оновлено"
-      : "сайт: фото збережені, з'являться разом із товаром після синхронізації каталогу (або категорія не продається на сайті)",
-  ]
-  if (adding) {
-    notes.unshift(`додано ${added} нових першими, разом ${urls.length}${dropped ? ` (${dropped} старих прибрано з кінця: більше ${MAX_PHOTOS} не можна)` : ""}`)
-  }
-  if (photos.length > MAX_PHOTOS) notes.push(`взято перші ${MAX_PHOTOS} з ${photos.length}`)
-  return { at: new Date().toISOString(), sku: target.sku, photos: urls.length, ok: true, note: notes.join("; ") }
+interface Applied {
+  /** SKUs given the photos now. */
+  skus: string[]
+  /** Photos of the old ones dropped to stay within 6 («+»). */
+  dropped: number
+  /** Spools named one by one that KeyCRM doesn't have yet. */
+  missing: string[]
+  /** A colour whose spools have different colour names in KeyCRM: given to none of them. */
+  mixed: string[]
 }
 
 /**
- * A SKU the catalog snapshot doesn't have yet (the product was created after
+ * The spools the caption names. A spool named one by one that the snapshot
+ * lacks is looked up in KeyCRM (`ask`: not right after a sync, when the
+ * snapshot is as fresh as KeyCRM).
+ */
+async function targetsFor(wanted: Wanted[], ask: boolean): Promise<PhotoTarget[]> {
+  const all = await readPhotoTargets()
+  const found = new Map<string, PhotoTarget>()
+  for (const w of wanted) {
+    const mine = all.filter((t) => names(w, t.sku))
+    if (mine.length === 0 && !w.colour && ask) {
+      const t = await askKeycrm(w.label)
+      if (t) mine.push(t)
+    }
+    for (const t of mine) found.set(t.sku, t)
+  }
+  return [...found.values()]
+}
+
+/** Gives the album's photos to these spools in KeyCRM and on the site. */
+async function apply(color: ColorPhotos, targets: PhotoTarget[]): Promise<Applied> {
+  const result: Applied = { skus: [], dropped: 0, missing: [], mixed: [] }
+  // «MO374» means one colour: spools whose colour names differ in KeyCRM are not guessed at.
+  const products = new Map((await readProducts(targets.map((t) => t.sku))).map((p) => [p.sku, p]))
+  const ok: PhotoTarget[] = []
+  for (const w of color.wanted) {
+    const mine = targets.filter((t) => names(w, t.sku) && !ok.includes(t))
+    const colours = new Set(mine.map((t) => products.get(t.sku)?.color?.trim().toLowerCase()).filter(Boolean))
+    if (w.colour && colours.size > 1) result.mixed.push(w.label)
+    else ok.push(...mine)
+    if (!w.colour && mine.length === 0) result.missing.push(w.label)
+  }
+  for (const target of ok) {
+    if (color.applied.includes(target.sku)) continue
+    // Adding: the new photos first, then the spool's own.
+    const old = color.adding ? (await readProductPhotos(target.sku)).filter((u) => !color.urls.includes(u)) : []
+    const urls = [...color.urls, ...old].slice(0, MAX_PHOTOS)
+    result.dropped = Math.max(result.dropped, color.urls.length + old.length - urls.length)
+    await attach(target, urls).catch(async (e) => {
+      // KeyCRM may not take back photos stored elsewhere than its upload storage: the new ones, then (the site has all).
+      if (!(e instanceof KeycrmError) || old.length === 0) throw e
+      console.error("[telegram-photos] attach with old photos:", e.message)
+      await attach(target, color.urls)
+    })
+    if (await saveProductPhotos(target.sku, urls)) {
+      try {
+        revalidatePath(`/product/${encodeURIComponent(target.sku)}`)
+      } catch {
+        // Outside a request: the page catches up within the hour.
+      }
+    }
+    color.applied.push(target.sku)
+    result.skus.push(target.sku)
+  }
+  if (result.skus.length) {
+    try {
+      revalidatePath("/")
+      revalidatePath("/kategoriya/[slug]", "page")
+    } catch {}
+  }
+  return result
+}
+
+function report(color: ColorPhotos, result: Applied, posted: number): PhotoLogEntry {
+  const lines: string[] = []
+  if (result.skus.length) {
+    lines.push(`${color.urls.length} фото → ${result.skus.join(", ")}`)
+    if (color.adding) {
+      lines.push(`нові фото першими${result.dropped ? `, ${result.dropped} старих прибрано з кінця (більше ${MAX_PHOTOS} не можна)` : ""}`)
+    }
+  }
+  if (result.missing.length) lines.push(`ще немає в KeyCRM: ${result.missing.join(", ")} — додам фото, щойно з'являться`)
+  for (const label of result.mixed) {
+    lines.push(`${label}: у KeyCRM бобіни різних кольорів — вкажіть артикули бобін через кому, наприклад ${label}-1, ${label}-2`)
+  }
+  const colours = color.wanted.filter((w) => w.colour && !result.mixed.includes(w.label)).map((w) => w.label)
+  if (colours.length && !result.skus.length && !result.mixed.length) {
+    lines.push(`${colours.join(", ")}: ще немає в KeyCRM — фото збережені, підуть самі, щойно з'явиться бобіна`)
+  } else if (colours.length) {
+    lines.push(`нові бобіни ${colours.join(", ")} отримають ці фото самі`)
+  }
+  if (posted > MAX_PHOTOS) lines.push(`взято перші ${MAX_PHOTOS} з ${posted}`)
+  const waiting = result.skus.length === 0 && result.mixed.length === 0
+  return {
+    at: new Date().toISOString(),
+    sku: color.caption,
+    photos: color.urls.length,
+    ok: result.skus.length > 0 && result.mixed.length === 0,
+    waiting,
+    note: lines.join("\n"),
+  }
+}
+
+/**
+ * Run after each catalog sync (app/api/cron/telegram): spools KeyCRM got since
+ * are given their colour's photos (the newest album naming them), and
+ * albums from before colours were remembered are handled once more.
+ */
+export async function applyColorPhotos(): Promise<{ given: number; waiting: number }> {
+  const r = await redis()
+  for (const [group, json] of Object.entries(await r.hGetAll(KEY_PENDING))) {
+    const p = JSON.parse(json) as { chatId: number; replyId?: number }
+    await handleAlbum(p.chatId, group, p.replyId).catch((e) => console.error("[telegram-photos] old album", group, (e as Error).message))
+    await r.hDel(KEY_PENDING, group)
+  }
+
+  const cutoff = Date.now() - COLOR_DAYS * 86400_000
+  const colors: ColorPhotos[] = []
+  for (const [group, json] of Object.entries(await r.hGetAll(KEY_COLORS))) {
+    const c = JSON.parse(json) as ColorPhotos
+    if (Date.parse(c.at) < cutoff) await r.hDel(KEY_COLORS, group)
+    else colors.push(c)
+  }
+  if (colors.length === 0) return { given: 0, waiting: 0 }
+  // Newest first: a spool gets the latest album naming it, never an older one after it.
+  colors.sort((a, b) => b.at.localeCompare(a.at))
+  const targets = await readPhotoTargets()
+  const byAlbum = new Map<ColorPhotos, PhotoTarget[]>()
+  for (const t of targets) {
+    const c = colors.find((c) => c.wanted.some((w) => names(w, t.sku)))
+    if (c && !c.applied.includes(t.sku)) byAlbum.set(c, [...(byAlbum.get(c) ?? []), t])
+  }
+  let given = 0
+  for (const [c, mine] of byAlbum) {
+    try {
+      const hadAny = c.applied.length > 0
+      const { result } = await keycrmBackground(() => apply(c, mine))
+      if (result.skus.length === 0) continue
+      given += result.skus.length
+      const entry = report(c, result, c.urls.length)
+      if (!hadAny) {
+        // It was waiting: its ⏳ answer becomes ✅.
+        c.replyId = await answer(c.chatId, c.messageId, entry, c.replyId)
+      } else {
+        await answer(c.chatId, c.messageId, { ...entry, note: `нова бобіна: ${result.skus.join(", ")} — фото кольору ${c.caption}` })
+      }
+      await r.hSet(KEY_COLORS, c.group, JSON.stringify(c))
+      await log(entry)
+    } catch (e) {
+      console.error("[telegram-photos] colour", c.caption, (e as Error).message)
+    }
+  }
+  return { given, waiting: colors.filter((c) => c.applied.length === 0).length }
+}
+
+/**
+ * A spool the catalog snapshot doesn't have yet (the product was created after
  * the last sync): KeyCRM itself, so a new product needn't wait for the sync.
  */
 async function askKeycrm(sku: string): Promise<PhotoTarget | null> {
   try {
     return await findOffer(sku)
   } catch (e) {
-    // No answer from KeyCRM: the album waits for the next sync as if the SKU were new.
+    // No answer from KeyCRM: the spool waits for the next sync as if it were new.
     console.error("[telegram-photos] KeyCRM lookup", sku, (e as Error).message)
     return null
   }
@@ -337,8 +484,8 @@ async function askKeycrm(sku: string): Promise<PhotoTarget | null> {
 
 async function findOffer(sku: string): Promise<PhotoTarget | null> {
   const res = await keycrmGet<{ data?: any[] }>("/offers", { "filter[sku]": sku, include: "product", limit: 50 })
-  const wanted = skuKey(sku)
-  const offer = (res.data ?? []).find((o) => skuKey(String(o.sku ?? "")) === wanted && !o.is_archived && !o.product?.is_archived)
+  const wanted = spoolKey(sku)
+  const offer = (res.data ?? []).find((o) => spoolKey(String(o.sku ?? "")) === wanted && !o.is_archived && !o.product?.is_archived)
   if (!offer) return null
   const { items } = await keycrmGetPages("/offers", { "filter[product_id]": offer.product_id, "filter[is_archived]": "false" })
   const offers = items.filter((o: any) => o.product_id === offer.product_id).length || 1
@@ -372,26 +519,25 @@ async function upload(photo: AlbumPhoto, name: string): Promise<string> {
   return stored.url
 }
 
-/** Puts the photos on the KeyCRM product, or the main one on the offer when the product has other colours. */
+/** Puts the photos on the KeyCRM product, or the main one on the offer when the product has other offers. */
 async function attach(target: PhotoTarget, urls: string[]): Promise<void> {
   if (target.offers <= 1) await keycrmSend("PUT", `/products/${target.productId}`, { pictures: urls })
   await keycrmSend("PUT", "/offers", { offers: [{ id: target.offerId, image_url: urls[0] }] })
 }
 
-/** Reacts to the album and replies (or edits the earlier ⏳ reply). Returns the reply's id. */
+/** Reacts to the album and replies (or edits the earlier reply). Returns the reply's id. */
 async function answer(chatId: number, messageId: number, entry: PhotoLogEntry, replyId?: number): Promise<number | undefined> {
   await tg("setMessageReaction", {
     chat_id: chatId,
     message_id: messageId,
     reaction: [{ type: "emoji", emoji: entry.ok ? "👌" : entry.waiting ? "👀" : "👎" }],
   }).catch(() => {})
-  const text = entry.ok
-    ? `✅ <b>${esc(entry.sku)}</b>: ${entry.photos} фото.\n${esc(entry.note)}`
-    : `${entry.waiting ? "⏳" : "❌"} <b>${esc(entry.sku || "без артикула")}</b>: ${esc(entry.note)}`
+  const mark = entry.ok ? "✅" : entry.waiting ? "⏳" : "❌"
+  const text = `${mark} <b>${esc(entry.sku || "без артикула")}</b>\n${esc(entry.note)}`
   if (replyId) {
     const edited = await tg("editMessageText", { chat_id: chatId, message_id: replyId, text, parse_mode: "HTML" })
       .then(() => true)
-      .catch(() => false)
+      .catch((e) => /not modified/i.test(String(e?.description ?? e?.message)))
     if (edited) return replyId
   }
   const sent = await tg<{ message_id: number }>("sendMessage", {
