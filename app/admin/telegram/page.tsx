@@ -255,6 +255,7 @@ export default async function TelegramAdminPage({
             Вимкнути: /weights_off {staffCode()}
           </li>
           <li>Артикул бобіни і чиста вага в грамах, кожна бобіна з нового рядка: «MO362-1 326».</li>
+          <li>Вага від адміна «Sincerita» (у званні адміна, або анонімно від імені групи) — контрольна: бот позначає її 🔒.</li>
         </ol>
         {weighings.length > 0 && (
           <table className="mt-3 w-full">
@@ -268,7 +269,10 @@ export default async function TelegramAdminPage({
                   <td className="py-1.5 pr-4 tabular-nums">
                     {w.before} → {w.after} г
                   </td>
-                  <td className="py-1.5 text-zinc-500">{w.by}</td>
+                  <td className="py-1.5 text-zinc-500">
+                    {w.by}
+                    {w.control && " · 🔒 контрольна"}
+                  </td>
                 </tr>
               ))}
             </tbody>
