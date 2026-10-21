@@ -69,7 +69,7 @@ export function driveVideosConfigured(): boolean {
 }
 
 /** Cyrillic letters typed in place of the Latin ones they look like (МЕR → MER). */
-const LOOKALIKES: Record<string, string> = {
+export const LOOKALIKES: Record<string, string> = {
   а: "a", в: "b", е: "e", і: "i", к: "k", м: "m", н: "h", о: "o", р: "p", с: "c", т: "t", у: "y", х: "x",
 }
 

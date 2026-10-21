@@ -11,7 +11,7 @@ import { readTelegramStats } from "@/lib/telegram-stats"
 import { readStaffChat, staffCode } from "@/lib/telegram-staff"
 import { reviewCount } from "@/lib/reviews"
 import { readReviewsTopic } from "@/lib/reviews-intake"
-import { readPendingAlbums, readPhotoChannel, readPhotoLog } from "@/lib/telegram-photos"
+import { readPhotoChannel, readPhotoLog, readWaitingColors } from "@/lib/telegram-photos"
 import { TelegramResults } from "@/components/admin/telegram-results"
 
 // The Telegram channel's daily post, for the shop's owner:
@@ -69,7 +69,7 @@ export default async function TelegramAdminPage({
     readReviewsTopic().catch(() => null),
     reviewCount().catch(() => 0),
     readPhotoChannel().catch(() => null),
-    readPendingAlbums().catch(() => []),
+    readWaitingColors().catch(() => []),
     readPhotoLog().catch(() => []),
   ])
   const introResult = typeof params.intro === "string" ? params.intro : ""
@@ -201,7 +201,7 @@ export default async function TelegramAdminPage({
         {photoChannel ? (
           <p className="text-green-700">
             Альбоми з «{photoChannel.title}» потрапляють на сайт і в KeyCRM. Чекають на артикул у KeyCRM:{" "}
-            {photoPending.length ? photoPending.map((p) => p.sku).join(", ") : "немає"}.
+            {photoPending.length ? photoPending.map((p) => p.caption).join(", ") : "немає"}.
           </p>
         ) : (
           <p className="text-zinc-600">Ще не налаштовано: бот не бере фото з жодного каналу.</p>
@@ -214,9 +214,10 @@ export default async function TelegramAdminPage({
             (бот видалить це повідомлення і відповість ✅). Вимкнути: /photos_off {staffCode()}
           </li>
           <li>
-            Альбом до 6 фото, у підписі — артикул: «ST98» замінює всі фото товару, «+ST98» додає нові першими до
-            наявних (разом до 6). Немає ще в KeyCRM — бот відповідає ⏳ і сам додає фото після синхронізації каталогу
-            (кожні 30 хвилин, до 7 днів).
+            Альбом до 6 фото, у підписі — артикул: «MO374» — на всі бобіни кольору (MO374-1, MO374-2…), і на ті, що
+            з'являться в KeyCRM пізніше (90 днів); «MO362-1, MO362-2» — лише на ці бобіни; «+MO374» додає нові фото
+            першими до наявних. Бобіни ще немає в KeyCRM — бот відповідає ⏳ і сам додає фото після синхронізації
+            каталогу (кожні 30 хвилин).
           </li>
         </ol>
         {photoLog.length > 0 && (
