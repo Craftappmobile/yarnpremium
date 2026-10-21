@@ -18,6 +18,11 @@
 // The topic is the one where someone wrote «/weights_here <code>» (the code
 // of lib/telegram-staff.ts, shown on /admin/telegram).
 //
+// A weight from the shop's admin «Sincerita» is the control weight: weighed
+// to settle it, so the answer says other managers needn't weigh it again.
+// That admin is one whose admin title says «Sincerita», or an admin writing
+// as the group itself (anonymously; signed with the title, if any).
+//
 // Redis keys:
 //   tg:weights:topic       JSON  { chatId, threadId?, title, at }
 //   tg:weights:warehouse   id of the warehouse last written to (for a spool with no stock anywhere)
@@ -39,6 +44,8 @@ const KEY_LOG = "tg:weights:log"
 const MAX_LINES = 40
 /** A change this big gets a ⚠️: a typo is likelier than a mistake of that size. */
 const BIG_CHANGE = 50
+/** The admin title of whoever writes control weights. */
+const CONTROL_TITLE = /sincerita/i
 
 export interface WeightsTopic {
   chatId: number
@@ -54,6 +61,8 @@ export interface Weighing {
   sku: string
   before: number
   after: number
+  /** The control weight, from «Sincerita». */
+  control?: boolean
 }
 
 export async function readWeightsTopic(): Promise<WeightsTopic | null> {
@@ -124,7 +133,9 @@ export async function handleWeightsMessage(message: any): Promise<boolean> {
 
   const topic = await readWeightsTopic()
   if (!topic || topic.chatId !== chatId || (topic.threadId ?? undefined) !== threadId) return false
-  if (message.from?.is_bot || !text) return true
+  // An admin writing anonymously comes as the group, from Telegram's «GroupAnonymousBot».
+  const asGroup = message.sender_chat?.id === chatId
+  if ((message.from?.is_bot && !asGroup) || !text) return true
 
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean)
   const parsed = lines.map((line) => ({ line, w: parseWeightLine(line) }))
@@ -135,17 +146,32 @@ export async function handleWeightsMessage(message: any): Promise<boolean> {
     }
     return true
   }
-  const by = [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") || "—"
+  const by = asGroup
+    ? String(message.author_signature || message.chat.title || "адмін")
+    : [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") || "—"
   // Answer Telegram now; KeyCRM may take a while.
-  after(() =>
-    weigh(parsed.slice(0, MAX_LINES), by)
+  after(async () =>
+    weigh(parsed.slice(0, MAX_LINES), by, await isControl(message, asGroup))
       .then((answer) => reply(answer))
       .catch((e) => reply(`❌ ${esc((e as Error).message)}`)),
   )
   return true
 }
 
-export async function weigh(lines: { line: string; w: { sku: string; grams: number } | null }[], by: string): Promise<string> {
+/** Whether the message carries the control weight: see the top of this file. */
+async function isControl(message: any, asGroup: boolean): Promise<boolean> {
+  if (asGroup) return true
+  const member = await tg<{ custom_title?: string }>("getChatMember", { chat_id: message.chat.id, user_id: message.from?.id }).catch(
+    () => null,
+  )
+  return CONTROL_TITLE.test(member?.custom_title ?? "")
+}
+
+export async function weigh(
+  lines: { line: string; w: { sku: string; grams: number } | null }[],
+  by: string,
+  control = false,
+): Promise<string> {
   const targets = await readPhotoTargets()
   const out: string[] = []
   const changed: string[] = []
@@ -156,7 +182,7 @@ export async function weigh(lines: { line: string; w: { sku: string; grams: numb
         continue
       }
       try {
-        out.push(await weighOne(w.sku, w.grams, targets, by, changed))
+        out.push(await weighOne(w.sku, w.grams, targets, by, changed, control))
       } catch (e) {
         const note = e instanceof KeycrmError ? `KeyCRM: ${e.message} ${e.body.slice(0, 200)}` : (e as Error).message
         out.push(`❌ <b>${esc(w.sku)}</b>: ${esc(note)}`)
@@ -170,6 +196,9 @@ export async function weigh(lines: { line: string; w: { sku: string; grams: numb
       for (const sku of changed) revalidatePath(`/product/${encodeURIComponent(sku)}`)
     } catch {}
   }
+  if (control && changed.length) {
+    out.unshift(`🔒 <b>Контрольна вага від ${esc(by)}</b> — перевірений факт, повторно не переважувати.`, "")
+  }
   return out.join("\n")
 }
 
@@ -181,7 +210,14 @@ interface StockRow {
   warehouse?: { id: number; name?: string; quantity?: number; reserve?: number }[]
 }
 
-async function weighOne(sku: string, grams: number, targets: PhotoTarget[], by: string, changed: string[]): Promise<string> {
+async function weighOne(
+  sku: string,
+  grams: number,
+  targets: PhotoTarget[],
+  by: string,
+  changed: string[],
+  control: boolean,
+): Promise<string> {
   const key = spoolKey(sku)
   if (!/-\d+$/.test(key)) {
     // A colour: which spool?
@@ -219,17 +255,19 @@ async function weighOne(sku: string, grams: number, targets: PhotoTarget[], by: 
   // The site at once; KeyCRM's webhook confirms it a moment later.
   await applyStockUpdates([{ sku: target.sku, offerId: target.offerId, inStock: grams, inReserve: reserve }])
   changed.push(target.sku)
-  const entry: Weighing = { at: new Date().toISOString(), by, sku: target.sku, before, after: grams }
+  const entry: Weighing = { at: new Date().toISOString(), by, sku: target.sku, before, after: grams, ...(control ? { control } : {}) }
   await r.multi().lPush(KEY_LOG, JSON.stringify(entry)).lTrim(KEY_LOG, 0, 199).exec()
 
   const diff = grams - before
   const sign = diff > 0 ? "+" : diff < 0 ? "−" : "±"
   const fmt = (n: number) => n.toLocaleString("uk-UA", { maximumFractionDigits: 1 })
-  const mark = Math.abs(diff) > BIG_CHANGE ? "⚠️" : "✅"
+  const big = Math.abs(diff) > BIG_CHANGE
+  // The control weight is the one checked: a big difference is the old figure's mistake.
+  const mark = control ? "🔒" : big ? "⚠️" : "✅"
   const note = [
     `${mark} <b>${esc(target.sku)}</b>: було ${fmt(before)} г → стало ${fmt(grams)} г (${sign}${fmt(Math.abs(diff))} г)`,
     reserve > 0 ? `   у резерві ${fmt(reserve)} г, доступно ${fmt(Math.max(0, grams - reserve))} г` : "",
-    mark === "⚠️" ? "   велика різниця — перевірте, чи правильна цифра" : "",
+    big && !control ? "   велика різниця — перевірте, чи правильна цифра" : "",
   ]
   return note.filter(Boolean).join("\n")
 }
