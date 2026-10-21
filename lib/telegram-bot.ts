@@ -14,6 +14,7 @@ import { redis } from "@/lib/redis"
 import { SITE_URL, TELEGRAM_URL } from "@/lib/site"
 import { RUBRICS, rubricByKey } from "@/lib/telegram-rubrics"
 import { handleReviewsMessage } from "@/lib/reviews-intake"
+import { handleWeightsMessage } from "@/lib/telegram-weights"
 import { handleStaffCommand } from "@/lib/telegram-staff"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg, webhookSecret } from "@/lib/telegram"
 import { handleChannelPost } from "@/lib/telegram-photos"
@@ -161,9 +162,10 @@ export async function handleUpdate(update: any): Promise<void> {
   }
   const message = update.message
   // The shop's own group: where abandoned checkouts and remnants are reported (lib/telegram-staff.ts),
-  // and the topic whose reviews go to the site (lib/reviews-intake.ts).
+  // the topic whose reviews go to the site (lib/reviews-intake.ts), and the one
+  // whose weighed spools go to KeyCRM (lib/telegram-weights.ts).
   if (message?.chat?.type === "group" || message?.chat?.type === "supergroup") {
-    if ((await handleStaffCommand(message)) || (await handleReviewsMessage(message))) return
+    if ((await handleStaffCommand(message)) || (await handleReviewsMessage(message)) || (await handleWeightsMessage(message))) return
   }
   if (message?.chat?.type === "private") {
     const chatId: number = message.chat.id
