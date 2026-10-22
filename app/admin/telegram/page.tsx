@@ -111,7 +111,7 @@ export default async function TelegramAdminPage({
           Кожна кнопка «Підписатися» на сайті веде в канал своїм запрошувальним посиланням: Telegram каже боту, хто
           приєднався за ним. «Відписалися» — ті з них, хто потім вийшов з каналу.
         </p>
-        {"canInvite" in status && !status.canInvite && (
+        {"canInvite" in status && !status.canInvite && invites.some((i) => !i.link) && (
           <p className="text-red-700">
             Бот не може створювати посилання: дайте йому в каналі право «Додавання підписників». Поки що кнопки ведуть
             на звичайну адресу каналу, і приєднання не рахуються.
