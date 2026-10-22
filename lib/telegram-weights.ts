@@ -78,12 +78,16 @@ const inThread = (threadId?: number) => (threadId ? { message_thread_id: threadI
 
 /** «MO362-1 326», «mo 362 - 1: 326 г», «MO362-1 — 326,5гр»: SKU and grams; null for any other line. */
 export function parseWeightLine(line: string): { sku: string; grams: number } | null {
+  // A SKU is a few letters and a number (MER 1059, MO377 - 2): «Перевірте MER914-2 315» is no weighing.
   const m = line
     .trim()
-    .match(/^(\p{L}[\p{L}\d\s]*?\d+(?:\s*[-–—]\s*\d+)?)\s*[:=—–-]?\s+(\d+(?:[.,]\d+)?)\s*(?:г|гр|g|gr)?\.?$/iu)
+    .match(/^(\p{L}{1,6}\s?\d+(?:\s*[-–—]\s*\d+)?)\s*[:=—–-]?\s+(\d+(?:[.,]\d+)?)\s*(?:г|гр|g|gr)?\.?$/iu)
   if (!m) return null
   return { sku: m[1].replace(/\s*[-–—]\s*/g, "-").replace(/\s+/g, ""), grams: Number(m[2].replace(",", ".")) }
 }
+
+/** A weighing mistyped («MO362-1 3l6»): a SKU, then more numbers, and no question. */
+const looksLikeWeighing = (line: string) => /^\p{L}{1,6}\s?\d/u.test(line) && /\d\D*\s\D*\d/.test(line) && !line.includes("?")
 
 /**
  * Group messages: «/weights_here <code>» and «/weights_off <code>» anywhere,
@@ -139,9 +143,11 @@ export async function handleWeightsMessage(message: any): Promise<boolean> {
 
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean)
   const parsed = lines.map((line) => ({ line, w: parseWeightLine(line) }))
+  // Managers ask here for the control weight («Зробіть контрольну вагу MER914-2», «MER914-2 315?»):
+  // a message with any such line is talk, and nothing in it is written to KeyCRM.
+  if (parsed.some((p) => !p.w && !looksLikeWeighing(p.line))) return true
   if (!parsed.some((p) => p.w)) {
-    // Talk between colleagues: answered only when it looks like a weighing gone wrong.
-    if (/\d/.test(text) && lines.length <= MAX_LINES) {
+    if (lines.length <= MAX_LINES) {
       await reply("Не зрозумів. Пишіть артикул бобіни і вагу в грамах, кожну з нового рядка, наприклад:\nMO362-1 326")
     }
     return true
