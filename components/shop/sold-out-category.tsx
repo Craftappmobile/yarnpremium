@@ -32,7 +32,7 @@ export function SoldOutCategory({ category, similar }: { category: string; simil
             Канал відкрито в Telegram. Натисніть там «Підписатися».
           </p>
         ) : (
-          <TelegramButton onClick={() => setChannelOpened(true)} className="mt-4 w-full py-3 sm:w-auto sm:px-6">
+          <TelegramButton place="sold-out" onClick={() => setChannelOpened(true)} className="mt-4 w-full py-3 sm:w-auto sm:px-6">
             Підписатися на нові партії
           </TelegramButton>
         )}

@@ -48,7 +48,7 @@ export function SubscribeCard({ className = "" }: { className?: string }) {
           Кожен колір — одна партія, повторно не привозимо. Нові показуємо в нашому каналі.
         </p>
       </div>
-      <TelegramButton onClick={() => dismiss("subscribed")} className="shrink-0">
+      <TelegramButton place="catalog" onClick={() => dismiss("subscribed")} className="shrink-0">
         Підписатися
       </TelegramButton>
       <button

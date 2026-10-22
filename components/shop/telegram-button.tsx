@@ -1,23 +1,27 @@
-import { TELEGRAM_URL } from "@/lib/site"
+import type { InvitePlace } from "@/lib/telegram-invites"
 
 /**
  * The shop's Telegram channel, in Telegram's blue with its mark, so people
  * know at a glance it opens Telegram. Only here: the rest of the site stays
  * black and white. A shade darker than Telegram's #2AABEE, which with white
- * text is hard to read (≈2.6:1); this one passes 4.5:1.
+ * text is hard to read (≈2.6:1); this one passes 4.5:1. `place` says which
+ * button it is: it opens the channel by that place's invite link, so the
+ * admin page can tell which button brings subscribers (lib/telegram-invites.ts).
  */
 export function TelegramButton({
+  place,
   children,
   onClick,
   className = "",
 }: {
+  place: InvitePlace
   children: React.ReactNode
   onClick?: () => void
   className?: string
 }) {
   return (
     <a
-      href={TELEGRAM_URL}
+      href={`/kanal/${place}`}
       target="_blank"
       rel="noopener noreferrer"
       onClick={onClick}
