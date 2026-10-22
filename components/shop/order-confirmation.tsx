@@ -203,7 +203,7 @@ export function OrderConfirmation() {
               Канал відкрито в Telegram. Натисніть там «Підписатися».
             </p>
           ) : (
-            <TelegramButton onClick={() => setChannelOpened(true)} className="mt-4 w-full py-3">
+            <TelegramButton place="order" onClick={() => setChannelOpened(true)} className="mt-4 w-full py-3">
               Підписатися на канал
             </TelegramButton>
           )}

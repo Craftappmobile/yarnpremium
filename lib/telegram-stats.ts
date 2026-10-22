@@ -14,6 +14,10 @@
 //   posts                                            posts published in the channel
 //   members, subscribers                             channel members and bot subscribers, as of
 //                                                    the day's last check (not added up)
+//   clicks:p:<place>, joins:p:<place>, leaves:p:<place>
+//                                                    the site's «Підписатися» buttons: clicks, and who
+//                                                    joined the channel by their links and left it
+//                                                    (lib/telegram-invites.ts)
 //
 // The links' tags (lib/telegram-news.ts): utm_source=telegram, utm_medium
 // channel|bot, utm_campaign the post's rubric key, «mixed», «digest» (the
@@ -98,6 +102,8 @@ export interface TelegramDay {
   subscribers: number | null
   /** campaign -> its figures */
   campaigns: Record<string, { visits: number; orders: number; revenue: number; abandoned: number }>
+  /** The site's button -> its figures */
+  places: Record<string, { clicks: number; joins: number; leaves: number }>
 }
 
 function toDay(day: string, h: Record<string, string>): TelegramDay {
@@ -109,6 +115,13 @@ function toDay(day: string, h: Record<string, string>): TelegramDay {
     if (!m) continue
     const c = (campaigns[m[2]] ??= { visits: 0, orders: 0, revenue: 0, abandoned: 0 })
     c[m[1] as "visits" | "orders" | "revenue" | "abandoned"] += Number(value)
+  }
+  const places: TelegramDay["places"] = {}
+  for (const [field, value] of Object.entries(h)) {
+    const m = field.match(/^(clicks|joins|leaves):p:(.+)$/)
+    if (!m) continue
+    const p = (places[m[2]] ??= { clicks: 0, joins: 0, leaves: 0 })
+    p[m[1] as "clicks" | "joins" | "leaves"] += Number(value)
   }
   return {
     day,
@@ -124,6 +137,7 @@ function toDay(day: string, h: Record<string, string>): TelegramDay {
     members: snap("members"),
     subscribers: snap("subscribers"),
     campaigns,
+    places,
   }
 }
 

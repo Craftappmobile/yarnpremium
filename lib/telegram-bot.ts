@@ -18,6 +18,7 @@ import { handleWeightsMessage } from "@/lib/telegram-weights"
 import { handleStaffCommand } from "@/lib/telegram-staff"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg, webhookSecret } from "@/lib/telegram"
 import { handleChannelPost } from "@/lib/telegram-photos"
+import { handleChannelMember } from "@/lib/telegram-invites"
 
 const KEY_SUBS = "tg:subs"
 /** The bot id is the token's part before the colon. */
@@ -25,7 +26,15 @@ const keyMe = () => `tg:me:${(process.env.TELEGRAM_BOT_TOKEN ?? "").split(":")[0
 
 export const WEBHOOK_PATH = "/api/telegram/webhook"
 // Channel posts: product photos (lib/telegram-photos.ts).
-const ALLOWED_UPDATES = ["message", "callback_query", "my_chat_member", "channel_post", "edited_channel_post"]
+const ALLOWED_UPDATES = [
+  "message",
+  "callback_query",
+  "my_chat_member",
+  "channel_post",
+  "edited_channel_post",
+  // Who joins the channel by the site's invite links (lib/telegram-invites.ts).
+  "chat_member",
+]
 
 // ---------------------------------------------------------------------------
 // Subscribers
@@ -160,6 +169,10 @@ export async function handleUpdate(update: any): Promise<void> {
     await handleChannelPost(update.channel_post ?? update.edited_channel_post, Boolean(update.edited_channel_post))
     return
   }
+  if (update.chat_member) {
+    await handleChannelMember(update.chat_member)
+    return
+  }
   const message = update.message
   // The shop's own group: where abandoned checkouts and remnants are reported (lib/telegram-staff.ts),
   // the topic whose reviews go to the site (lib/reviews-intake.ts), and the one
@@ -258,6 +271,8 @@ export async function botStatus() {
     /** "administrator" with can_post_messages is what posting needs. */
     channelStatus: String(member.status),
     canPost: member.status === "creator" || (member.status === "administrator" && member.can_post_messages !== false),
+    /** Invite links for the site's buttons (lib/telegram-invites.ts) need the right to add subscribers. */
+    canInvite: member.status === "creator" || (member.status === "administrator" && member.can_invite_users !== false),
     channelMembers: members,
     webhookUrl: webhook.url as string | undefined,
     webhookError: (webhook.last_error_message ?? webhook.error) as string | undefined,

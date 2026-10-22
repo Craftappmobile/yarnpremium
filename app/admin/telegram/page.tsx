@@ -13,6 +13,7 @@ import { reviewCount } from "@/lib/reviews"
 import { readReviewsTopic } from "@/lib/reviews-intake"
 import { readPhotoChannel, readPhotoLog, readWaitingColors } from "@/lib/telegram-photos"
 import { readWeighings, readWeightsTopic } from "@/lib/telegram-weights"
+import { readInviteLinks } from "@/lib/telegram-invites"
 import { TelegramResults } from "@/components/admin/telegram-results"
 
 // The Telegram channel's daily post, for the shop's owner:
@@ -73,7 +74,20 @@ export default async function TelegramAdminPage({
     readWaitingColors().catch(() => []),
     readPhotoLog().catch(() => []),
   ])
-  const [weightsTopic, weighings] = await Promise.all([readWeightsTopic().catch(() => null), readWeighings().catch(() => [])])
+  const [weightsTopic, weighings, invites] = await Promise.all([
+    readWeightsTopic().catch(() => null),
+    readWeighings().catch(() => []),
+    readInviteLinks().catch(() => []),
+  ])
+  // The site's «Підписатися» buttons over the period.
+  const byPlace = (place: string) =>
+    daily.reduce(
+      (sum, d) => {
+        const p = d.places[place]
+        return p ? { clicks: sum.clicks + p.clicks, joins: sum.joins + p.joins, leaves: sum.leaves + p.leaves } : sum
+      },
+      { clicks: 0, joins: 0, leaves: 0 },
+    )
   const introResult = typeof params.intro === "string" ? params.intro : ""
   const introReason = typeof params.reason === "string" ? params.reason : ""
   const { posts } = await plannedPosts(products)
@@ -90,6 +104,46 @@ export default async function TelegramAdminPage({
       </header>
 
       <TelegramResults daily={daily} days={days} periods={PERIODS} statsKey={key} />
+
+      <section className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
+        <h2 className="text-lg font-semibold">Хто приходить у канал із сайту, за {days} днів</h2>
+        <p className="text-zinc-600">
+          Кожна кнопка «Підписатися» на сайті веде в канал своїм запрошувальним посиланням: Telegram каже боту, хто
+          приєднався за ним. «Відписалися» — ті з них, хто потім вийшов з каналу.
+        </p>
+        {"canInvite" in status && !status.canInvite && (
+          <p className="text-red-700">
+            Бот не може створювати посилання: дайте йому в каналі право «Додавання підписників». Поки що кнопки ведуть
+            на звичайну адресу каналу, і приєднання не рахуються.
+          </p>
+        )}
+        <table className="w-full">
+          <thead>
+            <tr className="text-left text-zinc-500">
+              <th className="py-1.5 pr-4 font-normal">Кнопка</th>
+              <th className="py-1.5 pr-4 font-normal">Натиснули</th>
+              <th className="py-1.5 pr-4 font-normal">Приєдналися</th>
+              <th className="py-1.5 font-normal">Відписалися</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invites.map((i) => {
+              const n = byPlace(i.place)
+              return (
+                <tr key={i.place} className="border-t border-zinc-100">
+                  <td className="py-1.5 pr-4">
+                    {i.name}
+                    {!i.link && <span className="text-zinc-500"> · посилання створиться з першим натисканням</span>}
+                  </td>
+                  <td className="py-1.5 pr-4 tabular-nums">{n.clicks}</td>
+                  <td className="py-1.5 pr-4 tabular-nums">{n.joins}</td>
+                  <td className="py-1.5 tabular-nums">{n.leaves}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm leading-relaxed">
         {"error" in status ? (
