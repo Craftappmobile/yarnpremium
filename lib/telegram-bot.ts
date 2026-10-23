@@ -17,7 +17,7 @@ import { handleReviewsMessage } from "@/lib/reviews-intake"
 import { handleWeightsMessage } from "@/lib/telegram-weights"
 import { handleStaffCommand } from "@/lib/telegram-staff"
 import { type InlineButton, TelegramError, esc, keyboard, telegramChannel, tg, webhookSecret } from "@/lib/telegram"
-import { handleChannelPost } from "@/lib/telegram-photos"
+import { handleChannelPost, handlePhotoCallback } from "@/lib/telegram-photos"
 import { handleChannelMember } from "@/lib/telegram-invites"
 
 const KEY_SUBS = "tg:subs"
@@ -213,6 +213,8 @@ export async function handleUpdate(update: any): Promise<void> {
   }
 
   const cq = update.callback_query
+  // «Все одно додати» under the photo channel's answer (lib/telegram-photos.ts).
+  if (cq?.message?.chat?.type === "channel" && (await handlePhotoCallback(cq))) return
   if (cq?.message?.chat?.type === "private") {
     const chatId: number = cq.message.chat.id
     const data = String(cq.data ?? "")

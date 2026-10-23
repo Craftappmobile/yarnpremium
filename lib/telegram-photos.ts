@@ -10,6 +10,11 @@
 //   «+MO374»             the new photos go before the spools' own (the new
 //                        main photo: photos are retaken to sell better), else
 //                        they replace them
+//   «MO374+»             the new photos go after the spools' own, the main
+//                        photo stays (samples, say). A spool that would have
+//                        more than 6 isn't given them: the answer says so,
+//                        with a button «Все одно додати» that drops the
+//                        spool's oldest photos but the main one to make room
 //
 // The bot, an administrator of the channel, gets every post (channel_post), and
 // for each album:
@@ -57,7 +62,7 @@ import { KeycrmError, keycrmBackground, keycrmGet, keycrmGetPages, keycrmSend, k
 import { LOOKALIKES } from "@/lib/product-videos"
 import { redis } from "@/lib/redis"
 import { staffCode } from "@/lib/telegram-staff"
-import { esc, tg } from "@/lib/telegram"
+import { esc, keyboard, tg } from "@/lib/telegram"
 
 const KEY_CHANNEL = "tg:photo:channel"
 const KEY_COLORS = "tg:photo:colors"
@@ -121,7 +126,12 @@ export interface ColorPhotos {
   caption: string
   wanted: Wanted[]
   urls: string[]
+  /** Keeps the spools' own photos: the new ones first («+MO374»), or after them with `last`. */
   adding: boolean
+  /** «MO374+»: the new photos after the spools' own, the main one unchanged. */
+  last?: boolean
+  /** «Все одно додати» pressed: room is made by dropping old photos but the main one. */
+  force?: boolean
   at: string
   /** SKUs (as KeyCRM spells them) given these photos. */
   applied: string[]
@@ -140,9 +150,11 @@ export function spoolKey(sku: string): string {
 /** The colour a spool belongs to: «mo374» for «mo374-2» and for «mo374» itself. */
 export const colourOf = (key: string) => key.replace(/-\d+$/, "")
 
-/** «+MO374», «MO362-1, MO362-2», «mo 362 - 1»: the SKUs a caption names, and whether it adds. */
-export function parseCaption(caption: string): { adding: boolean; wanted: Wanted[] } {
-  const adding = /^\s*\+/.test(caption)
+/** «+MO374», «MO374+», «MO362-1, MO362-2», «mo 362 - 1»: the SKUs a caption names, and whether and where it adds. */
+export function parseCaption(caption: string): { adding: boolean; last: boolean; wanted: Wanted[] } {
+  const first = /^\s*\+/.test(caption)
+  const last = !first && /[\p{L}\p{N}]\s*\+/u.test(caption)
+  const adding = first || last
   const text = caption.replace(/\+/g, " ").replace(/\s*[-–—]\s*(?=\d)/g, "-")
   const wanted = new Map<string, Wanted>()
   for (const raw of text.split(/[\s,;]+/)) {
@@ -151,7 +163,7 @@ export function parseCaption(caption: string): { adding: boolean; wanted: Wanted
     const key = spoolKey(label)
     if (!wanted.has(key)) wanted.set(key, { label, key, colour: colourOf(key) === key })
   }
-  return { adding, wanted: [...wanted.values()] }
+  return { adding, last, wanted: [...wanted.values()] }
 }
 
 /** Whether a SKU (as KeyCRM spells it) is one the caption names. */
@@ -213,6 +225,7 @@ async function channelCommand(post: any): Promise<boolean> {
       "MO374 — фото на всі бобіни кольору (MO374-1, MO374-2…), і на ті, що з'являться в KeyCRM пізніше.",
       "MO362-1, MO362-2 — лише на ці бобіни.",
       "+MO374 — додати нові фото першими до наявних, без + — замінити.",
+      "MO374+ — додати нові фото в кінець, головне фото не зміниться.",
     ].join("\n"),
   )
   return true
@@ -269,7 +282,7 @@ async function handleAlbum(chatId: number, group: string, replyId?: number): Pro
   const photos = await albumPhotos(group)
   if (photos.length === 0) return
   const captioned = photos.find((p) => p.caption) ?? photos[0]
-  const { adding, wanted } = parseCaption(captioned.caption)
+  const { adding, last, wanted } = parseCaption(captioned.caption)
   // An edited caption: the same album, its earlier answer.
   const before = await r.hGet(KEY_COLORS, group).then((j) => (j ? (JSON.parse(j) as ColorPhotos) : null))
   const color: ColorPhotos = {
@@ -281,6 +294,7 @@ async function handleAlbum(chatId: number, group: string, replyId?: number): Pro
     wanted,
     urls: [],
     adding,
+    ...(last ? { last } : {}),
     at: new Date().toISOString(),
     applied: [],
   }
@@ -308,7 +322,7 @@ async function handleAlbum(chatId: number, group: string, replyId?: number): Pro
     return
   }
   const entry = report(color, result, photos.length)
-  color.replyId = await answer(chatId, captioned.messageId, entry, color.replyId)
+  color.replyId = await answer(chatId, captioned.messageId, entry, color.replyId, forceButton(color, result))
   await r.hSet(KEY_COLORS, group, JSON.stringify(color))
   await r.hDel(KEY_PENDING, group)
   await log(entry)
@@ -323,6 +337,8 @@ interface Applied {
   missing: string[]
   /** A colour whose spools have different colour names in KeyCRM: given to none of them. */
   mixed: string[]
+  /** «MO374+»: spools that would have more than 6 photos, not given them. */
+  full: string[]
 }
 
 /**
@@ -346,7 +362,7 @@ async function targetsFor(wanted: Wanted[], ask: boolean): Promise<PhotoTarget[]
 
 /** Gives the album's photos to these spools in KeyCRM and on the site. */
 async function apply(color: ColorPhotos, targets: PhotoTarget[]): Promise<Applied> {
-  const result: Applied = { skus: [], dropped: 0, missing: [], mixed: [] }
+  const result: Applied = { skus: [], dropped: 0, missing: [], mixed: [], full: [] }
   // «MO374» means one colour: spools whose colour names differ in KeyCRM are not guessed at.
   const products = new Map((await readProducts(targets.map((t) => t.sku))).map((p) => [p.sku, p]))
   const ok: PhotoTarget[] = []
@@ -359,10 +375,23 @@ async function apply(color: ColorPhotos, targets: PhotoTarget[]): Promise<Applie
   }
   for (const target of ok) {
     if (color.applied.includes(target.sku)) continue
-    // Adding: the new photos first, then the spool's own.
+    // Adding: the new photos first, then the spool's own; or («MO374+») after them.
     const old = color.adding ? (await readProductPhotos(target.sku)).filter((u) => !color.urls.includes(u)) : []
-    const urls = [...color.urls, ...old].slice(0, MAX_PHOTOS)
-    result.dropped = Math.max(result.dropped, color.urls.length + old.length - urls.length)
+    let urls: string[]
+    if (color.last && old.length) {
+      const over = old.length + color.urls.length - MAX_PHOTOS
+      if (over > 0 && !color.force) {
+        result.full.push(target.sku)
+        continue
+      }
+      // Room is made by the oldest photos after the main one: those just after it.
+      const kept = over > 0 ? [old[0], ...old.slice(1 + over)] : old
+      urls = [...kept, ...color.urls].slice(0, MAX_PHOTOS)
+      result.dropped = Math.max(result.dropped, old.length - kept.length)
+    } else {
+      urls = [...color.urls, ...old].slice(0, MAX_PHOTOS)
+      result.dropped = Math.max(result.dropped, color.urls.length + old.length - urls.length)
+    }
     await attach(target, urls).catch(async (e) => {
       // KeyCRM may not take back photos stored elsewhere than its upload storage: the new ones, then (the site has all).
       if (!(e instanceof KeycrmError) || old.length === 0) throw e
@@ -392,9 +421,18 @@ function report(color: ColorPhotos, result: Applied, posted: number): PhotoLogEn
   const lines: string[] = []
   if (result.skus.length) {
     lines.push(`${color.urls.length} фото → ${result.skus.join(", ")}`)
-    if (color.adding) {
+    if (color.last) {
+      lines.push(
+        `нові фото в кінці, головне не змінилось${result.dropped ? `; ${result.dropped} найстаріших прибрано (більше ${MAX_PHOTOS} не можна)` : ""}`,
+      )
+    } else if (color.adding) {
       lines.push(`нові фото першими${result.dropped ? `, ${result.dropped} старих прибрано з кінця (більше ${MAX_PHOTOS} не можна)` : ""}`)
     }
+  }
+  if (result.full.length) {
+    lines.push(
+      `${result.full.join(", ")}: вже ${MAX_PHOTOS} фото, нові не додано. «Все одно додати» прибере найстаріші фото, крім головного.`,
+    )
   }
   if (result.missing.length) lines.push(`ще немає в KeyCRM: ${result.missing.join(", ")} — додам фото, щойно з'являться`)
   for (const label of result.mixed) {
@@ -407,12 +445,12 @@ function report(color: ColorPhotos, result: Applied, posted: number): PhotoLogEn
     lines.push(`нові бобіни ${colours.join(", ")} отримають ці фото самі`)
   }
   if (posted > MAX_PHOTOS) lines.push(`взято перші ${MAX_PHOTOS} з ${posted}`)
-  const waiting = result.skus.length === 0 && result.mixed.length === 0
+  const waiting = result.skus.length === 0 && result.mixed.length === 0 && result.full.length === 0
   return {
     at: new Date().toISOString(),
     sku: color.caption,
     photos: color.urls.length,
-    ok: result.skus.length > 0 && result.mixed.length === 0,
+    ok: result.skus.length > 0 && result.mixed.length === 0 && result.full.length === 0,
     waiting,
     note: lines.join("\n"),
   }
@@ -532,8 +570,55 @@ async function attach(target: PhotoTarget, urls: string[]): Promise<void> {
   await keycrmSend("PUT", "/offers", { offers: [{ id: target.offerId, image_url: urls[0] }] })
 }
 
-/** Reacts to the album and replies (or edits the earlier reply). Returns the reply's id. */
-async function answer(chatId: number, messageId: number, entry: PhotoLogEntry, replyId?: number): Promise<number | undefined> {
+const FORCE = "ph:force:"
+
+/** «Все одно додати» under an answer whose spools had no room for «MO374+». */
+function forceButton(color: ColorPhotos, result: Applied) {
+  if (!result.full.length) return undefined
+  return keyboard([[{ text: "Все одно додати", callback_data: `${FORCE}${color.group}` }]])
+}
+
+/**
+ * A button pressed under the bot's answer in the photo channel: «Все одно
+ * додати» gives the album to the spools that had no room, dropping their
+ * oldest photos but the main one. True when the press was the photo channel's.
+ */
+export async function handlePhotoCallback(cq: any): Promise<boolean> {
+  const data = String(cq.data ?? "")
+  if (!data.startsWith(FORCE)) return false
+  const channel = await readPhotoChannel()
+  const r = await redis()
+  const json = channel && channel.chatId === cq.message?.chat?.id ? await r.hGet(KEY_COLORS, data.slice(FORCE.length)) : null
+  if (!json) {
+    await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "Цей альбом уже не знайти: надішліть фото ще раз." }).catch(() => {})
+    return true
+  }
+  await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "Додаю…" }).catch(() => {})
+  const color = JSON.parse(json) as ColorPhotos
+  color.force = true
+  after(async () => {
+    try {
+      const { result } = await keycrmBackground(async () => apply(color, await targetsFor(color.wanted, true)))
+      const entry = report(color, result, color.urls.length)
+      color.replyId = await answer(color.chatId, color.messageId, entry, color.replyId ?? cq.message.message_id)
+      await r.hSet(KEY_COLORS, color.group, JSON.stringify(color))
+      await log(entry)
+    } catch (e) {
+      const note = e instanceof KeycrmError ? `${e.message} ${e.body.slice(0, 300)}` : (e as Error).message
+      await answer(color.chatId, color.messageId, { at: new Date().toISOString(), sku: color.caption, photos: color.urls.length, ok: false, note }, color.replyId)
+    }
+  })
+  return true
+}
+
+/** Reacts to the album and replies (or edits the earlier reply), with `markup` buttons if any. Returns the reply's id. */
+async function answer(
+  chatId: number,
+  messageId: number,
+  entry: PhotoLogEntry,
+  replyId?: number,
+  markup?: ReturnType<typeof keyboard>,
+): Promise<number | undefined> {
   await tg("setMessageReaction", {
     chat_id: chatId,
     message_id: messageId,
@@ -542,7 +627,13 @@ async function answer(chatId: number, messageId: number, entry: PhotoLogEntry, r
   const mark = entry.ok ? "✅" : entry.waiting ? "⏳" : "❌"
   const text = `${mark} <b>${esc(entry.sku || "без артикула")}</b>\n${esc(entry.note)}`
   if (replyId) {
-    const edited = await tg("editMessageText", { chat_id: chatId, message_id: replyId, text, parse_mode: "HTML" })
+    const edited = await tg("editMessageText", {
+      chat_id: chatId,
+      message_id: replyId,
+      text,
+      parse_mode: "HTML",
+      ...(markup ? { reply_markup: markup } : {}),
+    })
       .then(() => true)
       .catch((e) => /not modified/i.test(String(e?.description ?? e?.message)))
     if (edited) return replyId
@@ -553,6 +644,7 @@ async function answer(chatId: number, messageId: number, entry: PhotoLogEntry, r
     parse_mode: "HTML",
     reply_parameters: { message_id: messageId, allow_sending_without_reply: true },
     disable_notification: entry.ok,
+    ...(markup ? { reply_markup: markup } : {}),
   }).catch((e) => {
     console.error("[telegram-photos] reply:", (e as Error).message)
     return null
