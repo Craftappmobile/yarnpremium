@@ -2,7 +2,7 @@
 // KeyCRM's first status («Нове»); the manager takes it from there.
 
 import { keycrmGet, keycrmGetAll, keycrmSend } from "@/lib/keycrm"
-import { sendUrl } from "@/lib/order-message"
+import { SEND_MARK, sendUrl } from "@/lib/order-message"
 import { redis } from "@/lib/redis"
 import { TAIL_DISCOUNT } from "@/components/shop/data"
 import { PAYMENT_LABELS, PICKUP_POINT, describeDelivery, ukrposhtaPostcode, type Order } from "@/lib/order"
@@ -208,7 +208,7 @@ export async function createKeycrmOrder(
   if (!created?.id) throw new Error("KeyCRM did not return an order id")
   // The buyer has no chat in KeyCRM for its ⚡ button: a link to send the order by Viber or WhatsApp instead.
   await keycrmSend("PUT", `/order/${created.id}`, {
-    manager_comment: `${body.manager_comment}\n\n📨 Надіслати клієнту: ${sendUrl(created.id)}`,
+    manager_comment: `${body.manager_comment}\n\n${SEND_MARK} ${sendUrl(created.id)}`,
   }).catch((e) => console.error(`[orders] send link on KeyCRM order ${created.id} not added:`, (e as Error).message))
   return created.id
 }

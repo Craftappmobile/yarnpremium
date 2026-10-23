@@ -21,6 +21,7 @@ import { formatQuantity } from "@/components/shop/data"
 import { countStats } from "@/lib/assistant/stats"
 import { campaignTitle, countTelegram, cleanCampaign } from "@/lib/telegram-stats"
 import { notifyAbandoned } from "@/lib/telegram-staff"
+import { rememberLead } from "@/lib/abandoned-orders"
 
 const DRAFT_KEY = (id: string) => `draft:${id}`
 const PENDING = "drafts:pending"
@@ -128,6 +129,7 @@ export async function processAbandoned(ordered: (id: string) => Promise<boolean>
     try {
       const { value, lines } = await createLead(id, draft)
       report.leads++
+      await rememberLead(draft.phone)
       await countAbandoned(draft, value)
       if (!isTestOrderEnvironment()) {
         await notifyAbandoned({

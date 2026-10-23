@@ -2,7 +2,8 @@
 // button sends into a chat. A buyer from the site has no chat in KeyCRM, so
 // each site order's manager comment carries a link (sendUrl) to a page
 // (app/nadislaty/[id]) with the text and buttons that open the buyer's Viber,
-// WhatsApp or Telegram with it. The link is signed: the page shows the buyer's
+// WhatsApp or Telegram with it; so does an order a manager makes for a buyer
+// who left a checkout (lib/abandoned-orders.ts). The link is signed: the page shows the buyer's
 // order to whoever has it, so only KeyCRM has it.
 
 import { createHmac, timingSafeEqual } from "node:crypto"
@@ -18,6 +19,9 @@ export function sendTokenValid(id: number, token: string): boolean {
   const got = Buffer.from(token)
   return want.length === got.length && timingSafeEqual(want, got)
 }
+
+/** The manager comment's line before the link. */
+export const SEND_MARK = "📨 Надіслати клієнту:"
 
 export const sendUrl = (id: number) => `${SITE_URL}/nadislaty/${id}?t=${sendToken(id)}`
 

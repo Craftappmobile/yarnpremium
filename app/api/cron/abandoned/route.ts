@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { processAbandoned } from "@/lib/checkout-draft"
+import { linkAbandonedOrders } from "@/lib/abandoned-orders"
 import { processUnpaidCourses } from "@/lib/mk-unpaid"
 import { checkRemnants } from "@/lib/remnant-alerts"
 import { keycrmBackground, keycrmConfigured } from "@/lib/keycrm"
@@ -7,7 +8,8 @@ import { redis, redisConfigured } from "@/lib/redis"
 
 // Turns checkouts left unfinished for an hour into KeyCRM leads (lib/checkout-draft.ts),
 // reports master-class orders left unpaid on yarnmk.com.ua (lib/mk-unpaid.ts), and
-// KeyCRM sales that leave too little yarn behind (lib/remnant-alerts.ts).
+// KeyCRM sales that leave too little yarn behind (lib/remnant-alerts.ts), and gives
+// orders managers made for those buyers the «Надіслати клієнту» link (lib/abandoned-orders.ts).
 // Run by Vercel Cron (vercel.json), 5 minutes after the catalog sync so the two
 // don't share KeyCRM's rate limit.
 export const dynamic = "force-dynamic"
@@ -32,7 +34,11 @@ export async function GET(req: NextRequest) {
   const remnants = await keycrmBackground(checkRemnants)
     .then(({ result, usage }) => ({ ...result, keycrm: usage }))
     .catch((e: Error) => ({ skipped: e.message }))
-  const report = { ...result, keycrm: usage, mkUnpaid, remnants }
+  // Orders managers made for those buyers: the «Надіслати клієнту» link (lib/abandoned-orders.ts).
+  const sendLinks = await keycrmBackground(linkAbandonedOrders)
+    .then(({ result }) => result)
+    .catch((e: Error) => ({ skipped: e.message }))
+  const report = { ...result, keycrm: usage, mkUnpaid, remnants, sendLinks }
   console.log("[abandoned]", JSON.stringify(report))
   return NextResponse.json(report)
 }
