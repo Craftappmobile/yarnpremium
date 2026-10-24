@@ -1,5 +1,5 @@
 // Purchases made outside the site (Instagram Direct, Facebook, phone, …) for
-// Meta's ads: a KeyCRM order paid in full becomes a Purchase in the
+// Meta: a KeyCRM order paid in full becomes a DirectPurchase event in the
 // «KeyCRM+YanrnPremium» dataset, matched to the buyer by their hashed phone and
 // email, once per order. Two ways in, sharing the once-only key:
 //   app/api/cron/purchases     reads the orders of the last days
@@ -7,10 +7,15 @@
 // The site's own orders are reported by the site itself (lib/meta-capi.ts) and
 // are skipped here.
 //
-// KeyCRM's own triggers («Надіслати конверсію у FB», «Мета: покупка з Direct»)
-// were meant to send these from 2026-10-07, but none of their purchases reached
-// the dataset, so the cron is back. Should one of them ever deliver, turn it or
-// the cron off: both at once would count each purchase twice.
+// Not a Purchase: Meta counts every Purchase in this dataset as a website
+// purchase, whatever its action_source, and credits it to the site's sales ads
+// whenever the buyer clicked one in the last 7 days or saw one the day before.
+// Sent as Purchase until 2026-10-24, Direct buyers made the site look cheap: on
+// 17–23.10 the site campaigns showed 54 website purchases, the site had 41 orders.
+//
+// KeyCRM's own trigger («Надіслати конверсію у FB») reports Messenger purchases
+// with the chat's PSID; they show as Meta purchases on the Messenger campaigns.
+// As a DirectPurchase, the same order sent from here counts as no purchase at all.
 
 import { keycrmGet, keycrmGetPages } from "@/lib/keycrm"
 import { mkSourceId } from "@/lib/keycrm-order"
@@ -30,11 +35,13 @@ const WEEK_SWEPT_KEY = "meta:crm-purchase:week-swept"
 const INCLUDE = "buyer,products,shipping"
 /** Meta takes events up to 7 days old; an hour to spare. */
 const MAX_AGE_MS = 7 * 86400_000 - 3600_000
+/** Meta's name for these purchases: a custom event, so no ad counts it as a purchase (see above). */
+export const OUTSIDE_PURCHASE = "DirectPurchase"
 
 const num = (v: unknown) => (v === null || v === undefined || v === "" ? NaN : Number(v))
 
 /**
- * The Purchase for a KeyCRM order, or why there is none. Dated when the order
+ * The DirectPurchase for a KeyCRM order, or why there is none. Dated when the order
  * was placed, or now if that is too long ago for Meta.
  */
 export function purchaseEvent(order: any, now = Date.now(), sites = [SITE_SOURCE_ID]): { event?: ServerEvent; skip?: string } {
@@ -59,7 +66,7 @@ export function purchaseEvent(order: any, now = Date.now(), sites = [SITE_SOURCE
   // KeyCRM keeps one full name; the site writes it «Прізвище Ім'я».
   const [lastName, ...rest] = String(order.buyer?.full_name ?? "").trim().split(/\s+/)
   const event: ServerEvent = {
-    event_name: "Purchase",
+    event_name: OUTSIDE_PURCHASE,
     event_id: `crm-${order.id}`,
     event_time: Math.floor(at / 1000),
     action_source: "chat",

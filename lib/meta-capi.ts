@@ -13,8 +13,9 @@
 //                   cash on delivery or at pickup                    (event_id order-<KeyCRM order>)
 // The browser pixel sends ViewContent, AddToCart, InitiateCheckout, Contact,
 // AddPaymentInfo and Purchase too, with the same event_id, and Meta keeps one of each pair.
-//   Purchase        an order from Direct (or another non-site channel) is paid
-//                   in KeyCRM: lib/keycrm-purchase.ts
+//   DirectPurchase  an order from Direct (or another non-site channel) is paid
+//                   in KeyCRM: lib/keycrm-purchase.ts. Not a Purchase, so the
+//                   site's ads count only orders placed on the site.
 //
 // Needs META_CAPI_TOKEN (Events Manager → dataset → Settings → Conversions API →
 // Generate access token). Sends only from production; META_CAPI_TEST_CODE (the
