@@ -11,7 +11,7 @@ import { redis } from "@/lib/redis"
 //   /api/keycrm/purchase?token=<KEYCRM_PURCHASE_SECRET>
 // (KEYCRM_WEBHOOK_SECRET, the stock webhook's, is accepted too).
 // The order is read back from KeyCRM and sent to the Conversions API as a
-// Purchase, once per order whichever way it comes.
+// DirectPurchase (not a Purchase, see there), once per order whichever way it comes.
 //
 // Check without sending: open …/api/keycrm/purchase?token=…&order=<KeyCRM order id>
 // in a browser; it shows what would go to Meta.
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       await r.del(SENT_KEY(orderId))
       return NextResponse.json({ ok: true, sent: false, reason: "not sent to Meta, see the log" })
     }
-    console.log(`[keycrm-purchase] order ${orderId}: Purchase ${event.custom_data?.value} ₴ sent to Meta`)
+    console.log(`[keycrm-purchase] order ${orderId}: ${event.event_name} ${event.custom_data?.value} ₴ sent to Meta`)
     return NextResponse.json({ ok: true, sent: true })
   } catch (e) {
     await r.del(SENT_KEY(orderId))
