@@ -16,8 +16,11 @@ export async function catalogPageData(
     console.error(`[${page}] catalog unavailable:`, (e as Error).message)
     return []
   })
-  // Only what can be bought is listed.
-  const products = catalog.filter((p) => p.stock > 0)
+  // Only what can be bought is listed, and only once it has a photo: managers
+  // add them later, and until then the product opens by its link alone. The
+  // full catalog (/api/catalog/packed), for search and filters, leaves it out too.
+  const inStock = catalog.filter((p) => p.stock > 0)
+  const products = inStock.filter((p) => p.image)
   const summary = summarizeCatalog(products)
   // A promotion's ad video, so the header shows what the ad showed.
   summary.promos = await Promise.all(
@@ -27,7 +30,9 @@ export async function catalogPageData(
       return video ? { ...s, video } : s
     }),
   )
-  // Categories still in KeyCRM with nothing left: their pages say so.
-  const soldOut = [...new Set(catalog.map((p) => p.category))].filter((c) => c && !summary.categories.includes(c))
+  // Categories still in KeyCRM with nothing left: their pages say so. One with
+  // stock that has no photos yet isn't sold out, just not shown.
+  const stocked = new Set(inStock.map((p) => p.category))
+  const soldOut = [...new Set(catalog.map((p) => p.category))].filter((c) => c && !stocked.has(c))
   return { products, summary, soldOut }
 }

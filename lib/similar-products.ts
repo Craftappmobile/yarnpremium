@@ -22,9 +22,9 @@ export interface Similar {
 }
 
 export function similarProducts(product: Product, catalog: Product[]): Similar {
-  // In stock and sold the same way: no needles among the yarn.
+  // In stock and sold the same way: no needles among the yarn. Not a grey square without a photo.
   const candidates = catalog.filter(
-    (p) => p.stock > 0 && p.sku !== product.sku && p.priceUnit === product.priceUnit,
+    (p) => p.stock > 0 && p.image && p.sku !== product.sku && p.priceUnit === product.priceUnit,
   )
   const sameCategory = (p: Product) => p.category === product.category
 
