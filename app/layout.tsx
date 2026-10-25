@@ -50,6 +50,9 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
   // Until the shop moves to its own domain, keep the *.vercel.app address out of search.
   robots: SITE_INDEXABLE ? undefined : { index: false, follow: false },
+  // Meta Business Manager's domain verification for yarnpremium.com.ua: it must sit
+  // in the server-rendered <head> of the home page (a tag added by JavaScript is not seen).
+  other: { "facebook-domain-verification": "t7l0qjhlxigw7y0u9zukvgmow8cnly" },
 }
 
 export const viewport: Viewport = {
