@@ -456,13 +456,34 @@ export async function readPhotoTargets(): Promise<PhotoTarget[]> {
   return Object.entries(all).map(([sku, json]) => ({ sku, ...JSON.parse(json) }))
 }
 
+/** A SKU's photos as the site shows them, and whether they came through Telegram (else they're KeyCRM's). */
+export interface ShownPhotos {
+  photos: string[]
+  sent: boolean
+}
+
 /** The SKU's photos as the site shows them: those sent through Telegram, else KeyCRM's. */
-export async function readProductPhotos(sku: string): Promise<string[]> {
+export async function readProductPhotos(sku: string): Promise<ShownPhotos> {
   const r = await redis()
   const sent = await r.hGet(KEY_PHOTOS, sku)
-  if (sent) return JSON.parse(sent)
+  if (sent) return { photos: JSON.parse(sent), sent: true }
   const json = await r.hGet(KEY_PRODUCTS, sku)
-  return json ? ((JSON.parse(json) as Product).images ?? []) : []
+  return { photos: json ? ((JSON.parse(json) as Product).images ?? []) : [], sent: false }
+}
+
+/**
+ * Puts a SKU's photos back as `readProductPhotos` read them: KeyCRM's own ones
+ * come back from KeyCRM at the next sync, and show till then. Returns whether
+ * the site lists the SKU.
+ */
+export async function restoreProductPhotos(sku: string, before: ShownPhotos): Promise<boolean> {
+  if (before.sent && before.photos.length) return saveProductPhotos(sku, before.photos)
+  const r = await redis()
+  await r.hDel(KEY_PHOTOS, sku)
+  const json = await r.hGet(KEY_PRODUCTS, sku)
+  if (!json) return false
+  await r.hSet(KEY_PRODUCTS, sku, JSON.stringify({ ...JSON.parse(json), image: before.photos[0] ?? "", images: before.photos }))
+  return true
 }
 
 /**
