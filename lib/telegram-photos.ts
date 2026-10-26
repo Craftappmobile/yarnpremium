@@ -7,14 +7,14 @@
 //                        and the spools KeyCRM gets later (the shop takes
 //                        stock spool by spool, each with its own SKU)
 //   «MO362-1, MO362-2»   these spools only (commas, spaces or lines between)
-//   «+MO374»             the new photos go before the spools' own (the new
-//                        main photo: photos are retaken to sell better), else
-//                        they replace them
-//   «MO374+»             the new photos go after the spools' own, the main
+//   «+MO374», «MO374+»   the new photos go after the spools' own, the main
 //                        photo stays (samples, say). A spool that would have
 //                        more than 6 isn't given them: the answer says so,
 //                        with a button «Все одно додати» that drops the
 //                        spool's oldest photos but the main one to make room
+//   «+MO374 головне»     the new photos go before the spools' own (the new
+//                        main photo: photos are retaken to sell better)
+//   without «+»          the new photos replace the spools' own
 //
 // The bot, an administrator of the channel, gets every post (channel_post), and
 // for each album:
@@ -43,6 +43,7 @@
 //   tg:album:<group>       hash  message id -> photo of the album (7 days)
 //   tg:album:<group>:at    ms timestamp of the album's last photo
 //   tg:album:<group>:done  set once the album is handled (cleared by an edit)
+//   tg:album:<group>:reply the bot's ❌ answer, edited once the caption is corrected
 //   tg:photo:colors        hash  album group -> ColorPhotos JSON (90 days)
 //   tg:photo:pending       hash  albums from before tg:photo:colors, handled again once
 //   tg:photo:file          hash  Telegram file_unique_id -> KeyCRM file URL
@@ -126,9 +127,9 @@ export interface ColorPhotos {
   caption: string
   wanted: Wanted[]
   urls: string[]
-  /** Keeps the spools' own photos: the new ones first («+MO374»), or after them with `last`. */
+  /** Keeps the spools' own photos: the new ones after them with `last`, else first («+MO374 головне»). */
   adding: boolean
-  /** «MO374+»: the new photos after the spools' own, the main one unchanged. */
+  /** «+MO374», «MO374+»: the new photos after the spools' own, the main one unchanged. */
   last?: boolean
   /** «Все одно додати» pressed: room is made by dropping old photos but the main one. */
   force?: boolean
@@ -150,11 +151,11 @@ export function spoolKey(sku: string): string {
 /** The colour a spool belongs to: «mo374» for «mo374-2» and for «mo374» itself. */
 export const colourOf = (key: string) => key.replace(/-\d+$/, "")
 
-/** «+MO374», «MO374+», «MO362-1, MO362-2», «mo 362 - 1»: the SKUs a caption names, and whether and where it adds. */
+/** «+MO374», «MO374+», «+MO374 головне», «MO362-1, MO362-2», «mo 362 - 1»: the SKUs a caption names, and whether and where it adds. */
 export function parseCaption(caption: string): { adding: boolean; last: boolean; wanted: Wanted[] } {
-  const first = /^\s*\+/.test(caption)
-  const last = !first && /[\p{L}\p{N}]\s*\+/u.test(caption)
-  const adding = first || last
+  // A «+» anywhere adds at the end, the main photo kept: that's what the shop means by adding.
+  const adding = caption.includes("+")
+  const last = adding && !/головн/iu.test(caption)
   const text = caption.replace(/\+/g, " ").replace(/\s*[-–—]\s*(?=\d)/g, "-")
   const wanted = new Map<string, Wanted>()
   for (const raw of text.split(/[\s,;]+/)) {
@@ -224,8 +225,9 @@ async function channelCommand(post: any): Promise<boolean> {
       "Альбом до 6 фото, у підписі — артикул. Перше фото — головне.",
       "MO374 — фото на всі бобіни кольору (MO374-1, MO374-2…), і на ті, що з'являться в KeyCRM пізніше.",
       "MO362-1, MO362-2 — лише на ці бобіни.",
-      "+MO374 — додати нові фото першими до наявних, без + — замінити.",
-      "MO374+ — додати нові фото в кінець, головне фото не зміниться.",
+      "+MO374 — додати нові фото в кінець до наявних, головне фото не зміниться.",
+      "+MO374 головне — додати нові фото першими, перше з них стане головним.",
+      "Без + — нові фото замінять наявні.",
     ].join("\n"),
   )
   return true
@@ -289,7 +291,7 @@ async function handleAlbum(chatId: number, group: string, replyId?: number): Pro
     group,
     chatId,
     messageId: captioned.messageId,
-    replyId: replyId ?? before?.replyId,
+    replyId: replyId ?? before?.replyId ?? (Number(await r.get(`${albumKey(group)}:reply`)) || undefined),
     caption: wanted.map((w) => w.label).join(", "),
     wanted,
     urls: [],
@@ -318,7 +320,9 @@ async function handleAlbum(chatId: number, group: string, replyId?: number): Pro
     const note = e instanceof KeycrmError ? `${e.message} ${e.body.slice(0, 300)}` : (e as Error).message
     const entry: PhotoLogEntry = { at: new Date().toISOString(), sku: color.caption, photos: photos.length, ok: false, note }
     await log(entry)
-    await answer(chatId, captioned.messageId, entry, color.replyId)
+    // A caption added or corrected later turns this answer into the new one rather than adding another.
+    const sent = await answer(chatId, captioned.messageId, entry, color.replyId)
+    if (sent) await r.set(`${albumKey(group)}:reply`, String(sent), { EX: ALBUM_TTL })
     return
   }
   const entry = report(color, result, photos.length)
@@ -337,7 +341,7 @@ interface Applied {
   missing: string[]
   /** A colour whose spools have different colour names in KeyCRM: given to none of them. */
   mixed: string[]
-  /** «MO374+»: spools that would have more than 6 photos, not given them. */
+  /** «+MO374»: spools that would have more than 6 photos, not given them. */
   full: string[]
 }
 
@@ -375,7 +379,7 @@ async function apply(color: ColorPhotos, targets: PhotoTarget[]): Promise<Applie
   }
   for (const target of ok) {
     if (color.applied.includes(target.sku)) continue
-    // Adding: the new photos first, then the spool's own; or («MO374+») after them.
+    // Adding: the new photos after the spool's own; or («+MO374 головне») first, then the spool's own.
     const old = color.adding ? (await readProductPhotos(target.sku)).filter((u) => !color.urls.includes(u)) : []
     let urls: string[]
     if (color.last && old.length) {
@@ -572,7 +576,7 @@ async function attach(target: PhotoTarget, urls: string[]): Promise<void> {
 
 const FORCE = "ph:force:"
 
-/** «Все одно додати» under an answer whose spools had no room for «MO374+». */
+/** «Все одно додати» under an answer whose spools had no room for «+MO374». */
 function forceButton(color: ColorPhotos, result: Applied) {
   if (!result.full.length) return undefined
   return keyboard([[{ text: "Все одно додати", callback_data: `${FORCE}${color.group}` }]])

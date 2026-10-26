@@ -6,6 +6,7 @@
 // A message holds one spool a line, its SKU and its net weight in grams:
 //   MO362-1 326
 //   MO362-2 412 г
+//   10064 367        (a SKU of digits only, 4 or more)
 // The spool's number is required (each spool weighs its own); a colour alone
 // («MO362») is answered with its spools to choose from.
 //
@@ -76,18 +77,20 @@ export async function readWeighings(): Promise<Weighing[]> {
 
 const inThread = (threadId?: number) => (threadId ? { message_thread_id: threadId } : {})
 
-/** «MO362-1 326», «mo 362 - 1: 326 г», «MO362-1 — 326,5гр»: SKU and grams; null for any other line. */
+/** «MO362-1 326», «mo 362 - 1: 326 г», «MO362-1 — 326,5гр», «10064 367»: SKU and grams; null for any other line. */
 export function parseWeightLine(line: string): { sku: string; grams: number } | null {
   // A SKU is a few letters and a number (MER 1059, MO377 - 2): «Перевірте MER914-2 315» is no weighing.
+  // Or a number alone (kid on silk: 10064), of 4 digits at least so that «367 10064», weight first, isn't one.
   const m = line
     .trim()
-    .match(/^(\p{L}{1,6}\s?\d+(?:\s*[-–—]\s*\d+)?)\s*[:=—–-]?\s+(\d+(?:[.,]\d+)?)\s*(?:г|гр|g|gr)?\.?$/iu)
+    .match(/^((?:\p{L}{1,6}\s?\d+|\d{4,})(?:\s*[-–—]\s*\d+)?)\s*[:=—–-]?\s+(\d+(?:[.,]\d+)?)\s*(?:г|гр|g|gr)?\.?$/iu)
   if (!m) return null
   return { sku: m[1].replace(/\s*[-–—]\s*/g, "-").replace(/\s+/g, ""), grams: Number(m[2].replace(",", ".")) }
 }
 
-/** A weighing mistyped («MO362-1 3l6»): a SKU, then more numbers, and no question. */
-const looksLikeWeighing = (line: string) => /^\p{L}{1,6}\s?\d/u.test(line) && /\d\D*\s\D*\d/.test(line) && !line.includes("?")
+/** A weighing mistyped («MO362-1 3l6», «10064 3б7»): a SKU, then more numbers, and no question. */
+const looksLikeWeighing = (line: string) =>
+  /^(?:\p{L}{1,6}\s?\d|\d{4})/u.test(line) && /\d\D*\s\D*\d/.test(line) && !line.includes("?")
 
 /**
  * Group messages: «/weights_here <code>» and «/weights_off <code>» anywhere,
