@@ -362,7 +362,7 @@ interface Applied {
   dropped: number
   /** Spools named one by one that KeyCRM doesn't have yet. */
   missing: string[]
-  /** A colour whose spools have different colour names in KeyCRM: given to none of them. */
+  /** Colours whose spools KeyCRM names differently, given the photos all the same: «YK011: «бежевий» — YK011-1…; «сірий» — …». */
   mixed: string[]
   /** «+MO374»: spools that would have more than 6 photos, not given them. */
   full: string[]
@@ -390,15 +390,23 @@ async function targetsFor(wanted: Wanted[], ask: boolean): Promise<PhotoTarget[]
 /** Gives the album's photos to these spools in KeyCRM and on the site. */
 async function apply(color: ColorPhotos, targets: PhotoTarget[]): Promise<Applied> {
   const result: Applied = { skus: [], dropped: 0, missing: [], mixed: [], full: [] }
-  // «MO374» means one colour: spools whose colour names differ in KeyCRM are not guessed at.
+  // «MO374» is one colour: spools KeyCRM names otherwise get the photos too (a colour name mistyped is likelier
+  // than one code for two colours), and the answer names them, for «↩️ Скасувати» if they are another colour.
   const products = new Map((await readProducts(targets.map((t) => t.sku))).map((p) => [p.sku, p]))
   const ok: PhotoTarget[] = []
   for (const w of color.wanted) {
     const mine = targets.filter((t) => names(w, t.sku) && !ok.includes(t))
-    const colours = new Set(mine.map((t) => products.get(t.sku)?.color?.trim().toLowerCase()).filter(Boolean))
-    if (w.colour && colours.size > 1) result.mixed.push(w.label)
-    else ok.push(...mine)
+    ok.push(...mine)
     if (!w.colour && mine.length === 0) result.missing.push(w.label)
+    const byColour = new Map<string, string[]>()
+    for (const t of mine) {
+      const name = products.get(t.sku)?.color?.trim().toLowerCase()
+      if (name) byColour.set(name, [...(byColour.get(name) ?? []), t.sku])
+    }
+    if (w.colour && byColour.size > 1) {
+      const list = [...byColour].map(([name, skus]) => `«${name}» — ${skus.length > 3 ? `${skus.length} бобін` : skus.join(", ")}`)
+      result.mixed.push(`${w.label}: ${list.join("; ")}`)
+    }
   }
   for (const target of ok) {
     if (color.applied.includes(target.sku)) continue
@@ -545,22 +553,24 @@ function report(color: ColorPhotos, result: Applied, posted: number): PhotoLogEn
     )
   }
   if (result.missing.length) lines.push(`ще немає в KeyCRM: ${result.missing.join(", ")} — додам фото, щойно з'являться`)
-  for (const label of result.mixed) {
-    lines.push(`${label}: у KeyCRM бобіни різних кольорів — вкажіть артикули бобін через кому, наприклад ${label}-1, ${label}-2`)
+  if (result.mixed.length) {
+    lines.push(
+      `⚠️ у KeyCRM у бобін різні назви кольору — ${result.mixed.join("; ")}. Фото додано всім. Якщо це справді різні кольори, натисніть «↩️ Скасувати» і вкажіть бобіни через кому.`,
+    )
   }
-  const colours = color.wanted.filter((w) => w.colour && !result.mixed.includes(w.label)).map((w) => w.label)
-  if (colours.length && !result.skus.length && !result.mixed.length) {
+  const colours = color.wanted.filter((w) => w.colour).map((w) => w.label)
+  if (colours.length && !result.skus.length) {
     lines.push(`${colours.join(", ")}: ще немає в KeyCRM — фото збережені, підуть самі, щойно з'явиться бобіна`)
   } else if (colours.length) {
     lines.push(`нові бобіни ${colours.join(", ")} отримають ці фото самі`)
   }
   if (posted > MAX_PHOTOS) lines.push(`взято перші ${MAX_PHOTOS} з ${posted}`)
-  const waiting = result.skus.length === 0 && result.mixed.length === 0 && result.full.length === 0
+  const waiting = result.skus.length === 0 && result.full.length === 0
   return {
     at: new Date().toISOString(),
     sku: color.caption,
     photos: color.urls.length,
-    ok: result.skus.length > 0 && result.mixed.length === 0 && result.full.length === 0,
+    ok: result.skus.length > 0 && result.full.length === 0,
     waiting,
     note: lines.join("\n"),
   }
