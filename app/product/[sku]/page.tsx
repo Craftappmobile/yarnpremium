@@ -1,6 +1,7 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { readCatalog, readProducts } from "@/lib/catalog"
+import { catalogImageUrl } from "@/lib/catalog-image"
 import { openGraph } from "@/lib/og"
 import { SITE_URL } from "@/lib/site"
 import { similarProducts } from "@/lib/similar-products"
@@ -49,8 +50,16 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
   }
 }
 
-/** schema.org Product, so search engines can show price and availability. */
+/**
+ * schema.org Product, so search engines can show price and availability.
+ * Google lists no product without a picture ("image" is required), so a
+ * product without photos gets none: the markup would only be an error in
+ * Search Console. The photos are the shop's own copies (lib/catalog-image.ts):
+ * KeyCRM's file storage turns crawlers away.
+ */
 function productJsonLd(product: Product) {
+  const photos = product.images.length ? product.images : product.image ? [product.image] : []
+  if (!photos.length) return null
   const url = `${SITE_URL}${productPath(product.sku)}`
   const byWeight = product.priceUnit === "г"
   return {
@@ -59,7 +68,7 @@ function productJsonLd(product: Product) {
     name: product.name,
     sku: product.sku,
     url,
-    image: product.images.length ? product.images : product.image ? [product.image] : undefined,
+    image: photos.map(catalogImageUrl),
     description: productDescription(product),
     category: product.category || undefined,
     color: product.color || undefined,
@@ -127,13 +136,16 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
     readProductVideos(product.sku).catch(() => null),
     reviewsForProduct(product).catch(() => null),
   ])
+  const jsonLd = productJsonLd(product)
   return (
     <>
-      <script
-        type="application/ld+json"
-        // "<" is escaped so product text can't close the script tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd(product)).replace(/</g, "\\u003c") }}
-      />
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          // "<" is escaped so product text can't close the script tag.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+        />
+      )}
       <ProductDetail
         product={product}
         videos={videos}
