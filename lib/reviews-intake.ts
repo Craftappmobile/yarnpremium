@@ -85,6 +85,8 @@ interface PendingMessage {
   text: string
   photo?: PendingPhoto
   attempts?: number
+  /** Queued again by a manager's reply: the bot answers even if it finds nothing. */
+  asked?: boolean
 }
 
 export async function readReviewsTopic(): Promise<ReviewsTopic | null> {
@@ -201,6 +203,7 @@ export async function handleReviewsMessage(message: any): Promise<boolean> {
       date: again.date,
       text: againText.slice(0, 4000),
       ...(againPhoto ? { photo: againPhoto } : {}),
+      asked: true,
     })
   }
   if (text || photo) {
@@ -220,6 +223,15 @@ export async function handleReviewsMessage(message: any): Promise<boolean> {
     .rPush(KEY_PENDING, queue.map((m) => JSON.stringify(m)))
     .set(KEY_PENDING_AT, String(Date.now()))
     .exec()
+  if (again && (againText || againPhoto)) {
+    // The manager asked for it on purpose: say it was heard, the report comes with the cron.
+    await replyTo(
+      chatId,
+      threadId,
+      message.message_id,
+      "👌 Взяв у роботу. За кілька хвилин опублікую і відповім тут, що саме пішло на сайт.",
+    ).catch(() => {})
+  }
   return true
 }
 
@@ -488,7 +500,7 @@ async function processBatch(batch: PendingMessage[], catalog: Product[], categor
     if (done === "negative") negative++
     else if (done) published++
   }
-  if (published === 0 && negative === 0 && batch.some((m) => m.photo)) {
+  if (published === 0 && negative === 0 && batch.some((m) => m.photo || m.asked)) {
     const first = batch[0]
     await replyTo(
       first.chatId,
