@@ -12,6 +12,7 @@
 // the bot says so):
 //   reply to the bot with a link or SKU      — another product
 //   reply to the bot with /review_delete     — off the site
+//   reply to a post that isn't on the site  — the post is read again
 //
 // The screenshots never leave the group and Claude: only the buyer's words,
 // «Ім'я П.» and the item photos are published.
@@ -181,18 +182,44 @@ export async function handleReviewsMessage(message: any): Promise<boolean> {
     return true
   }
 
+  // A reply to a manager's post that isn't on the site (it was lost, say, while
+  // Claude couldn't be reached): Telegram sends that post along, so it is read
+  // again, together with the reply, as one manager's messages.
+  const again = replied && !reviewId && !replied.from?.is_bot ? replied : null
+  const againPhoto = again ? photoOf(again) : undefined
+  const againText = again ? String(again.text ?? again.caption ?? "").trim() : ""
+  const fromId: number = (again ? again.from?.id : message.from?.id) ?? 0
+
   const photo = photoOf(message)
-  if (!text && !photo) return true
-  const pending: PendingMessage = {
-    chatId,
-    ...(threadId ? { threadId } : {}),
-    messageId: message.message_id,
-    fromId: message.from?.id ?? 0,
-    date: message.date,
-    text: text.slice(0, 4000),
-    ...(photo ? { photo } : {}),
+  const queue: PendingMessage[] = []
+  if (again && (againText || againPhoto)) {
+    queue.push({
+      chatId,
+      ...(threadId ? { threadId } : {}),
+      messageId: again.message_id,
+      fromId,
+      date: again.date,
+      text: againText.slice(0, 4000),
+      ...(againPhoto ? { photo: againPhoto } : {}),
+    })
   }
-  await r.multi().rPush(KEY_PENDING, JSON.stringify(pending)).set(KEY_PENDING_AT, String(Date.now())).exec()
+  if (text || photo) {
+    queue.push({
+      chatId,
+      ...(threadId ? { threadId } : {}),
+      messageId: message.message_id,
+      fromId,
+      date: message.date,
+      text: text.slice(0, 4000),
+      ...(photo ? { photo } : {}),
+    })
+  }
+  if (!queue.length) return true
+  await r
+    .multi()
+    .rPush(KEY_PENDING, queue.map((m) => JSON.stringify(m)))
+    .set(KEY_PENDING_AT, String(Date.now()))
+    .exec()
   return true
 }
 
@@ -467,7 +494,7 @@ async function processBatch(batch: PendingMessage[], catalog: Product[], categor
       first.chatId,
       first.threadId,
       first.messageId,
-      "🤔 Не знайшов тут відгуку покупця, тож нічого не опублікував. Якщо він тут є, перешліть скриншот ще раз з посиланням на товар.",
+      "🤔 Не знайшов тут відгуку покупця, тож нічого не опублікував. Якщо він тут є, відповідайте на скриншот посиланням на товар — спробую ще раз.",
     ).catch(() => {})
   }
   return published
@@ -517,7 +544,11 @@ export async function processReviews(): Promise<ReviewsRun> {
     const raw = await r.lRange(KEY_PENDING, 0, -1)
     // Messages that arrive meanwhile are pushed after these and stay.
     await r.lTrim(KEY_PENDING, raw.length, -1)
-    const messages: PendingMessage[] = raw.map((j) => JSON.parse(j))
+    // A post can be queued twice: posted, then replied to before it was read.
+    const seen = new Set<string>()
+    const messages = raw
+      .map((j) => JSON.parse(j) as PendingMessage)
+      .filter((m) => !seen.has(`${m.chatId}:${m.messageId}`) && !!seen.add(`${m.chatId}:${m.messageId}`))
     run.messages = messages.length
     if (!messages.length) return run
 
@@ -563,7 +594,7 @@ export async function processReviews(): Promise<ReviewsRun> {
             first.chatId,
             first.threadId,
             first.messageId,
-            "⚠️ Не вдалося розібрати ці повідомлення, на сайт нічого не пішло. Спробуйте надіслати скриншот ще раз.",
+            "⚠️ Не вдалося розібрати ці повідомлення, на сайт нічого не пішло. Відповідайте на скриншот будь-яким словом — спробую ще раз.",
           ).catch(() => {})
         }
       }
