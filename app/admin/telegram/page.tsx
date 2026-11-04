@@ -10,7 +10,7 @@ import { RUBRICS } from "@/lib/telegram-rubrics"
 import { readTelegramStats } from "@/lib/telegram-stats"
 import { readStaffChat, staffCode } from "@/lib/telegram-staff"
 import { reviewCount } from "@/lib/reviews"
-import { readReviewsTopic } from "@/lib/reviews-intake"
+import { readReviewsOutage, readReviewsTopic } from "@/lib/reviews-intake"
 import { readPhotoChannel, readPhotoLog, readWaitingColors } from "@/lib/telegram-photos"
 import { readWeighings, readWeightsTopic } from "@/lib/telegram-weights"
 import { readInviteLinks } from "@/lib/telegram-invites"
@@ -65,10 +65,11 @@ export default async function TelegramAdminPage({
     readTelegramStats(days),
     readIntro(),
   ])
-  const [staff, remnantsTopic, reviewsTopic, reviews, photoChannel, photoPending, photoLog] = await Promise.all([
+  const [staff, remnantsTopic, reviewsTopic, reviewsOutage, reviews, photoChannel, photoPending, photoLog] = await Promise.all([
     readStaffChat().catch(() => null),
     readStaffChat("remnants").catch(() => null),
     readReviewsTopic().catch(() => null),
+    readReviewsOutage().catch(() => null),
     reviewCount().catch(() => 0),
     readPhotoChannel().catch(() => null),
     readWaitingColors().catch(() => []),
@@ -235,6 +236,14 @@ export default async function TelegramAdminPage({
           </p>
         ) : (
           <p className="text-zinc-600">Ще не налаштовано. Опубліковано відгуків: {reviews}.</p>
+        )}
+        {reviewsOutage && (
+          <p className="rounded-lg bg-red-50 p-3 text-red-800">
+            ⚠️ З {new Date(reviewsOutage.since).toLocaleString("uk-UA", { timeZone: "Europe/Kiev" })} бот не може
+            розібрати відгуки: Claude недоступний ({reviewsOutage.error}). Нові відгуки чекають у черзі й опублікуються
+            самі, щойно запрацює. Якщо помилка 401 — створіть новий ключ на console.anthropic.com і замініть
+            ANTHROPIC_API_KEY у Vercel (з новим деплоєм).
+          </p>
         )}
         <ol className="list-decimal space-y-1 pl-5 text-zinc-700">
           <li>

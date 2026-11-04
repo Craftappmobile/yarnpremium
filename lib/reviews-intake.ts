@@ -24,6 +24,7 @@
 //   rv:pending           list  PendingMessage JSON, oldest first
 //   rv:pending_at        ms of the last message added
 //   rv:lock              held while the cron works on them
+//   rv:outage            JSON { since, error } while Claude can't be reached (the topic is told once)
 //   rv:msg:<chat>:<id>   review id of a topic message (the manager's or the bot's answer)
 //   rv:photo:<id>        Telegram file id of a published photo (app/review-photo)
 
@@ -41,6 +42,7 @@ const KEY_TOPIC = "rv:topic"
 const KEY_PENDING = "rv:pending"
 const KEY_PENDING_AT = "rv:pending_at"
 const KEY_LOCK = "rv:lock"
+const KEY_OUTAGE = "rv:outage"
 const keyMsg = (chatId: number, messageId: number) => `rv:msg:${chatId}:${messageId}`
 export const keyPhoto = (id: string) => `rv:photo:${id}`
 const KEEP = 400 * 86400
@@ -264,6 +266,30 @@ export interface PostForReading {
 /** Thrown when the model declined or its answer can't be used: trying again won't help. */
 export class UnreadableError extends Error {}
 
+/**
+ * Claude can't be reached at all, whatever the messages: the key is revoked
+ * or wrong (401, 403), the account is out of credit, the service is busy or
+ * down. Such a failure says nothing about the messages, so they wait for the
+ * service instead of using up their attempts (in Nov 2026 a revoked key threw
+ * away every review posted for two days).
+ */
+export function isOutage(e: unknown): boolean {
+  if (e instanceof Anthropic.APIConnectionError) return true
+  if (!(e instanceof Anthropic.APIError)) return false
+  const status = e.status ?? 0
+  return status === 401 || status === 403 || status === 429 || status >= 500 || /credit balance|billing/i.test(e.message)
+}
+
+export interface ReviewsOutage {
+  since: string
+  error: string
+}
+
+export async function readReviewsOutage(): Promise<ReviewsOutage | null> {
+  const raw = await (await redis()).get(KEY_OUTAGE)
+  return raw ? JSON.parse(raw) : null
+}
+
 let client: Anthropic | null = null
 
 /** One manager's messages in a row -> the reviews in them. Photos are labelled P1, P2… in order. */
@@ -453,6 +479,29 @@ export interface ReviewsRun {
   published?: number
   failed?: number
   postponed?: number
+  /** Messages kept for later because Claude can't be reached (`isOutage`). */
+  stalled?: number
+}
+
+/** Once per outage: the topic learns its reviews wait, so nobody posts them again. */
+async function reportOutage(first: PendingMessage, e: Error) {
+  const r = await redis()
+  const status = e instanceof Anthropic.APIError ? e.status : undefined
+  const outage: ReviewsOutage = { since: new Date().toISOString(), error: e.message.slice(0, 300) }
+  console.error("[reviews] Claude can't be reached, the messages wait:", e.message)
+  if (!(await r.set(KEY_OUTAGE, JSON.stringify(outage), { NX: true }))) return
+  const why =
+    status === 401 || status === 403
+      ? "ключ Anthropic недійсний (ANTHROPIC_API_KEY у Vercel)"
+      : /credit balance|billing/i.test(e.message)
+        ? "на рахунку Anthropic скінчилися кошти"
+        : "сервіс Claude зараз недоступний"
+  await replyTo(
+    first.chatId,
+    first.threadId,
+    first.messageId,
+    `⏸ Не можу зараз розібрати відгуки: ${why}. Повідомлення збережені — опублікую їх сам, щойно запрацює. Надсилати вдруге не треба.`,
+  ).catch(() => {})
 }
 
 /** Run by the cron: the topic's messages that have settled become reviews. */
@@ -463,7 +512,7 @@ export async function processReviews(): Promise<ReviewsRun> {
   const token = crypto.randomUUID()
   if (!(await r.set(KEY_LOCK, token, { NX: true, EX: 290 }))) return { waiting: true }
   const started = Date.now()
-  const run: ReviewsRun = { messages: 0, published: 0, failed: 0, postponed: 0 }
+  const run: ReviewsRun = { messages: 0, published: 0, failed: 0, postponed: 0, stalled: 0 }
   try {
     const raw = await r.lRange(KEY_PENDING, 0, -1)
     // Messages that arrive meanwhile are pushed after these and stay.
@@ -479,7 +528,14 @@ export async function processReviews(): Promise<ReviewsRun> {
       byManager.set(m.fromId, [...(byManager.get(m.fromId) ?? []), m])
     }
     const later: PendingMessage[] = []
+    let down = false
     for (const batch of [...byManager.values()].flatMap(chunks)) {
+      if (down) {
+        // The rest would fail the same way.
+        later.push(...batch)
+        run.stalled! += batch.length
+        continue
+      }
       if (Date.now() - started > BUDGET_MS) {
         later.push(...batch)
         run.postponed! += batch.length
@@ -487,7 +543,15 @@ export async function processReviews(): Promise<ReviewsRun> {
       }
       try {
         run.published! += await processBatch(batch, catalog, categories)
+        if (await r.del(KEY_OUTAGE)) console.log("[reviews] Claude is reachable again")
       } catch (e) {
+        if (isOutage(e)) {
+          down = true
+          later.push(...batch)
+          run.stalled! += batch.length
+          await reportOutage(batch[0], e as Error)
+          continue
+        }
         run.failed! += batch.length
         const attempts = (batch[0].attempts ?? 0) + 1
         const final = e instanceof UnreadableError || attempts >= ATTEMPTS
