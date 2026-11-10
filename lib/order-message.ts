@@ -3,7 +3,7 @@
 // each site order's manager comment carries a link (sendUrl) to a page
 // (app/nadislaty/[id]) with the text and buttons that open the buyer's Viber,
 // WhatsApp or Telegram with it; so does an order a manager makes for a buyer
-// who left a checkout (lib/abandoned-orders.ts). The link is signed: the page shows the buyer's
+// who left a checkout or wrote in Viber, WhatsApp or Telegram (lib/abandoned-orders.ts). The link is signed: the page shows the buyer's
 // order to whoever has it, so only KeyCRM has it.
 
 import { createHmac, timingSafeEqual } from "node:crypto"

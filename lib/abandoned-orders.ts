@@ -5,11 +5,15 @@
 // button either. Run by the abandoned-checkout cron every 15 minutes: an order
 // placed within LEAD_DAYS of the buyer's lead, matched by phone.
 //
+// So do orders a manager makes for a buyer who wrote in Viber, WhatsApp or
+// Telegram (MESSENGER_SOURCE): the chat is on the manager's phone, not in KeyCRM.
+// Their KeyCRM order sources are found by name, once a day.
+//
 // Redis keys:
 //   abandoned:lead:<phone>     when a lead was made for the phone (LEAD_DAYS)
 //   abandoned:linked:<order>   the order has its link (7 days)
 
-import { keycrmGetPages, keycrmSend } from "@/lib/keycrm"
+import { keycrmGetAll, keycrmGetPages, keycrmSend } from "@/lib/keycrm"
 import { normalizePhone } from "@/lib/order"
 import { SEND_MARK, sendUrl } from "@/lib/order-message"
 import { redis } from "@/lib/redis"
@@ -23,8 +27,24 @@ export async function rememberLead(phone: string): Promise<void> {
   await (await redis()).set(LEAD_KEY(phone), String(Date.now()), { EX: LEAD_DAYS * 86400 })
 }
 
+/** KeyCRM order sources for chats in messengers, by name or alias: «Вайбер», «WhatsApp», «Телеграм», «TG»… */
+export const MESSENGER_SOURCE = /viber|вайбер|whats\s*app|вотсап|ватсап|вацап|telegram|телеграм|(^|[^a-zа-яіїєґ])(tg|тг)([^a-zа-яіїєґ]|$)/i
+
+/** Ids of the KeyCRM order sources for messengers, looked up once a day (10 minutes while there are none). */
+async function messengerSourceIds(): Promise<Set<number>> {
+  const r = await redis()
+  const cached = await r.get("keycrm:messenger_sources")
+  if (cached !== null) return new Set(JSON.parse(cached) as number[])
+  const sources = await keycrmGetAll<{ id: number; name?: string; alias?: string }>("/order/source")
+  const ids = sources.filter((s) => MESSENGER_SOURCE.test(`${s.name ?? ""} ${s.alias ?? ""}`)).map((s) => s.id)
+  if (!ids.length) console.error("[abandoned] no KeyCRM order sources for Viber, WhatsApp or Telegram")
+  await r.set("keycrm:messenger_sources", JSON.stringify(ids), { EX: ids.length ? 86400 : 600 })
+  return new Set(ids)
+}
+
 interface KeycrmOrder {
   id: number
+  source_id?: number | null
   created_at?: string
   manager_comment?: string | null
   buyer?: { phone?: string | null } | null
@@ -42,13 +62,19 @@ export async function linkAbandonedOrders(): Promise<{ orders: number; linked: n
     { include: "buyer", "filter[created_between]": `${day(now - 86400_000)},${day(now + 86400_000)}` },
     20,
   )
+  const messengers = await messengerSourceIds().catch((e) => {
+    console.error("[abandoned] KeyCRM sources lookup failed:", (e as Error).message)
+    return new Set<number>()
+  })
   let linked = 0
   for (const o of items) {
     if (String(o.manager_comment ?? "").includes(SEND_MARK) || (await r.exists(LINKED_KEY(o.id)))) continue
-    const phone = normalizePhone(String(o.buyer?.phone ?? ""))
-    const lead = phone ? Number(await r.get(LEAD_KEY(phone))) : 0
-    // The order came after the lead: the manager's follow-up, not an order from before it.
-    if (!lead || Date.parse(o.created_at ?? "") < lead) continue
+    if (!messengers.has(Number(o.source_id))) {
+      const phone = normalizePhone(String(o.buyer?.phone ?? ""))
+      const lead = phone ? Number(await r.get(LEAD_KEY(phone))) : 0
+      // The order came after the lead: the manager's follow-up, not an order from before it.
+      if (!lead || Date.parse(o.created_at ?? "") < lead) continue
+    }
     try {
       await keycrmSend("PUT", `/order/${o.id}`, {
         manager_comment: [o.manager_comment, `${SEND_MARK} ${sendUrl(o.id)}`].filter(Boolean).join("\n\n"),
