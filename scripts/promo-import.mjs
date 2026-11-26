@@ -4,6 +4,8 @@
 //   node scripts/promo-import.mjs <file.xlsx> --campaign "Чорна п'ятниця" [--title "Шишибрики 700 м"] [--slug shyshybryky-700] [--whole] [--check]
 //
 // --whole: the file's yarn is sold only as whole spools while the sale runs.
+// --note "Лімітована партія −50% + {name}": said under the price instead of
+// the sale's name, for yarn whose earlier promotion this one lowers further.
 //
 // The file, as the shop prepares it: one sheet per promotion, with the columns
 // «Артикул», «Знижка» (10% or 0.1), «Ціна без знижки», «Ціна зі знижкою».
@@ -38,6 +40,7 @@ const file = args.find((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith
 const campaign = flag("campaign")
 const checkOnly = args.includes("--check")
 const wholeOnly = args.includes("--whole")
+const note = flag("note")
 if (!file || !campaign) {
   console.error('Usage: node scripts/promo-import.mjs <file.xlsx> --campaign "<name>" [--title "<title>"] [--slug <slug>] [--check]')
   process.exit(2)
@@ -265,6 +268,7 @@ for (const sheet of sheets) {
       source: `${path.basename(file)} / ${sheet.name}`,
       checkedAt: new Date().toISOString(),
       ...(wholeOnly ? { wholeOnly: true } : {}),
+      ...(note ? { note } : {}),
       prices: Object.fromEntries(
         Object.entries(prices).map(([sku, p]) => [sku, { regular: p.regular, sale: p.sale, percent: p.percent }]),
       ),

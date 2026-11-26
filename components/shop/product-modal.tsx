@@ -97,7 +97,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             </div>
             {product.promo && (
               <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                {product.promo.name} · {promoDeadline(product.promo)}
+                {product.promo.note ?? product.promo.name} · {promoDeadline(product.promo)}
               </p>
             )}
 

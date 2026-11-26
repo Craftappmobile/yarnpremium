@@ -75,7 +75,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
     return () => io.disconnect()
   }, [])
 
-  const offer = product.promo ? `${product.promo.name} на цю пряжу — ${promoDeadline(product.promo)}` : null
+  const offer = product.promo ? `${product.promo.note ?? product.promo.name} на цю пряжу — ${promoDeadline(product.promo)}` : null
   useEffect(() => {
     announceOffer(offer)
     return () => announceOffer(null)
@@ -174,7 +174,7 @@ export function ProductDetail({ product, videos = null, similar = [], similarByC
               </div>
               {product.promo && (
                 <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {product.promo.name} · {promoDeadline(product.promo)}
+                  {product.promo.note ?? product.promo.name} · {promoDeadline(product.promo)}
                 </p>
               )}
 

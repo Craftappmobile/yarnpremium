@@ -1,0 +1,613 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Меринос",
+  "category": "Акційний товар",
+  "percent": 15,
+  "per": "100 г",
+  "source": "Акційний меринос (файл від 26.11, 120 артикулів, −15%; лише цілими бобінами; разом з «Лімітована партія −50%» → −57% від 270 ₴)",
+  "checkedAt": "2026-11-26T16:07:31.481Z",
+  "wholeOnly": true,
+  "note": "Лімітована партія −50% + {name}",
+  "prices": {
+    "MER382": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER389 - 2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER389 - 4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER605 - 4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER605 - 12": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER605 - 15": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER608 - 7": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER618 - 6": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER721 - 3": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER721 - 4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER896 - 1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER917 - 4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER946 - 1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1003-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1003-4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1003-5": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1022-4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1022-5": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1301-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1309-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1310": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1411": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1412": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1414": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1415": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1416": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1419-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1419-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1421": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1423-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1423-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1425": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1427": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1428": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1433": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1600-6": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1604-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1605": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1606": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1667-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1668": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1669": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1670-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1670-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1670-3": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1670-4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1670-5": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1676-5": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1692-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1692-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1730": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1731": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1732-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1732-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1732-3": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1732-4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1732-5": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1732-6": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1732-7": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1749": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1759": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1765-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1765-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1765-3": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1778": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1837": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1848": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1849": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1850": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1851": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1853": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1866": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1867": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1868-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1868-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1868-3": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1868-4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1868-5": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1869-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1870-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1870-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1871-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1871-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1872-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1873": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1874": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1875": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1876": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1877": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1878": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1881": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1883": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1924": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1925": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1926": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1927": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1928": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1929": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1939": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1940": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1941": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1942": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1943": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1944": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1945": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1946": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER1947": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER8085": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1061": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1124": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1127": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1143-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1143-4": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1146-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1177-1": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1177-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1194": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1203": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1250-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    },
+    "MER 1264-2": {
+      "regular": 135,
+      "sale": 115,
+      "percent": 15
+    }
+  }
+}

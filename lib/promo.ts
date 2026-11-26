@@ -61,6 +61,12 @@ export interface PromoConfig {
   upTo?: boolean
   /** Yarn by weight sold only as the whole spool while the promotion runs: no 100 г, 200 г. */
   wholeOnly?: boolean
+  /**
+   * What the product's line under the price says instead of the promotion's
+   * name, with `{name}` for it: "Лімітована партія −50% + {name}" for yarn
+   * already sold at a promotion's price, which this one lowers further.
+   */
+  note?: string
   /** The sale it is part of (lib/campaigns.ts): it runs on the sale's dates and is listed on the sale's page. */
   campaign?: string
   /** Which price KeyCRM holds for the category's products (see the top of this file). */
@@ -91,6 +97,8 @@ export interface PromoFile {
   prices: Record<string, { regular: number; sale: number; percent?: number }>
   /** Sold only as whole spools while the sale runs. */
   wholeOnly?: boolean
+  /** See PromoConfig.note. */
+  note?: string
 }
 
 function fromFile(f: PromoFile): PromoConfig {
@@ -104,12 +112,16 @@ function fromFile(f: PromoFile): PromoConfig {
     skus: Object.fromEntries(Object.entries(f.prices).map(([sku, p]) => [sku, p.sale])),
     ...(mixed ? { skuPercents: percents, upTo: true } : {}),
     ...(f.wholeOnly ? { wholeOnly: true } : {}),
+    ...(f.note ? { note: f.note } : {}),
     campaign: f.campaign,
     keycrm: "regular",
   }
 }
 
 export const PROMOS: PromoConfig[] = [
+  // A sale's discount files first: while it runs, the price a file gives a
+  // product wins over a category's promotion (activePromo takes the first).
+  ...PROMO_FILES.map(fromFile),
   // The merino already sold at its promotional price is filed under «Акційний товар» in KeyCRM.
   {
     name: "Лімітована партія",
@@ -128,7 +140,6 @@ export const PROMOS: PromoConfig[] = [
     percent: 43,
     keycrm: "promo",
   },
-  ...PROMO_FILES.map(fromFile),
 ]
 
 /** When a promotion starts, and when it is over (the start of the day after its last); open ends are infinite. */
@@ -183,9 +194,10 @@ export function currentOrNextPromo(
   now = Date.now(),
   promos = PROMOS,
 ): PromoConfig | undefined {
-  return promos
-    .filter((promo) => covers(promo, p) && promoWindow(promo).end > now)
-    .sort((a, b) => promoWindow(a).start - promoWindow(b).start)[0]
+  return (
+    activePromo(p, now, promos) ??
+    promos.filter((promo) => covers(promo, p) && promoWindow(promo).start > now).sort((a, b) => promoWindow(a).start - promoWindow(b).start)[0]
+  )
 }
 
 /**
@@ -236,8 +248,10 @@ export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Produc
   const { end } = promoWindow(promo)
   // The product's own discount, when a file gives its products different ones.
   const percent = promo.skuPercents?.[p.sku] ?? promo.percent
+  const name = `${promo.name} −${percent}%`
   const info: ProductPromo = {
-    name: `${promo.name} −${percent}%`,
+    name,
+    ...(promo.note ? { note: promo.note.replace("{name}", name) } : {}),
     percent,
     ...(promo.title ? { title: promo.title } : {}),
     ...(promo.tagline ? { tagline: promo.tagline } : {}),
