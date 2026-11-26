@@ -1,7 +1,9 @@
 // A discount file (.xlsx) to a promotion of a sale (lib/campaigns.ts), checked
 // against KeyCRM row by row before anything reaches the site.
 //
-//   node scripts/promo-import.mjs <file.xlsx> --campaign "Чорна п'ятниця" [--title "Шишибрики 700 м"] [--slug shyshybryky-700] [--check]
+//   node scripts/promo-import.mjs <file.xlsx> --campaign "Чорна п'ятниця" [--title "Шишибрики 700 м"] [--slug shyshybryky-700] [--whole] [--check]
+//
+// --whole: the file's yarn is sold only as whole spools while the sale runs.
 //
 // The file, as the shop prepares it: one sheet per promotion, with the columns
 // «Артикул», «Знижка» (10% or 0.1), «Ціна без знижки», «Ціна зі знижкою».
@@ -35,6 +37,7 @@ const flag = (name) => {
 const file = args.find((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"))
 const campaign = flag("campaign")
 const checkOnly = args.includes("--check")
+const wholeOnly = args.includes("--whole")
 if (!file || !campaign) {
   console.error('Usage: node scripts/promo-import.mjs <file.xlsx> --campaign "<name>" [--title "<title>"] [--slug <slug>] [--check]')
   process.exit(2)
@@ -261,6 +264,7 @@ for (const sheet of sheets) {
       per: unit ?? "100 г",
       source: `${path.basename(file)} / ${sheet.name}`,
       checkedAt: new Date().toISOString(),
+      ...(wholeOnly ? { wholeOnly: true } : {}),
       prices: Object.fromEntries(
         Object.entries(prices).map(([sku, p]) => [sku, { regular: p.regular, sale: p.sale, percent: p.percent }]),
       ),

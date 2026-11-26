@@ -31,6 +31,8 @@ export function QuantityPicker({ product, quantity, onChange }: QuantityPickerPr
   const { min, max } = quantityRules(product)
   const tail = tailGrams(product, quantity)
   const remnant = isRemnant(product)
+  // A promotion that sells only whole spools (lib/promo.ts, wholeOnly): the minimum is the whole spool.
+  const wholeOnly = !remnant && product.priceUnit === "г" && product.stock > 0 && product.minQty === product.stock
 
   return (
     <div className="space-y-2">
@@ -75,6 +77,9 @@ export function QuantityPicker({ product, quantity, onChange }: QuantityPickerPr
           {formatQuantity(tail, product.priceUnit)} — окремо ми їх не продаємо, тому вони додаються до покупки зі
           знижкою {TAIL_DISCOUNT * 100}%.
         </p>
+      )}
+      {wholeOnly && (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">На акції продаємо лише цілою бобіною.</p>
       )}
       {remnant && (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">

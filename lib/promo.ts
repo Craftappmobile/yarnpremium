@@ -59,6 +59,8 @@ export interface PromoConfig {
   skuPercents?: Record<string, number>
   /** Its products have different discounts and `percent` is the biggest: "до −17%". */
   upTo?: boolean
+  /** Yarn by weight sold only as the whole spool while the promotion runs: no 100 г, 200 г. */
+  wholeOnly?: boolean
   /** The sale it is part of (lib/campaigns.ts): it runs on the sale's dates and is listed on the sale's page. */
   campaign?: string
   /** Which price KeyCRM holds for the category's products (see the top of this file). */
@@ -87,6 +89,8 @@ export interface PromoFile {
   checkedAt: string
   /** Per SKU: per 100 г or per piece, as `per` says; `percent` is the badge's (older files: `percent` above). */
   prices: Record<string, { regular: number; sale: number; percent?: number }>
+  /** Sold only as whole spools while the sale runs. */
+  wholeOnly?: boolean
 }
 
 function fromFile(f: PromoFile): PromoConfig {
@@ -99,6 +103,7 @@ function fromFile(f: PromoFile): PromoConfig {
     percent: mixed ? Math.max(...Object.values(percents)) : f.percent,
     skus: Object.fromEntries(Object.entries(f.prices).map(([sku, p]) => [sku, p.sale])),
     ...(mixed ? { skuPercents: percents, upTo: true } : {}),
+    ...(f.wholeOnly ? { wholeOnly: true } : {}),
     campaign: f.campaign,
     keycrm: "regular",
   }
@@ -239,5 +244,7 @@ export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Produc
     ...(promo.campaign ? { campaign: promo.campaign } : {}),
     ...(Number.isFinite(end) ? { endsAt: new Date(end).toISOString() } : {}),
   }
-  return { ...p, price: prices.sale, oldPrice: prices.regular, promo: info }
+  // Whole spools only: the smallest purchase is all of it (components/shop/data.ts, quantityRules).
+  const whole = promo.wholeOnly && p.priceUnit.toLowerCase() === "г" && p.stock > 0 ? { minQty: p.stock, step: p.stock } : {}
+  return { ...p, ...whole, price: prices.sale, oldPrice: prices.regular, promo: info }
 }
