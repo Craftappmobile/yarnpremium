@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation"
-import { PROMOS, activePromo } from "@/lib/promo"
-import { categoryPath } from "@/lib/category-url"
+import { PROMOS, isRunning, promoPath } from "@/lib/promo"
+import { runningCampaign } from "@/lib/campaigns"
 
-// Short address for ads, the Instagram bio and mailings: the category of the
-// promotion running now, or the catalog when none is.
+// Short address for ads, the Instagram bio and mailings: the page of the sale
+// running now, else the category of the promotion running now, else the catalog.
 export const dynamic = "force-dynamic"
 
 export default function Akciya() {
-  const promo = PROMOS.find((p) => activePromo(p.category) === p)
-  redirect(promo ? categoryPath(promo.category) : "/")
+  const campaign = runningCampaign()
+  if (campaign) redirect(campaign.path)
+  const promo = PROMOS.find((p) => isRunning(p))
+  redirect(promo ? promoPath(promo) : "/")
 }

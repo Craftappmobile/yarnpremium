@@ -15,6 +15,7 @@ import { SoldOutCategory } from "./sold-out-category"
 import { categoryPath, categoryTitle } from "@/lib/category-url"
 import { BRAND, HOME_TITLE } from "@/lib/site"
 import { CategoryHeader, PromoStrip, TrustStrip } from "./promo-blocks"
+import { CampaignBanner, CampaignStrip } from "./campaign-blocks"
 import { type Product, type SortOption, promoDeadline, sortOptions, sortProducts } from "./data"
 import { announceOffer } from "./assistant"
 import { useCart } from "./cart-context"
@@ -189,7 +190,11 @@ export default function MinimalShop({
   const categoryPromo = category ? summary.promos?.find((s) => s.category === category) : undefined
   // Every category has a header; a promotion's one adds the discount.
   const group = categoryPromo ?? (category ? summary.groups?.find((s) => s.category === category) : undefined)
-  const homePromo = query === "" && activeFilterCount === 0 ? summary.promos?.[0] : undefined
+  const homeView = query === "" && activeFilterCount === 0
+  // A sale running (Black Friday): its banner over the home page instead of a promotion's header.
+  const campaign = summary.campaign
+  const homeCampaign = homeView ? campaign : undefined
+  const homePromo = homeView && !campaign ? summary.promos?.[0] : undefined
   const shownPromo = categoryPromo ?? homePromo
   // Until another category is picked.
   const soldOutHere = !!soldOut && !!pageCategory && category === pageCategory
@@ -201,7 +206,9 @@ export default function MinimalShop({
 
   const offer = shownPromo
     ? `${shownPromo.promo.name} на «${shownPromo.promo.title ?? shownPromo.category}» — ${promoDeadline(shownPromo.promo)}`
-    : null
+    : homeCampaign
+      ? `${homeCampaign.name} −${homeCampaign.percent}% на ${homeCampaign.groups.map((g) => `«${g.title}»`).join(", ")} — ${promoDeadline({ name: homeCampaign.name, percent: homeCampaign.percent, endsAt: homeCampaign.endsAt })}`
+      : null
   useEffect(() => {
     announceOffer(offer)
     return () => announceOffer(null)
@@ -209,10 +216,13 @@ export default function MinimalShop({
 
   // Under the promotion's block on the home page its products come first, the
   // rest of the catalog after them (stable: newest first within each part).
+  const featured = homeCampaign
+    ? (p: Product) => p.promo?.campaign === homeCampaign.name
+    : homePromo
+      ? (p: Product) => p.category === homePromo.category
+      : null
   const sortedProducts =
-    homePromo && sort === "default"
-      ? [...sorted.filter((p) => p.category === homePromo.category), ...sorted.filter((p) => p.category !== homePromo.category)]
-      : sorted
+    featured && sort === "default" ? [...sorted.filter(featured), ...sorted.filter((p) => !featured(p))] : sorted
   const shownProducts = sortedProducts.slice(0, visibleCount)
   // A category's page comes with its first screen, as the home page does with the catalog's.
   const onPageCategory =
@@ -251,7 +261,11 @@ export default function MinimalShop({
           onShowAll: showAllCategories,
         }}
       />
-      {shownPromo && <PromoStrip promo={shownPromo.promo} category={shownPromo.category} />}
+      {campaign ? (
+        <CampaignStrip campaign={campaign} />
+      ) : (
+        shownPromo && <PromoStrip promo={shownPromo.promo} category={shownPromo.category} />
+      )}
 
       <div className="mx-auto max-w-[1400px] px-4 pt-4 lg:pt-12 pb-16">
         <h1 className="sr-only">{pageCategory ? `${pageCategory} — пряжа ${BRAND}` : HOME_TITLE}</h1>
@@ -301,6 +315,7 @@ export default function MinimalShop({
               <>
                 {group && <CategoryHeader summary={group} />}
                 {homePromo && <CategoryHeader summary={homePromo} onShow={() => openPromo(homePromo.category)} />}
+                {homeCampaign && <CampaignBanner campaign={homeCampaign} />}
                 <TrustStrip compact />
                 <h2 className="sr-only">Товари</h2>
                 {/* Filters and sorting share one row, the count goes under them: the products start sooner. */}
@@ -340,7 +355,7 @@ export default function MinimalShop({
                 <p role="status" className="mb-3 mt-1.5 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                   {waiting
                     ? "Шукаємо…"
-                    : `${homePromo ? "Увесь каталог · " : ""}${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
+                    : `${homePromo || homeCampaign ? "Увесь каталог · " : ""}${resultCount} ${pluralUk(resultCount, ["товар", "товари", "товарів"])}`}
                 </p>
                 {products.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 text-center">

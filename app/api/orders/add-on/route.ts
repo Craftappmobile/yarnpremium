@@ -11,6 +11,7 @@ import { createPayment } from "@/lib/wayforpay"
 import { ADD_ON, priceAddOn } from "@/components/shop/data"
 import { readLines, stockChanges, toOrderItems } from "@/lib/order-lines"
 import { addOnPayment, type AddOnRequest, type Order } from "@/lib/order"
+import { CAMPAIGNS } from "@/lib/campaigns"
 
 // Adds to an order just placed (ADD_ON): within ADD_ON.minutes of it, once
 // it's paid, one add-on per order at the add-on discount. It is a KeyCRM order
@@ -105,6 +106,7 @@ export async function POST(req: NextRequest) {
       })
       await reserveStock(items).catch((e) => console.error("[add-on] stock update failed:", e.message))
       revalidatePath("/")
+      for (const c of CAMPAIGNS) revalidatePath(c.path)
       revalidatePath("/kategoriya/[slug]", "page")
       for (const i of items) revalidatePath(`/product/${i.sku}`)
     }

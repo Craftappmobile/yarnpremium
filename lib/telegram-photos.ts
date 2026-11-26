@@ -72,6 +72,7 @@ import { LOOKALIKES } from "@/lib/product-videos"
 import { redis } from "@/lib/redis"
 import { staffCode } from "@/lib/telegram-staff"
 import { esc, type InlineButton, keyboard, tg } from "@/lib/telegram"
+import { CAMPAIGNS } from "@/lib/campaigns"
 
 const KEY_CHANNEL = "tg:photo:channel"
 const KEY_COLORS = "tg:photo:colors"
@@ -449,6 +450,7 @@ async function apply(color: ColorPhotos, targets: PhotoTarget[]): Promise<Applie
   if (result.skus.length) {
     try {
       revalidatePath("/")
+      for (const c of CAMPAIGNS) revalidatePath(c.path)
       revalidatePath("/kategoriya/[slug]", "page")
     } catch {}
   }
@@ -507,6 +509,7 @@ async function restore(color: ColorPhotos, skus: string[]): Promise<Restored> {
   if (out.skus.length) {
     try {
       revalidatePath("/")
+      for (const c of CAMPAIGNS) revalidatePath(c.path)
       revalidatePath("/kategoriya/[slug]", "page")
     } catch {}
   }

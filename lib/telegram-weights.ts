@@ -37,6 +37,7 @@ import { redis } from "@/lib/redis"
 import { findOffer, spoolKey } from "@/lib/telegram-photos"
 import { staffCode } from "@/lib/telegram-staff"
 import { esc, tg } from "@/lib/telegram"
+import { CAMPAIGNS } from "@/lib/campaigns"
 
 const KEY_TOPIC = "tg:weights:topic"
 const KEY_WAREHOUSE = "tg:weights:warehouse"
@@ -201,6 +202,7 @@ export async function weigh(
   if (changed.length) {
     try {
       revalidatePath("/")
+      for (const c of CAMPAIGNS) revalidatePath(c.path)
       revalidatePath("/kategoriya/[slug]", "page")
       for (const sku of changed) revalidatePath(`/product/${encodeURIComponent(sku)}`)
     } catch {}

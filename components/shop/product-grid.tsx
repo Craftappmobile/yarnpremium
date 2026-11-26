@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode } from "react"
 import { Heart } from "lucide-react"
-import { type Product, formatPrice } from "./data"
+import { type Product, formatPrice, formatPriceShort } from "./data"
 import { useWishlist } from "./wishlist-context"
 import { ProductImage } from "./product-image"
 import { OldPrice, PromoBadge } from "./promo-price"
@@ -56,17 +56,29 @@ export function ProductGrid({ products, onProductSelect, insert }: ProductGridPr
                 <div className="mt-1.5 space-y-0.5">
                   <h3 className="text-sm leading-5 font-medium line-clamp-2 min-h-10">{product.name}</h3>
                   <div className="flex justify-between items-baseline gap-2">
-                    <p className="shrink-0 text-sm tabular-nums text-zinc-700 dark:text-zinc-300">
-                      <span className={product.oldPrice ? "font-semibold text-zinc-900 dark:text-zinc-50" : undefined}>
-                        {formatPrice(product.price)}
-                      </span>
-                      {product.oldPrice ? <OldPrice className="ml-1 text-xs">{formatPrice(product.oldPrice)}</OldPrice> : null}
-                      {product.priceUnit === "г" && <span className="text-zinc-500"> / г</span>}
-                    </p>
-                    {/* The colour tells skeins of one yarn apart; long names can hide it. */}
-                    <p className="min-w-0 text-right text-xs text-zinc-500 dark:text-zinc-500 truncate">
-                      {product.color || product.category}
-                    </p>
+                    {/* On sale, yarn by weight is priced per 100 г, as in the ads: per gram the discount reads as kopecks. */}
+                    {product.oldPrice && product.priceUnit === "г" ? (
+                      <p className="shrink-0 text-sm tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <span className="font-semibold text-zinc-900 dark:text-zinc-50">{formatPriceShort(product.price * 100)}</span>
+                        <OldPrice className="ml-1 text-xs">{formatPriceShort(product.oldPrice * 100)}</OldPrice>
+                        <span className="text-xs text-zinc-500"> / 100 г</span>
+                      </p>
+                    ) : (
+                      <p className="shrink-0 text-sm tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <span className={product.oldPrice ? "font-semibold text-zinc-900 dark:text-zinc-50" : undefined}>
+                          {formatPrice(product.price)}
+                        </span>
+                        {product.oldPrice ? <OldPrice className="ml-1 text-xs">{formatPrice(product.oldPrice)}</OldPrice> : null}
+                        {product.priceUnit === "г" && <span className="text-zinc-500"> / г</span>}
+                      </p>
+                    )}
+                    {/* The colour tells skeins of one yarn apart; long names can hide it. A sale's longer
+                        price leaves it a few letters, so it goes when the name already says it. */}
+                    {!(product.oldPrice && product.color && product.name.toLowerCase().includes(product.color.toLowerCase())) && (
+                      <p className="min-w-0 text-right text-xs text-zinc-500 dark:text-zinc-500 truncate">
+                        {product.color || product.category}
+                      </p>
+                    )}
                   </div>
                 </div>
               </button>

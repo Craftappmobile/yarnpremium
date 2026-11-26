@@ -6,7 +6,7 @@ import { m } from "motion/react"
 import { X, Check, Heart, ShoppingBag, ExternalLink } from "lucide-react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { type Product, clampQuantity, formatPrice, formatQuantity, promoDeadline } from "./data"
+import { type Product, clampQuantity, formatPrice, formatPriceShort, formatQuantity, promoDeadline } from "./data"
 import { QuantityPicker } from "./quantity-picker"
 import { trackViewItem } from "./analytics"
 import { useWishlist } from "./wishlist-context"
@@ -80,9 +80,20 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
 
             <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
               <PromoBadge product={product} className="self-center" />
-              <span className="text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">{formatPrice(product.price)}</span>
-              {product.oldPrice ? <OldPrice className="text-sm">{formatPrice(product.oldPrice)}</OldPrice> : null}
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">/ {product.priceUnit}</span>
+              {/* On sale, yarn by weight is priced per 100 г, as on its card. */}
+              {product.oldPrice && product.priceUnit === "г" ? (
+                <>
+                  <span className="text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">{formatPriceShort(product.price * 100)}</span>
+                  <OldPrice className="text-sm">{formatPriceShort(product.oldPrice * 100)}</OldPrice>
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400">/ 100 г</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">{formatPrice(product.price)}</span>
+                  {product.oldPrice ? <OldPrice className="text-sm">{formatPrice(product.oldPrice)}</OldPrice> : null}
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400">/ {product.priceUnit}</span>
+                </>
+              )}
             </div>
             {product.promo && (
               <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
