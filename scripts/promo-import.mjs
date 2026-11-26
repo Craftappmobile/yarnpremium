@@ -180,6 +180,14 @@ if (sheets.length > 1 && (flag("title") || flag("slug"))) {
   process.exit(2)
 }
 const categories = await categoryNames()
+// SKUs other discount files already put on sale: one product, one price.
+const elsewhere = new Map()
+try {
+  for (const f of readdirSync(OUT_DIR).filter((f) => f.endsWith(".json"))) {
+    const data = JSON.parse(readFileSync(path.join(OUT_DIR, f), "utf8"))
+    for (const sku of Object.keys(data.prices ?? {})) elsewhere.set(sku, { file: f, ...data.prices[sku] })
+  }
+} catch {}
 let failed = false
 const results = []
 
@@ -197,6 +205,9 @@ for (const sheet of sheets) {
   for (const r of rows) {
     const where = `рядок ${r.line}, ${r.sku}`
     if (seen.has(r.sku)) errors.push(`${where}: артикул повторюється`)
+    const other = elsewhere.get(r.sku)
+    if (other && other.file !== `${flag("slug") ?? ""}.json`)
+      errors.push(`${where}: уже у файлі ${other.file} (${other.regular} → ${other.sale}), а тут ${r.regular} → ${r.sale}`)
     seen.add(r.sku)
     const o = offers.get(r.sku)
     if (!o) {
