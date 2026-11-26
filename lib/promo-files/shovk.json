@@ -1,0 +1,46 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Шовк",
+  "category": "Шовк",
+  "percent": 12,
+  "per": "100 г",
+  "source": "Шовк (файл від 26.11, 7 артикулів, 425 → 375, −12%). SH116: у KeyCRM в картки «Шовк Mulberry Темно синій SH116 400м» порожній артикул — знижка спрацює, щойно його заповнять.",
+  "checkedAt": "2026-11-26T16:26:51.861Z",
+  "prices": {
+    "SH501": {
+      "regular": 425,
+      "sale": 375,
+      "percent": 12
+    },
+    "SH263": {
+      "regular": 425,
+      "sale": 375,
+      "percent": 12
+    },
+    "SH256": {
+      "regular": 425,
+      "sale": 375,
+      "percent": 12
+    },
+    "SH468": {
+      "regular": 425,
+      "sale": 375,
+      "percent": 12
+    },
+    "SH242": {
+      "regular": 425,
+      "sale": 375,
+      "percent": 12
+    },
+    "SH233": {
+      "regular": 425,
+      "sale": 375,
+      "percent": 12
+    },
+    "SH116": {
+      "regular": 425,
+      "sale": 375,
+      "percent": 12
+    }
+  }
+}
