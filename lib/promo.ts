@@ -61,6 +61,8 @@ export interface PromoConfig {
   upTo?: boolean
   /** Yarn by weight sold only as the whole spool while the promotion runs: no 100 г, 200 г. */
   wholeOnly?: boolean
+  /** Yarn by weight sold from this many grams while the promotion runs (micro-sequins: 500 г). */
+  minQty?: number
   /**
    * What the product's line under the price says instead of the promotion's
    * name, with `{name}` for it: "Лімітована партія −50% + {name}" for yarn
@@ -97,6 +99,8 @@ export interface PromoFile {
   prices: Record<string, { regular: number; sale: number; percent?: number }>
   /** Sold only as whole spools while the sale runs. */
   wholeOnly?: boolean
+  /** Sold from this many grams while the sale runs. */
+  minQty?: number
   /** See PromoConfig.note. */
   note?: string
 }
@@ -113,6 +117,7 @@ function fromFile(f: PromoFile): PromoConfig {
     ...(mixed ? { skuPercents: percents, upTo: true } : {}),
     ...(f.wholeOnly ? { wholeOnly: true } : {}),
     ...(f.note ? { note: f.note } : {}),
+    ...(f.minQty ? { minQty: f.minQty } : {}),
     campaign: f.campaign,
     keycrm: "regular",
   }
@@ -259,6 +264,13 @@ export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Produc
     ...(Number.isFinite(end) ? { endsAt: new Date(end).toISOString() } : {}),
   }
   // Whole spools only: the smallest purchase is all of it (components/shop/data.ts, quantityRules).
-  const whole = promo.wholeOnly && p.priceUnit.toLowerCase() === "г" && p.stock > 0 ? { minQty: p.stock, step: p.stock } : {}
-  return { ...p, ...whole, price: prices.sale, oldPrice: prices.regular, promo: info }
+  // From a promotion's own minimum (components/shop/data.ts, quantityRules: a spool with less is sold whole).
+  const byWeight = p.priceUnit.toLowerCase() === "г"
+  const limits =
+    promo.wholeOnly && byWeight && p.stock > 0
+      ? { minQty: p.stock, step: p.stock }
+      : promo.minQty && byWeight
+        ? { minQty: promo.minQty }
+        : {}
+  return { ...p, ...limits, price: prices.sale, oldPrice: prices.regular, promo: info }
 }

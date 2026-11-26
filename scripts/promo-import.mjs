@@ -4,6 +4,7 @@
 //   node scripts/promo-import.mjs <file.xlsx> --campaign "Чорна п'ятниця" [--title "Шишибрики 700 м"] [--slug shyshybryky-700] [--whole] [--check]
 //
 // --whole: the file's yarn is sold only as whole spools while the sale runs.
+// --min 500: the file's yarn is sold from 500 г while the sale runs.
 // --note "Лімітована партія −50% + {name}": said under the price instead of
 // the sale's name, for yarn whose earlier promotion this one lowers further.
 //
@@ -41,6 +42,7 @@ const campaign = flag("campaign")
 const checkOnly = args.includes("--check")
 const wholeOnly = args.includes("--whole")
 const note = flag("note")
+const minQty = Number(flag("min")) || undefined
 if (!file || !campaign) {
   console.error('Usage: node scripts/promo-import.mjs <file.xlsx> --campaign "<name>" [--title "<title>"] [--slug <slug>] [--check]')
   process.exit(2)
@@ -269,6 +271,7 @@ for (const sheet of sheets) {
       checkedAt: new Date().toISOString(),
       ...(wholeOnly ? { wholeOnly: true } : {}),
       ...(note ? { note } : {}),
+      ...(minQty ? { minQty } : {}),
       prices: Object.fromEntries(
         Object.entries(prices).map(([sku, p]) => [sku, { regular: p.regular, sale: p.sale, percent: p.percent }]),
       ),
