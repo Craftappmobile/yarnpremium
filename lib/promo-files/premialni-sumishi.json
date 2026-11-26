@@ -1,0 +1,186 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Преміальні суміші",
+  "category": "Меринос шовк",
+  "percent": 50,
+  "per": "100 г",
+  "source": "Преміальні суміші (файл від 26.11, 35 артикулів, від −10% до −50%)",
+  "checkedAt": "2026-11-26T17:14:56.575Z",
+  "prices": {
+    "WS20": {
+      "regular": 298,
+      "sale": 238,
+      "percent": 20
+    },
+    "WS12": {
+      "regular": 298,
+      "sale": 238,
+      "percent": 20
+    },
+    "MS104": {
+      "regular": 285,
+      "sale": 225,
+      "percent": 21
+    },
+    "MS100": {
+      "regular": 285,
+      "sale": 225,
+      "percent": 21
+    },
+    "MS102": {
+      "regular": 285,
+      "sale": 225,
+      "percent": 21
+    },
+    "MKS001": {
+      "regular": 585,
+      "sale": 526,
+      "percent": 10
+    },
+    "MKS002": {
+      "regular": 585,
+      "sale": 526,
+      "percent": 10
+    },
+    "BSP3": {
+      "regular": 450,
+      "sale": 360,
+      "percent": 20
+    },
+    "BSH32": {
+      "regular": 345,
+      "sale": 275,
+      "percent": 20
+    },
+    "BSH20": {
+      "regular": 345,
+      "sale": 275,
+      "percent": 20
+    },
+    "BSH19": {
+      "regular": 345,
+      "sale": 275,
+      "percent": 20
+    },
+    "BS104": {
+      "regular": 269,
+      "sale": 215,
+      "percent": 20
+    },
+    "BS101": {
+      "regular": 269,
+      "sale": 215,
+      "percent": 20
+    },
+    "MS132": {
+      "regular": 295,
+      "sale": 235,
+      "percent": 20
+    },
+    "MS134": {
+      "regular": 295,
+      "sale": 235,
+      "percent": 20
+    },
+    "MS133": {
+      "regular": 295,
+      "sale": 235,
+      "percent": 20
+    },
+    "MS130": {
+      "regular": 295,
+      "sale": 235,
+      "percent": 20
+    },
+    "WA26": {
+      "regular": 435,
+      "sale": 326,
+      "percent": 25
+    },
+    "WA31": {
+      "regular": 435,
+      "sale": 326,
+      "percent": 25
+    },
+    "WA35": {
+      "regular": 435,
+      "sale": 326,
+      "percent": 25
+    },
+    "WA32": {
+      "regular": 435,
+      "sale": 326,
+      "percent": 25
+    },
+    "KB223": {
+      "regular": 330,
+      "sale": 231,
+      "percent": 30
+    },
+    "KB221": {
+      "regular": 330,
+      "sale": 231,
+      "percent": 30
+    },
+    "KB220": {
+      "regular": 330,
+      "sale": 231,
+      "percent": 30
+    },
+    "KYM04": {
+      "regular": 296,
+      "sale": 237,
+      "percent": 20
+    },
+    "KYM02": {
+      "regular": 296,
+      "sale": 237,
+      "percent": 20
+    },
+    "WVWK07": {
+      "regular": 445,
+      "sale": 378,
+      "percent": 15
+    },
+    "WVWK08": {
+      "regular": 445,
+      "sale": 378,
+      "percent": 15
+    },
+    "WVWK05": {
+      "regular": 445,
+      "sale": 378,
+      "percent": 15
+    },
+    "WVWK06": {
+      "regular": 445,
+      "sale": 378,
+      "percent": 15
+    },
+    "WAF06": {
+      "regular": 395,
+      "sale": 197,
+      "percent": 50
+    },
+    "WAF01": {
+      "regular": 395,
+      "sale": 197,
+      "percent": 50
+    },
+    "KMS112": {
+      "regular": 285,
+      "sale": 195,
+      "percent": 32
+    },
+    "KMS111": {
+      "regular": 285,
+      "sale": 195,
+      "percent": 32
+    },
+    "SH297": {
+      "regular": 330,
+      "sale": 265,
+      "percent": 20
+    }
+  }
+}
