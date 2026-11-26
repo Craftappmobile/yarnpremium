@@ -4,7 +4,8 @@ import f_italiiskyi_stok from "./italiiskyi-stok.json"
 import f_kashemir_z_shovkom from "./kashemir-z-shovkom.json"
 import f_kashemir from "./kashemir.json"
 import f_merynos from "./merynos.json"
+import f_mikropaietka from "./mikropaietka.json"
 import f_napivvovna from "./napivvovna.json"
 import f_shyshybryky_700 from "./shyshybryky-700.json"
 
-export const PROMO_FILES: PromoFile[] = [f_italiiskyi_stok, f_kashemir_z_shovkom, f_kashemir, f_merynos, f_napivvovna, f_shyshybryky_700]
+export const PROMO_FILES: PromoFile[] = [f_italiiskyi_stok, f_kashemir_z_shovkom, f_kashemir, f_merynos, f_mikropaietka, f_napivvovna, f_shyshybryky_700]
