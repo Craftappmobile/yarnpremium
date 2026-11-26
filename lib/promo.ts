@@ -1,4 +1,5 @@
-// Promotions: a share off every product of one KeyCRM category.
+// Promotions: a share off every product of one KeyCRM category, or off the
+// products a discount file lists.
 //
 // Two ways a promotion can stand against KeyCRM:
 //   keycrm: "regular"  KeyCRM keeps the regular prices. While the promotion
@@ -11,6 +12,9 @@
 //                      price stays what KeyCRM says until it is raised there.
 //                      With `price` set, every product of the category sells
 //                      at that price, whatever KeyCRM holds for it.
+// A discount file (lib/promo-files, from scripts/promo-import.mjs) is a
+// "regular" promotion of a sale (lib/campaigns.ts) over the SKUs it lists, each
+// at the price the file gives it.
 // Either way the catalog (lib/catalog.ts) applies it on read, so the site, the
 // cart, the order, the payment and KeyCRM all charge the same price.
 //
@@ -18,6 +22,9 @@
 // does to each product (`Product.oldPrice` and `Product.promo`).
 
 import type { Product, ProductPromo } from "@/components/shop/data"
+import { campaignByName, dayWindow } from "@/lib/campaigns"
+import { categoryPath } from "@/lib/category-url"
+import { PROMO_FILES } from "@/lib/promo-files"
 
 export interface PromoConfig {
   /** As in the ads, without the percent: "Лімітована партія". The site shows "Лімітована партія −50%". */
@@ -42,18 +49,84 @@ export interface PromoConfig {
    * it too, so the site shows a single price. Only with `keycrm: "promo"`.
    */
   price?: number
+  /**
+   * Only these products, by SKU, each at its promotional price per 100 г for
+   * yarn by weight and per piece otherwise, as the discount file gives it.
+   * Without it, every product of `category`. Only with `keycrm: "regular"`.
+   */
+  skus?: Record<string, number>
+  /** With `skus`: each product's own percent, when a file gives them different ones; else `percent`. */
+  skuPercents?: Record<string, number>
+  /** Its products have different discounts and `percent` is the biggest: "до −17%". */
+  upTo?: boolean
+  /** Yarn by weight sold only as the whole spool while the promotion runs: no 100 г, 200 г. */
+  wholeOnly?: boolean
+  /** Yarn by weight sold from this many grams while the promotion runs (micro-sequins: 500 г). */
+  minQty?: number
+  /**
+   * What the product's line under the price says instead of the promotion's
+   * name, with `{name}` for it: "Лімітована партія −50% + {name}" for yarn
+   * already sold at a promotion's price, which this one lowers further.
+   */
+  note?: string
+  /** The sale it is part of (lib/campaigns.ts): it runs on the sale's dates and is listed on the sale's page. */
+  campaign?: string
   /** Which price KeyCRM holds for the category's products (see the top of this file). */
   keycrm: "regular" | "promo"
   /**
    * First and last day, "YYYY-MM-DD", Kyiv time: from 00:00 of `from` to 23:59
    * of `to`. Without `from` it runs from now; without `to`, until it is taken
-   * out of this list (a limited batch: while stock lasts).
+   * out of this list (a limited batch: while stock lasts). A sale's promotion
+   * takes the sale's dates instead.
    */
   from?: string
   to?: string
 }
 
+/** A discount file in lib/promo-files, as scripts/promo-import.mjs writes it. */
+export interface PromoFile {
+  campaign: string
+  /** What is on sale: "Шишибрики 700 м". */
+  title: string
+  /** The KeyCRM category of its products. */
+  category: string
+  percent: number
+  /** What the prices are of: "100 г" for yarn by weight, "шт" otherwise. */
+  per: string
+  source: string
+  checkedAt: string
+  /** Per SKU: per 100 г or per piece, as `per` says; `percent` is the badge's (older files: `percent` above). */
+  prices: Record<string, { regular: number; sale: number; percent?: number }>
+  /** Sold only as whole spools while the sale runs. */
+  wholeOnly?: boolean
+  /** Sold from this many grams while the sale runs. */
+  minQty?: number
+  /** See PromoConfig.note. */
+  note?: string
+}
+
+function fromFile(f: PromoFile): PromoConfig {
+  const percents = Object.fromEntries(Object.entries(f.prices).map(([sku, p]) => [sku, p.percent ?? f.percent]))
+  const mixed = new Set(Object.values(percents)).size > 1
+  return {
+    name: f.campaign,
+    category: f.category,
+    title: f.title,
+    percent: mixed ? Math.max(...Object.values(percents)) : f.percent,
+    skus: Object.fromEntries(Object.entries(f.prices).map(([sku, p]) => [sku, p.sale])),
+    ...(mixed ? { skuPercents: percents, upTo: true } : {}),
+    ...(f.wholeOnly ? { wholeOnly: true } : {}),
+    ...(f.note ? { note: f.note } : {}),
+    ...(f.minQty ? { minQty: f.minQty } : {}),
+    campaign: f.campaign,
+    keycrm: "regular",
+  }
+}
+
 export const PROMOS: PromoConfig[] = [
+  // A sale's discount files first: while it runs, the price a file gives a
+  // product wins over a category's promotion (activePromo takes the first).
+  ...PROMO_FILES.map(fromFile),
   // The merino already sold at its promotional price is filed under «Акційний товар» in KeyCRM.
   {
     name: "Лімітована партія",
@@ -74,61 +147,62 @@ export const PROMOS: PromoConfig[] = [
   },
 ]
 
-const KYIV = "Europe/Kiev"
-
-const kyivHour = (t: number) =>
-  Number(new Intl.DateTimeFormat("en-GB", { timeZone: KYIV, hour: "numeric", hourCycle: "h23" }).format(t))
-
-/** The moment a Kyiv day ("YYYY-MM-DD") starts. Kyiv is UTC+2 in winter and UTC+3 in summer. */
-function kyivDayStart(day: string): number {
-  const [y, m, d] = day.split("-").map(Number)
-  const utcMidnight = Date.UTC(y, m - 1, d)
-  for (const hours of [3, 2]) {
-    const t = utcMidnight - hours * 3600_000
-    if (kyivHour(t) === 0) return t
-  }
-  throw new Error(`Bad promotion day: ${day}`)
-}
-
 /** When a promotion starts, and when it is over (the start of the day after its last); open ends are infinite. */
 export function promoWindow(promo: PromoConfig): { start: number; end: number } {
-  const start = promo.from ? kyivDayStart(promo.from) : -Infinity
-  if (!promo.to) return { start, end: Infinity }
-  const [y, m, d] = promo.to.split("-").map(Number)
-  const next = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)
-  return { start, end: kyivDayStart(next) }
+  if (promo.campaign) {
+    const c = campaignByName(promo.campaign)
+    // A sale that isn't set up never starts.
+    return c ? dayWindow(c.from, c.to) : { start: Infinity, end: Infinity }
+  }
+  return dayWindow(promo.from, promo.to)
 }
 
-export const promoLabel = (promo: PromoConfig) => `${promo.name} −${promo.percent}%`
+export const promoLabel = (promo: PromoConfig) => `${promo.name} ${promo.upTo ? "до " : ""}−${promo.percent}%`
+
+/** Where a promotion's products are listed: its sale's page, or its category's. */
+export const promoPath = (promo: PromoConfig) =>
+  (promo.campaign && campaignByName(promo.campaign)?.path) || categoryPath(promo.category)
 
 const sameCategory = (promo: PromoConfig, category: string) =>
   promo.category.trim().toLowerCase() === category.trim().toLowerCase()
 
-/** The promotion running now for this category, if any. */
-export function activePromo(category: string, now = Date.now(), promos = PROMOS): PromoConfig | undefined {
-  return promos.find((p) => {
-    if (!sameCategory(p, category)) return false
-    const { start, end } = promoWindow(p)
-    return now >= start && now < end
-  })
+/** Whether the promotion is for this product: listed by SKU, or of its category. */
+export function covers(promo: PromoConfig, p: Pick<Product, "sku" | "category">): boolean {
+  return promo.skus ? Object.hasOwn(promo.skus, p.sku) : sameCategory(promo, p.category)
+}
+
+export function isRunning(promo: PromoConfig, now = Date.now()): boolean {
+  const { start, end } = promoWindow(promo)
+  return now >= start && now < end
+}
+
+/** The promotion running now for this product, if any. */
+export function activePromo(
+  p: Pick<Product, "sku" | "category">,
+  now = Date.now(),
+  promos = PROMOS,
+): PromoConfig | undefined {
+  return promos.find((promo) => covers(promo, p) && isRunning(promo, now))
 }
 
 /** The promotions running now, as one string: it changes when one starts or ends. */
 export function runningPromosKey(now = Date.now(), promos = PROMOS): string {
   return promos
-    .filter((p) => {
-      const { start, end } = promoWindow(p)
-      return now >= start && now < end
-    })
-    .map((p) => `${p.category}: ${promoLabel(p)}`)
+    .filter((p) => isRunning(p, now))
+    .map((p) => `${p.title ?? p.category}: ${promoLabel(p)}`)
     .join("; ")
 }
 
-/** The promotion running now for this category, or else the next one to come. */
-export function currentOrNextPromo(category: string, now = Date.now(), promos = PROMOS): PromoConfig | undefined {
-  return promos
-    .filter((p) => sameCategory(p, category) && promoWindow(p).end > now)
-    .sort((a, b) => promoWindow(a).start - promoWindow(b).start)[0]
+/** The promotion running now for this product, or else the next one to come. */
+export function currentOrNextPromo(
+  p: Pick<Product, "sku" | "category">,
+  now = Date.now(),
+  promos = PROMOS,
+): PromoConfig | undefined {
+  return (
+    activePromo(p, now, promos) ??
+    promos.filter((promo) => covers(promo, p) && promoWindow(promo).start > now).sort((a, b) => promoWindow(a).start - promoWindow(b).start)[0]
+  )
 }
 
 /**
@@ -149,24 +223,54 @@ export function regularPrice(promotional: number, unit: string, percent: number)
   return roundPrice(promotional / (1 - percent / 100), unit)
 }
 
-/** A promotion's `price` (per 100 г, or per piece) as a price per unit. */
+/** A price per 100 г (or per piece) as a price per unit. */
 const fixedPrice = (price: number, unit: string) => (unit.toLowerCase() === "г" ? price / 100 : price)
+
+/**
+ * Regular and promotional price per unit of a product the promotion covers,
+ * from KeyCRM's price (`p.price`, before any promotion is applied). Undefined
+ * when a discount file's price is no discount any more: KeyCRM's price was
+ * lowered below it after the file was checked, and striking through it would
+ * claim a discount that isn't there.
+ */
+export function promoPrices(p: Product, promo: PromoConfig): { regular: number; sale: number } | undefined {
+  if (promo.skus) {
+    const sale = fixedPrice(promo.skus[p.sku], p.priceUnit)
+    return sale > 0 && sale < p.price ? { regular: p.price, sale } : undefined
+  }
+  if (promo.keycrm === "promo") {
+    const sale = promo.price ? fixedPrice(promo.price, p.priceUnit) : p.price
+    return { regular: regularPrice(sale, p.priceUnit, promo.percent), sale }
+  }
+  return { regular: p.price, sale: promoPrice(p.price, p.priceUnit, promo.percent) }
+}
 
 /** The product as the shop sells it now: with the regular price struck through while a promotion covers it. */
 export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Product {
-  const promo = p.price > 0 ? activePromo(p.category, now, promos) : undefined
-  if (!promo) return p
+  const promo = p.price > 0 ? activePromo(p, now, promos) : undefined
+  const prices = promo && promoPrices(p, promo)
+  if (!promo || !prices) return p
   const { end } = promoWindow(promo)
+  // The product's own discount, when a file gives its products different ones.
+  const percent = promo.skuPercents?.[p.sku] ?? promo.percent
+  const name = `${promo.name} −${percent}%`
   const info: ProductPromo = {
-    name: promoLabel(promo),
-    percent: promo.percent,
+    name,
+    ...(promo.note ? { note: promo.note.replace("{name}", name) } : {}),
+    percent,
     ...(promo.title ? { title: promo.title } : {}),
     ...(promo.tagline ? { tagline: promo.tagline } : {}),
+    ...(promo.campaign ? { campaign: promo.campaign } : {}),
     ...(Number.isFinite(end) ? { endsAt: new Date(end).toISOString() } : {}),
   }
-  if (promo.keycrm === "promo") {
-    const price = promo.price ? fixedPrice(promo.price, p.priceUnit) : p.price
-    return { ...p, price, oldPrice: regularPrice(price, p.priceUnit, promo.percent), promo: info }
-  }
-  return { ...p, oldPrice: p.price, price: promoPrice(p.price, p.priceUnit, promo.percent), promo: info }
+  // Whole spools only: the smallest purchase is all of it (components/shop/data.ts, quantityRules).
+  // From a promotion's own minimum (components/shop/data.ts, quantityRules: a spool with less is sold whole).
+  const byWeight = p.priceUnit.toLowerCase() === "г"
+  const limits =
+    promo.wholeOnly && byWeight && p.stock > 0
+      ? { minQty: p.stock, step: p.stock }
+      : promo.minQty && byWeight
+        ? { minQty: promo.minQty }
+        : {}
+  return { ...p, ...limits, price: prices.sale, oldPrice: prices.regular, promo: info }
 }

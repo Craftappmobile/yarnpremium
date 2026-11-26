@@ -1,0 +1,201 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Кашемір",
+  "category": "Кашемір Шовк",
+  "percent": 17,
+  "per": "100 г",
+  "source": "Кашемір шовк (файл від 26.11; KSH55: ціна без знижки 550, як у KeyCRM; KSH013: 545 → 490, −10%; кнопка «Кашемір» разом з kashemir.json)",
+  "checkedAt": "2026-11-26T15:42:47.754Z",
+  "prices": {
+    "KSH007": {
+      "regular": 545,
+      "sale": 463,
+      "percent": 15
+    },
+    "KSH1303": {
+      "regular": 650,
+      "sale": 585,
+      "percent": 10
+    },
+    "KSH020": {
+      "regular": 545,
+      "sale": 463,
+      "percent": 15
+    },
+    "KSH455": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH458": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH470": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH014": {
+      "regular": 545,
+      "sale": 463,
+      "percent": 15
+    },
+    "KSH1301": {
+      "regular": 650,
+      "sale": 585,
+      "percent": 10
+    },
+    "KSH475": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH457": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH472": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH469": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH467": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH473": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH476": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH478": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH459": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH316": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH716": {
+      "regular": 550,
+      "sale": 495,
+      "percent": 10
+    },
+    "KSH477": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "KSH55": {
+      "regular": 550,
+      "sale": 495,
+      "percent": 10
+    },
+    "KSH236": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH29": {
+      "regular": 550,
+      "sale": 495,
+      "percent": 10
+    },
+    "KSH257": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH013": {
+      "regular": 545,
+      "sale": 490,
+      "percent": 10
+    },
+    "KSH338": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH322": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH317": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH1445": {
+      "regular": 550,
+      "sale": 495,
+      "percent": 10
+    },
+    "KSH708": {
+      "regular": 550,
+      "sale": 495,
+      "percent": 10
+    },
+    "KSH323": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH262": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH208": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH345": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH736": {
+      "regular": 550,
+      "sale": 495,
+      "percent": 10
+    },
+    "KSH555": {
+      "regular": 565,
+      "sale": 508,
+      "percent": 10
+    },
+    "KSH343": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    },
+    "KSH295": {
+      "regular": 425,
+      "sale": 382,
+      "percent": 10
+    }
+  }
+}

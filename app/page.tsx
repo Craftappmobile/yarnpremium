@@ -18,11 +18,15 @@ export default async function Home() {
   // The page carries the first screen of products and a summary of the rest;
   // the browser loads the full catalog (/api/catalog/packed) right after the page shows.
   const { products, summary } = await catalogPageData("home")
-  // The first screen shows the products of the promotion's block first, as the full list does.
+  // The first screen shows the products of the sale's banner, or of the promotion's block, first, as the full list does.
+  const campaign = summary.campaign?.name
   const promoCategory = summary.promos?.[0]?.category
-  const firstScreen = promoCategory
-    ? [...products.filter((p) => p.category === promoCategory), ...products.filter((p) => p.category !== promoCategory)]
-    : products
+  const featured = campaign
+    ? (p: (typeof products)[number]) => p.promo?.campaign === campaign
+    : promoCategory
+      ? (p: (typeof products)[number]) => p.category === promoCategory
+      : null
+  const firstScreen = featured ? [...products.filter(featured), ...products.filter((p) => !featured(p))] : products
   return (
     <main className="min-h-screen">
       <MinimalShop

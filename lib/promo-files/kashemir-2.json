@@ -1,0 +1,101 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Кашемір",
+  "category": "Кашемір",
+  "percent": 10,
+  "per": "100 г",
+  "source": "Кашемір KSH350–360 (файл від 26.11, −10%). KSH358, KSH354, KSH350 у KeyCRM розбиті на KSH358-1…3, KSH354-1…3, KSH350-1…4 — усі з тією ж знижкою. Кнопка «Кашемір».",
+  "checkedAt": "2026-11-26T17:17:26.814Z",
+  "prices": {
+    "KSH360": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH357": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH352": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH356": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH353": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH359": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH351": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH355": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH358-1": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH358-2": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH358-3": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH350-1": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH350-2": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH350-3": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH350-4": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH354-1": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH354-2": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    },
+    "KSH354-3": {
+      "regular": 720,
+      "sale": 648,
+      "percent": 10
+    }
+  }
+}

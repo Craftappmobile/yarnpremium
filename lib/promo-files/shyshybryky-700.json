@@ -1,0 +1,123 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Шишибрики 700 м",
+  "category": "Шишибрики тонкі",
+  "percent": 10,
+  "per": "100 г",
+  "source": "66f9baf0-______________________.xlsx / Шишибрики 10% знижка",
+  "checkedAt": "2026-11-26T12:51:26.388Z",
+  "prices": {
+    "SHU600": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU639": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU623": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU625": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU647": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU626": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU645": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU638": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU648": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU651": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU607": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU652": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU642": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU619": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU630": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU640": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU643": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU615": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU634": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU646": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU654": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU622": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU653": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU617": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU650": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU636": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU603": {
+      "regular": 295,
+      "sale": 265
+    },
+    "SHU644": {
+      "regular": 295,
+      "sale": 265
+    }
+  }
+}

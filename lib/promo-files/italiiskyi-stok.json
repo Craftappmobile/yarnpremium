@@ -1,0 +1,1536 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Італійський сток",
+  "category": "Сток Шанель Сайт",
+  "percent": 25,
+  "per": "100 г",
+  "source": "Сток Шанель (файл від 26.11, 305 артикулів, −25%)",
+  "checkedAt": "2026-11-26T15:51:35.119Z",
+  "prices": {
+    "ST13-4": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST13-5": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST18": {
+      "regular": 325,
+      "sale": 243,
+      "percent": 25
+    },
+    "ST25": {
+      "regular": 365,
+      "sale": 273,
+      "percent": 25
+    },
+    "ST32-1": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST32-2": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST33-3": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST33-4": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST35-1": {
+      "regular": 235,
+      "sale": 176,
+      "percent": 25
+    },
+    "ST49-2": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST56-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST56-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST57-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST57-3": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST57-4": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST58": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST65": {
+      "regular": 295,
+      "sale": 221,
+      "percent": 25
+    },
+    "ST68-1": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST69-1": {
+      "regular": 595,
+      "sale": 446,
+      "percent": 25
+    },
+    "ST79": {
+      "regular": 215,
+      "sale": 161,
+      "percent": 25
+    },
+    "ST86-5": {
+      "regular": 270,
+      "sale": 202,
+      "percent": 25
+    },
+    "ST89": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST91": {
+      "regular": 215,
+      "sale": 161,
+      "percent": 25
+    },
+    "ST97": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST99-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST99-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST100-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST100-3": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST101-1": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST101-2": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST101-3": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST102-1": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST103-1": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST103-2": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST103-3": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST103-4": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST106": {
+      "regular": 145,
+      "sale": 108,
+      "percent": 25
+    },
+    "ST107-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST107-3": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST118-8": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST120-1": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST120-4": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST120-6": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST120-7": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST120-8": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST120-10": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST126-3": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST126-4": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST126-5": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST128": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST130-1": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST130-2": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST131-1": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST131-2": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST131-3": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST133": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST134-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST134-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST134-3": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST135": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST136": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST137": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST138": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST142-1": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST142-2": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST146-1": {
+      "regular": 265,
+      "sale": 198,
+      "percent": 25
+    },
+    "ST146-3": {
+      "regular": 265,
+      "sale": 198,
+      "percent": 25
+    },
+    "ST147-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST147-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST147-3": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST148-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST149-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST149-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST150": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST152": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST153": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST155-1": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST155-4": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST157-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST157-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST163": {
+      "regular": 220,
+      "sale": 165,
+      "percent": 25
+    },
+    "ST166-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST166-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST166-3": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST167-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST167-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST175": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST181-1": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-2": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-3": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-4": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-5": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-6": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-7": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-8": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-9": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-10": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-11": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-12": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-13": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-14": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-15": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-16": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-17": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST181-18": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST182-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST182-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST184-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST184-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST185-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST185-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST185-3": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST186": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST187-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST191-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST191-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST191-3": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST191-4": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST192-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST192-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST192-4": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST193-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST193-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST193-3": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST193-4": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST193-5": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST193-6": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST196": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST197": {
+      "regular": 245,
+      "sale": 183,
+      "percent": 25
+    },
+    "ST199": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST202": {
+      "regular": 265,
+      "sale": 198,
+      "percent": 25
+    },
+    "ST213": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST215": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST216-1": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST216-2": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST219-1": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST219-2": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST220": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST227-5": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST228-1": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST228-2": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST228-3": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST228-4": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "ST230": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST237-1": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST237-2": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST239": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST256": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST270": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST271": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST273-1": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST273-2": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST274": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST275": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST276": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST278": {
+      "regular": 295,
+      "sale": 221,
+      "percent": 25
+    },
+    "ST279": {
+      "regular": 335,
+      "sale": 251,
+      "percent": 25
+    },
+    "ST280-1": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST280-2": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST280-3": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST280-4": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST284": {
+      "regular": 365,
+      "sale": 273,
+      "percent": 25
+    },
+    "ST285": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST286-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST286-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST286-3": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST286-4": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST287-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST287-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST288": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST289": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST290": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST291-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST291-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST291-3": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST291-4": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST292-1": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST292-2": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST293": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST294-2": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST295-1": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST297": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST298": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST299": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST300": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST301": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST302": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST303-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST303-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST304": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST306-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST307": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST308": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST309": {
+      "regular": 265,
+      "sale": 198,
+      "percent": 25
+    },
+    "ST310": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST312-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST312-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST313": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST314": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST315": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST316": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST317": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST318": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST319": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST320": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST321": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST322": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST324": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST325": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST327": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST328": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST329": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST332": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST335": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST337-1": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST337-2": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST337-3": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST340": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST341": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST342": {
+      "regular": 285,
+      "sale": 213,
+      "percent": 25
+    },
+    "ST344": {
+      "regular": 315,
+      "sale": 236,
+      "percent": 25
+    },
+    "ST345": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST346": {
+      "regular": 135,
+      "sale": 101,
+      "percent": 25
+    },
+    "ST348-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST348-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST348-3": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST348-4": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST348-5": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST349": {
+      "regular": 365,
+      "sale": 273,
+      "percent": 25
+    },
+    "ST351": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST353": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST354": {
+      "regular": 265,
+      "sale": 198,
+      "percent": 25
+    },
+    "ST355": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST356": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST357": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST359": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST360": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST361": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST362": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST363": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST364": {
+      "regular": 245,
+      "sale": 183,
+      "percent": 25
+    },
+    "ST366": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST368": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST369-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST369-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST370": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST372": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST373": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST375": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST377-1": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST377-2": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST377-3": {
+      "regular": 385,
+      "sale": 288,
+      "percent": 25
+    },
+    "ST378": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST379-1": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST379-2": {
+      "regular": 650,
+      "sale": 487,
+      "percent": 25
+    },
+    "ST380": {
+      "regular": 265,
+      "sale": 198,
+      "percent": 25
+    },
+    "ST381": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST382": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST383": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST384": {
+      "regular": 545,
+      "sale": 408,
+      "percent": 25
+    },
+    "ST385": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST386-1": {
+      "regular": 365,
+      "sale": 273,
+      "percent": 25
+    },
+    "ST386-2": {
+      "regular": 365,
+      "sale": 273,
+      "percent": 25
+    },
+    "ST386-3": {
+      "regular": 365,
+      "sale": 273,
+      "percent": 25
+    },
+    "ST387": {
+      "regular": 225,
+      "sale": 168,
+      "percent": 25
+    },
+    "ST390": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST393-1": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST393-2": {
+      "regular": 125,
+      "sale": 93,
+      "percent": 25
+    },
+    "ST394-1": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST394-2": {
+      "regular": 165,
+      "sale": 123,
+      "percent": 25
+    },
+    "ST395-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST395-3": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST396-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST396-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST398-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST398-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-3": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-4": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-5": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-6": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-7": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-8": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-9": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-10": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-11": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST399-12": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST400": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST404": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST405-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST406-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST406-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST408-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST408-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST408-3": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST409-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST409-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST409-3": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST409-4": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST410-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST410-3": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST410-4": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST411-1": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "ST411-2": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    }
+  }
+}

@@ -3,7 +3,7 @@ import { readCatalog } from "@/lib/catalog"
 import { catalogImageUrl } from "@/lib/catalog-image"
 import { type ProductVideos, readAllProductVideos } from "@/lib/product-videos"
 import { BRAND, SITE_URL } from "@/lib/site"
-import { type PromoConfig, currentOrNextPromo, promoLabel, promoPrice, promoWindow, regularPrice } from "@/lib/promo"
+import { type PromoConfig, currentOrNextPromo, promoLabel, promoPrices, promoWindow } from "@/lib/promo"
 import { type Product, isRemnant } from "@/components/shop/data"
 
 // Product feed for the Meta catalog (Commerce Manager fetches it hourly).
@@ -62,10 +62,7 @@ const byWeight = (p: Product) => p.priceUnit === "г"
 function prices(p: Product, promo: PromoConfig | undefined): { regular: number; sale?: number } {
   // A running promotion is already applied by the catalog.
   if (p.promo && p.oldPrice) return { regular: p.oldPrice, sale: p.price }
-  if (!promo) return { regular: p.price }
-  return promo.keycrm === "promo"
-    ? { regular: regularPrice(p.price, p.priceUnit, promo.percent), sale: p.price }
-    : { regular: p.price, sale: promoPrice(p.price, p.priceUnit, promo.percent) }
+  return (promo && promoPrices(p, promo)) || { regular: p.price }
 }
 
 const YEAR_MS = 365 * 24 * 3600_000
@@ -113,7 +110,7 @@ function feedRow(p: Product, videos?: ProductVideos): Record<(typeof COLUMNS)[nu
   ].filter((v): v is { url: string; tag: string } => Boolean(v))
   const weight = byWeight(p)
   const perAd = (unitPrice: number) => (weight ? unitPrice * WEIGHT_AD_GRAMS : unitPrice)
-  const promo = currentOrNextPromo(p.category)
+  const promo = currentOrNextPromo(p)
   const { regular, sale } = prices(p, promo)
   const details = [p.category, p.color, p.length ? `${p.length} м` : "", p.brand].filter(Boolean).join(", ")
   const priceNote = weight ? `Ціна за ${WEIGHT_AD_GRAMS} г.` : ""

@@ -1,5 +1,6 @@
 import { type Product, type ProductPromo, categoryCounts, getFilterBounds } from "./data"
 import { CATEGORY_NOTES } from "@/lib/categories"
+import { type Campaign, campaignByName } from "@/lib/campaigns"
 
 /** Products that come with the catalog page itself: enough for the first screen. */
 export const FIRST_SCREEN = 24
@@ -19,6 +20,8 @@ export interface CatalogSummary {
   groups?: GroupSummary[]
   /** Categories under a promotion, for the header over them and the banner on the home page. */
   promos?: PromoSummary[]
+  /** The sale running now (lib/campaigns.ts), for its banner, strip and page. */
+  campaign?: CampaignSummary
 }
 
 /**
@@ -43,6 +46,25 @@ export interface PromoSummary extends GroupSummary {
   promo: ProductPromo
   /** The ad's video (lib/promo.ts), when it has one. */
   video?: { src: string; poster: string }
+}
+
+/** A sale: what its banner says. Its promotions are listed by what they cover ("Шишибрики 700 м"), not by category. */
+export interface CampaignSummary extends Campaign {
+  /** Products in stock. */
+  count: number
+  /** The biggest discount of its promotions. */
+  percent: number
+  /** Whether its promotions give different discounts: the banner then says «до −N%». */
+  mixed: boolean
+  /** Lowest price, as a category header gives it (`from` is the sale's first day). */
+  lowest?: GroupSummary["from"]
+  /** Its promotions, most stocked first. */
+  /** `percent`: the biggest of the group; `mixed`: its products have different ones («до −17%»). */
+  groups: { title: string; percent: number; mixed: boolean; count: number }[]
+  /** When it is over (ISO). */
+  endsAt?: string
+  /** A few of its products' photos, most stocked first, for the banner. */
+  images: { src: string; alt: string }[]
 }
 
 /** Marked products (defects, flaws) don't set the «від» price an ad would quote. */
@@ -91,14 +113,50 @@ export function summarizeGroups(products: Product[]): GroupSummary[] {
 
 export function summarizePromos(groups: GroupSummary[], products: Product[]): PromoSummary[] {
   return groups.flatMap((g) => {
-    const promo = products.find((p) => p.category === g.category && p.promo && p.stock > 0)?.promo
+    // A sale's promotion may cover a few products of a category: the category's header doesn't claim them all.
+    const promo = products.find((p) => p.category === g.category && p.promo && !p.promo.campaign && p.stock > 0)?.promo
     return promo ? [{ ...g, promo }] : []
   })
+}
+
+/** The sale its products are on now, from the catalog: none when nothing of it is in stock. */
+export function summarizeCampaign(products: Product[]): CampaignSummary | undefined {
+  const onSale = products.filter((p) => p.stock > 0 && p.promo?.campaign)
+  const campaign = onSale[0] && campaignByName(onSale[0].promo!.campaign!)
+  if (!campaign) return undefined
+  const theirs = onSale.filter((p) => p.promo!.campaign === campaign.name).sort((a, b) => b.stock - a.stock)
+  const byTitle = new Map<string, Product[]>()
+  for (const p of theirs) {
+    const title = p.promo!.title ?? p.category
+    byTitle.set(title, [...(byTitle.get(title) ?? []), p])
+  }
+  const groups = [...byTitle]
+    .map(([title, ps]) => {
+      const percents = new Set(ps.map((p) => p.promo!.percent))
+      return { title, percent: Math.max(...percents), mixed: percents.size > 1, count: ps.length }
+    })
+    .sort((a, b) => b.count - a.count)
+  const percents = new Set(theirs.map((p) => p.promo!.percent))
+  const { from } = summarizeGroup(campaign.name, theirs)
+  return {
+    ...campaign,
+    count: theirs.length,
+    percent: Math.max(...percents),
+    mixed: percents.size > 1,
+    ...(from ? { lowest: from } : {}),
+    groups,
+    ...(theirs[0].promo!.endsAt ? { endsAt: theirs[0].promo!.endsAt } : {}),
+    images: theirs
+      .filter((p) => p.image)
+      .slice(0, 3)
+      .map((p) => ({ src: p.image, alt: p.name })),
+  }
 }
 
 export function summarizeCatalog(products: Product[]): CatalogSummary {
   const { price, length } = getFilterBounds(products)
   const groups = summarizeGroups(products)
+  const campaign = summarizeCampaign(products)
   return {
     total: products.length,
     priceBounds: price,
@@ -106,5 +164,6 @@ export function summarizeCatalog(products: Product[]): CatalogSummary {
     categories: categoryCounts(products).map((c) => c.name),
     groups,
     promos: summarizePromos(groups, products),
+    ...(campaign ? { campaign } : {}),
   }
 }

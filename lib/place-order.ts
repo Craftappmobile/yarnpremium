@@ -22,6 +22,7 @@ import {
   type Order,
   type OrderRequest,
 } from "@/lib/order"
+import { CAMPAIGNS } from "@/lib/campaigns"
 
 // Places an order: re-checks prices and stock against the catalog, creates the
 // order in KeyCRM and takes the quantities off the site's stock. Used by the
@@ -173,6 +174,7 @@ export async function placeOrder(req: NextRequest, body: OrderRequest | null, pa
       }
       await reserveStock(orderItems).catch((e) => console.error("[orders] stock update failed:", e.message))
       revalidatePath("/")
+      for (const c of CAMPAIGNS) revalidatePath(c.path)
       revalidatePath("/kategoriya/[slug]", "page")
       for (const i of orderItems) revalidatePath(`/product/${i.sku}`)
     }

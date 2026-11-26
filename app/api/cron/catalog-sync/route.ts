@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache"
 import { syncCatalog } from "@/lib/catalog"
 import { keycrmConfigured } from "@/lib/keycrm"
 import { redisConfigured } from "@/lib/redis"
+import { CAMPAIGNS } from "@/lib/campaigns"
 
 // Copies the KeyCRM catalog into Redis. Run by Vercel Cron (vercel.json); on
 // preview deployments it can be opened by hand, with ?force to skip the
@@ -23,6 +24,8 @@ function revalidateChanged(skus: string[], everything: boolean) {
   if (!everything && skus.length === 0) return
   revalidatePath("/")
   revalidatePath("/kategoriya/[slug]", "page")
+  // A sale's page (lib/campaigns.ts) lists its products, and opens or closes with it.
+  for (const c of CAMPAIGNS) revalidatePath(c.path)
   if (everything || skus.length > MAX_PRODUCT_PATHS) revalidatePath("/product/[sku]", "page")
   else for (const sku of skus) revalidatePath(`/product/${sku}`)
 }

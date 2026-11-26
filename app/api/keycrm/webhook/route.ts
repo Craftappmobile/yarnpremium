@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { applyStockUpdates, type StockUpdate } from "@/lib/catalog"
 import { webhookAuthorized as authorized } from "@/lib/keycrm"
+import { CAMPAIGNS } from "@/lib/campaigns"
 
 // Receives KeyCRM's stock webhook, so a sale anywhere (Instagram, the shop, the
 // site) shows on the site within seconds instead of at the next 15-minute sync.
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
     const updated = await applyStockUpdates(records)
     if (updated.length) {
       revalidatePath("/")
+      for (const c of CAMPAIGNS) revalidatePath(c.path)
       revalidatePath("/kategoriya/[slug]", "page")
       for (const sku of updated) revalidatePath(`/product/${sku}`)
     }

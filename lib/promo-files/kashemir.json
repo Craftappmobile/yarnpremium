@@ -1,0 +1,71 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Кашемір",
+  "category": "Кашемір",
+  "percent": 17,
+  "per": "100 г",
+  "source": "Кашемір (файл від 26.11). ST379-1, ST379-2 перейшли в «Італійський сток» (−25%): артикули зі «Сток Шанель» беруть ціну стоку.",
+  "checkedAt": "2026-11-26T15:37:00.801Z",
+  "prices": {
+    "8665": {
+      "regular": 650,
+      "sale": 552,
+      "percent": 15
+    },
+    "K351": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "K329": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "K368": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "K360": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "K320": {
+      "regular": 520,
+      "sale": 468,
+      "percent": 10
+    },
+    "K321": {
+      "regular": 520,
+      "sale": 468,
+      "percent": 10
+    },
+    "KSH196": {
+      "regular": 520,
+      "sale": 468,
+      "percent": 10
+    },
+    "K326": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "K350": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "K354": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    },
+    "K352": {
+      "regular": 720,
+      "sale": 595,
+      "percent": 17
+    }
+  }
+}

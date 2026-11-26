@@ -1,0 +1,131 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Льон",
+  "category": "Льон",
+  "percent": 25,
+  "per": "100 г",
+  "source": "Льон (файл від 26.11, 24 артикули, −25%)",
+  "checkedAt": "2026-11-26T17:10:47.236Z",
+  "prices": {
+    "L812": {
+      "regular": 145,
+      "sale": 109,
+      "percent": 25
+    },
+    "L180": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L802": {
+      "regular": 145,
+      "sale": 109,
+      "percent": 25
+    },
+    "L244": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L813": {
+      "regular": 145,
+      "sale": 109,
+      "percent": 25
+    },
+    "L800": {
+      "regular": 145,
+      "sale": 109,
+      "percent": 25
+    },
+    "L708": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L703": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L658": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "L601": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "L285": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "L660": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "L654": {
+      "regular": 195,
+      "sale": 146,
+      "percent": 25
+    },
+    "L331": {
+      "regular": 185,
+      "sale": 138,
+      "percent": 25
+    },
+    "L805": {
+      "regular": 145,
+      "sale": 109,
+      "percent": 25
+    },
+    "L415": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L280": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L710": {
+      "regular": 229,
+      "sale": 171,
+      "percent": 25
+    },
+    "L750": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L184(1)": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L137": {
+      "regular": 208,
+      "sale": 156,
+      "percent": 25
+    },
+    "L809": {
+      "regular": 145,
+      "sale": 109,
+      "percent": 25
+    },
+    "L828": {
+      "regular": 145,
+      "sale": 109,
+      "percent": 25
+    },
+    "L827": {
+      "regular": 145,
+      "sale": 109,
+      "percent": 25
+    }
+  }
+}

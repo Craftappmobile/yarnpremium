@@ -1,0 +1,67 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Мікропаєтка",
+  "category": "Мікропайєтка на нейлоні",
+  "percent": 25,
+  "per": "100 г",
+  "source": "Мікропаєтка на нейлоні (файл від 26.11, 11 артикулів, 240 → 180, −25%); від 500 г",
+  "checkedAt": "2026-11-26T16:17:28.121Z",
+  "prices": {
+    "MP309": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP611": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP610": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP608": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP604": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP603": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP602": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP507": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP504": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP503": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    },
+    "MP501": {
+      "regular": 240,
+      "sale": 180,
+      "percent": 25
+    }
+  },
+  "minQty": 500
+}

@@ -28,7 +28,7 @@ import { type Product, formatPriceShort, isRemnant } from "@/components/shop/dat
 import { type Utm, buyUrl } from "@/lib/buy-url"
 import { catalogImageUrl } from "@/lib/catalog-image"
 import { categoryPath } from "@/lib/category-url"
-import { PROMOS, type PromoConfig, promoLabel, promoWindow } from "@/lib/promo"
+import { PROMOS, type PromoConfig, covers, isRunning, promoLabel, promoPath, promoWindow } from "@/lib/promo"
 import { redis } from "@/lib/redis"
 import { SITE_URL } from "@/lib/site"
 import { botUsername, readSubscribers, removeSubscriber } from "@/lib/telegram-bot"
@@ -232,16 +232,10 @@ export const postRubrics = (post: Post): Rubric[] =>
     ? [post.rubric!]
     : RUBRICS.filter((r) => post.items.some((i) => i.rubric.key === r.key))
 
-const promoKey = (p: PromoConfig) => [p.category, p.name, p.percent, p.price ?? "", p.from ?? "", p.to ?? ""].join("|")
+const promoKey = (p: PromoConfig) =>
+  [p.title ?? p.category, p.name, p.percent, p.price ?? "", p.from ?? "", p.to ?? "", p.campaign ?? ""].join("|")
 
-function runningPromos(now: number): PromoConfig[] {
-  return PROMOS.filter((p) => {
-    const { start, end } = promoWindow(p)
-    return now >= start && now < end
-  })
-}
-
-const sameCategory = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+const runningPromos = (now: number): PromoConfig[] => PROMOS.filter((p) => isRunning(p, now))
 
 /** New colours before restocks; those with a photo first, so the picture shows them; then newest first. */
 const byNews = (a: NewsItem, b: NewsItem) =>
@@ -261,7 +255,7 @@ export async function plannedPosts(products: Product[], now = Date.now()): Promi
   for (const promo of runningPromos(now)) {
     const key = promoKey(promo)
     if (announced.includes(key)) continue
-    const onSale = products.filter((p) => p.stock > 0 && !isRemnant(p) && sameCategory(p.category, promo.category))
+    const onSale = products.filter((p) => p.stock > 0 && !isRemnant(p) && covers(promo, p))
     if (onSale.length) promos.push({ type: "promo", rubric: rubricByKey("sale")!, promo, key, products: onSale })
   }
 
@@ -481,7 +475,7 @@ function renderPromo(post: Extract<Post, { type: "promo" }>, utm: Utm, end: stri
   const until = Number.isFinite(ends)
     ? `до ${new Date(ends - 1).toLocaleDateString("uk-UA", { day: "numeric", month: "long", timeZone: KYIV })}`
     : "поки є в наявності"
-  const url = withUtm(categoryPath(promo.category), utm)
+  const url = withUtm(promoPath(promo), utm)
   const lines = [
     `🔥 <b>Акція: ${esc(promoLabel(promo))}</b>`,
     `<b>${esc(promo.title ?? promo.category)}</b>${promo.tagline ? ` · ${esc(promo.tagline)}` : ""}`,
@@ -583,7 +577,7 @@ export function renderDigest(posts: Post[], rubricKeys: string[]): Rendered | nu
   if (!promos.length && !items.length) return null
 
   const promoLines = promos.map((p) => {
-    const url = withUtm(categoryPath(p.promo.category), utm)
+    const url = withUtm(promoPath(p.promo), utm)
     return `🔥 <b>Акція: ${esc(promoLabel(p.promo))}</b> — ${esc(p.promo.title ?? p.promo.category)}, <a href="${esc(url)}">обрати колір</a>`
   })
   const head = `🧶 <b>Новинки ваших категорій</b>${promoLines.length ? `\n\n${promoLines.join("\n")}` : ""}`

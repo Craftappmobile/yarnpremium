@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { useWishlist } from "./wishlist-context"
 import { CatalogLink } from "./catalog-link"
 import { categoryPath } from "@/lib/category-url"
+import { type Campaign, runningCampaign } from "@/lib/campaigns"
 
 interface TopBarProps {
   cartItemCount: number
@@ -36,6 +37,9 @@ export function TopBar({ cartItemCount, onCartClick, searchQuery, onSearch, cate
   const [isScrolled, setIsScrolled] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { count: wishlistCount } = useWishlist()
+  // A sale running (Black Friday): its page in the menu. Read in the browser, so a page built before the sale gets it too.
+  const [campaign, setCampaign] = useState<Campaign | undefined>()
+  useEffect(() => setCampaign(runningCampaign()), [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -73,6 +77,15 @@ export function TopBar({ cartItemCount, onCartClick, searchQuery, onSearch, cate
         >
           SINCERITA
         </Link>
+        {campaign && (
+          <Link
+            href={campaign.path}
+            className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-[15px] font-semibold text-zinc-900 hover:bg-zinc-100 lg:inline-flex dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-zinc-900 dark:bg-zinc-100" />
+            {campaign.name}
+          </Link>
+        )}
         {categories ? (
           <div
             className={`flex-1 min-w-0 lg:px-2 items-center justify-center gap-2 ${

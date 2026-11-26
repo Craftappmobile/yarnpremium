@@ -53,6 +53,10 @@ export interface ProductPromo {
   title?: string
   /** The short line over the promotion's header: "Італійський сток". */
   tagline?: string
+  /** The sale it is part of ("Чорна п'ятниця", lib/campaigns.ts): listed on the sale's page, not under a category header. */
+  campaign?: string
+  /** Said instead of `name` under the price: "Лімітована партія −50% + Чорна п'ятниця −15%". */
+  note?: string
   /** When it is over (ISO): the start of the day after its last, Kyiv time. None: while stock lasts. */
   endsAt?: string
 }

@@ -1,0 +1,488 @@
+{
+  "campaign": "Чорна п'ятниця",
+  "title": "Напіввовна",
+  "category": "Напіввовна",
+  "percent": 23,
+  "per": "100 г",
+  "source": "Напіввовна (файл від 26.11, 95 артикулів, 88 → 68, −23%; NV208 - 1: у файлі 13% — описка, погоджено 23%; лише цілими бобінами; разом з «Лімітована партія −43%» → −56% від 154 ₴)",
+  "checkedAt": "2026-11-26T16:14:44.774Z",
+  "wholeOnly": true,
+  "note": "Лімітована партія −43% + {name}",
+  "prices": {
+    "NV208 - 1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV212 - 1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV212 - 2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV212 - 3": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV301 - 2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV346": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV377-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV381": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV388": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV394": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV400": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV476-7": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-3": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-4": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-5": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-6": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-7": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-8": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-9": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-10": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV505-11": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV527 - 1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV527 - 2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV680-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV680-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV680-3": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV680-4": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV680-5": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV680-6": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV694": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV743 - 2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV754": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV900-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV901": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV905": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV908": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV933": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV937": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV943": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV949-4": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV950": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV954": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV955": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV961": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV968": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV970-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV970-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV971-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV971-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV974-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV974-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV974-3": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV975": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV977": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV978": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV979-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV979-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV980-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV981": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV982-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV982-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV986 - 1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV986 - 2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV996": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV999": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1003": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1050-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1050-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1051": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1053": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1054": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1055": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1056": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1059": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1062-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1062-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1063-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1063-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1064": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1067": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1069": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1070": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1071-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1071-2": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1071-3": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV1071-4": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV 797-1": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV 798": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV 806": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV 815": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV 816": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV 822": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV 830": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    },
+    "NV 833": {
+      "regular": 88,
+      "sale": 68,
+      "percent": 23
+    }
+  }
+}
