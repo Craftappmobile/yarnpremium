@@ -207,7 +207,7 @@ export default function MinimalShop({
   const offer = shownPromo
     ? `${shownPromo.promo.name} на «${shownPromo.promo.title ?? shownPromo.category}» — ${promoDeadline(shownPromo.promo)}`
     : homeCampaign
-      ? `${homeCampaign.name} −${homeCampaign.percent}% на ${homeCampaign.groups.map((g) => `«${g.title}»`).join(", ")} — ${promoDeadline({ name: homeCampaign.name, percent: homeCampaign.percent, endsAt: homeCampaign.endsAt })}`
+      ? `${homeCampaign.name} ${homeCampaign.mixed ? "до " : ""}−${homeCampaign.percent}% на ${homeCampaign.groups.map((g) => `«${g.title}»`).join(", ")} — ${promoDeadline({ name: homeCampaign.name, percent: homeCampaign.percent, endsAt: homeCampaign.endsAt })}`
       : null
   useEffect(() => {
     announceOffer(offer)

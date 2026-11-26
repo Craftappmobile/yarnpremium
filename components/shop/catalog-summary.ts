@@ -59,7 +59,8 @@ export interface CampaignSummary extends Campaign {
   /** Lowest price, as a category header gives it (`from` is the sale's first day). */
   lowest?: GroupSummary["from"]
   /** Its promotions, most stocked first. */
-  groups: { title: string; percent: number; count: number }[]
+  /** `percent`: the biggest of the group; `mixed`: its products have different ones («до −17%»). */
+  groups: { title: string; percent: number; mixed: boolean; count: number }[]
   /** When it is over (ISO). */
   endsAt?: string
   /** A few of its products' photos, most stocked first, for the banner. */
@@ -130,9 +131,12 @@ export function summarizeCampaign(products: Product[]): CampaignSummary | undefi
     byTitle.set(title, [...(byTitle.get(title) ?? []), p])
   }
   const groups = [...byTitle]
-    .map(([title, ps]) => ({ title, percent: ps[0].promo!.percent, count: ps.length }))
+    .map(([title, ps]) => {
+      const percents = new Set(ps.map((p) => p.promo!.percent))
+      return { title, percent: Math.max(...percents), mixed: percents.size > 1, count: ps.length }
+    })
     .sort((a, b) => b.count - a.count)
-  const percents = new Set(groups.map((g) => g.percent))
+  const percents = new Set(theirs.map((p) => p.promo!.percent))
   const { from } = summarizeGroup(campaign.name, theirs)
   return {
     ...campaign,

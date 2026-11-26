@@ -55,6 +55,10 @@ export interface PromoConfig {
    * Without it, every product of `category`. Only with `keycrm: "regular"`.
    */
   skus?: Record<string, number>
+  /** With `skus`: each product's own percent, when a file gives them different ones; else `percent`. */
+  skuPercents?: Record<string, number>
+  /** Its products have different discounts and `percent` is the biggest: "до −17%". */
+  upTo?: boolean
   /** The sale it is part of (lib/campaigns.ts): it runs on the sale's dates and is listed on the sale's page. */
   campaign?: string
   /** Which price KeyCRM holds for the category's products (see the top of this file). */
@@ -81,18 +85,24 @@ export interface PromoFile {
   per: string
   source: string
   checkedAt: string
-  prices: Record<string, { regular: number; sale: number }>
+  /** Per SKU: per 100 г or per piece, as `per` says; `percent` is the badge's (older files: `percent` above). */
+  prices: Record<string, { regular: number; sale: number; percent?: number }>
 }
 
-const fromFile = (f: PromoFile): PromoConfig => ({
-  name: f.campaign,
-  category: f.category,
-  title: f.title,
-  percent: f.percent,
-  skus: Object.fromEntries(Object.entries(f.prices).map(([sku, p]) => [sku, p.sale])),
-  campaign: f.campaign,
-  keycrm: "regular",
-})
+function fromFile(f: PromoFile): PromoConfig {
+  const percents = Object.fromEntries(Object.entries(f.prices).map(([sku, p]) => [sku, p.percent ?? f.percent]))
+  const mixed = new Set(Object.values(percents)).size > 1
+  return {
+    name: f.campaign,
+    category: f.category,
+    title: f.title,
+    percent: mixed ? Math.max(...Object.values(percents)) : f.percent,
+    skus: Object.fromEntries(Object.entries(f.prices).map(([sku, p]) => [sku, p.sale])),
+    ...(mixed ? { skuPercents: percents, upTo: true } : {}),
+    campaign: f.campaign,
+    keycrm: "regular",
+  }
+}
 
 export const PROMOS: PromoConfig[] = [
   // The merino already sold at its promotional price is filed under «Акційний товар» in KeyCRM.
@@ -126,7 +136,7 @@ export function promoWindow(promo: PromoConfig): { start: number; end: number } 
   return dayWindow(promo.from, promo.to)
 }
 
-export const promoLabel = (promo: PromoConfig) => `${promo.name} −${promo.percent}%`
+export const promoLabel = (promo: PromoConfig) => `${promo.name} ${promo.upTo ? "до " : ""}−${promo.percent}%`
 
 /** Where a promotion's products are listed: its sale's page, or its category's. */
 export const promoPath = (promo: PromoConfig) =>
@@ -219,9 +229,11 @@ export function withPromo(p: Product, now = Date.now(), promos = PROMOS): Produc
   const prices = promo && promoPrices(p, promo)
   if (!promo || !prices) return p
   const { end } = promoWindow(promo)
+  // The product's own discount, when a file gives its products different ones.
+  const percent = promo.skuPercents?.[p.sku] ?? promo.percent
   const info: ProductPromo = {
-    name: promoLabel(promo),
-    percent: promo.percent,
+    name: `${promo.name} −${percent}%`,
+    percent,
     ...(promo.title ? { title: promo.title } : {}),
     ...(promo.tagline ? { tagline: promo.tagline } : {}),
     ...(promo.campaign ? { campaign: promo.campaign } : {}),

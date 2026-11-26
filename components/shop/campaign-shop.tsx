@@ -51,7 +51,7 @@ export default function CampaignShop({ initial, campaign }: { initial: PackedCat
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   usePreloadDialogs()
 
-  const offer = `${campaign.name} −${campaign.percent}% на ${campaign.groups.map((g) => `«${g.title}»`).join(", ")} — ${promoDeadline({ name: campaign.name, percent: campaign.percent, endsAt: campaign.endsAt })}`
+  const offer = `${campaign.name} ${campaign.mixed ? "до " : ""}−${campaign.percent}% на ${campaign.groups.map((g) => `«${g.title}»`).join(", ")} — ${promoDeadline({ name: campaign.name, percent: campaign.percent, endsAt: campaign.endsAt })}`
   useEffect(() => {
     announceOffer(offer)
     return () => announceOffer(null)
@@ -99,7 +99,7 @@ export default function CampaignShop({ initial, campaign }: { initial: PackedCat
                   onClick={() => pick(g.title)}
                   className={chip(group === g.title)}
                 >
-                  {g.title} −{g.percent}% · {g.count}
+                  {g.title} {g.mixed ? "до " : ""}−{g.percent}% · {g.count}
                 </button>
               ))}
             </div>

@@ -107,8 +107,8 @@ async function keycrm(pathname, params) {
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, { headers: { Authorization: `Bearer ${process.env.KEYCRM_API_KEY || "proxy"}`, Accept: "application/json" } })
-    if (res.status === 429 && attempt < 5) {
-      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
+    if (res.status === 429 && attempt < 6) {
+      await new Promise((r) => setTimeout(r, 5000 * (attempt + 1)))
       continue
     }
     if (!res.ok) throw new Error(`KeyCRM ${pathname}: ${res.status} ${await res.text()}`)
@@ -220,20 +220,22 @@ for (const sheet of sheets) {
     const available = Number(o.quantity ?? 0) - Number(o.in_reserve ?? 0)
     if (available <= 0) warnings.push(`${where}: немає в наявності (${available})`)
     cats.add(categories.get(o.product?.category_id) ?? "")
-    prices[r.sku] = { regular: r.regular, sale: r.sale, name: o.product?.name ?? "", available }
+    // The badge's percent: the file's «Знижка», else what the prices give, in whole percent.
+    const skuPercent = Math.round(Number.isFinite(r.discount) ? r.discount * 100 : actual)
+    prices[r.sku] = { regular: r.regular, sale: r.sale, percent: skuPercent, name: o.product?.name ?? "", available }
   }
 
   const title = flag("title") ?? sheet.name.replace(/\s*\d+(?:[.,]\d+)?\s*%.*$/, "").trim()
-  const percent = percents.size === 1 ? [...percents][0] : Math.round(Math.max(...Object.values(prices).map((p) => percentOf(p.regular, p.sale))))
-  if (percents.size > 1) warnings.push(`різні знижки в одному аркуші (${[...percents].join(", ")}%): на сайті «−${percent}%» лише як найбільша`)
+  const percent = Math.max(...Object.values(prices).map((p) => p.percent))
+  if (percents.size > 1) warnings.push(`різні знижки в одному аркуші (${[...percents].join(", ")}%): у кожного товару своя, у фільтрі й банері «до −${percent}%»`)
   const slug = flag("slug") ?? slugOf(title)
 
-  console.log(`\n=== «${sheet.name}» → «${title}» −${percent}%, ${rows.length} рядків, ціни за ${unit ?? "?"} → lib/promo-files/${slug}.json`)
+  console.log(`\n=== «${sheet.name}» → «${title}» ${percents.size > 1 ? "до " : ""}−${percent}%, ${rows.length} рядків, ціни за ${unit ?? "?"} → lib/promo-files/${slug}.json`)
   console.log(`Категорії KeyCRM: ${[...cats].join(", ") || "—"}`)
-  console.log("Артикул      Було   Стало  Знижка  В наявності  Назва")
+  console.log("Артикул      Було   Стало  Знижка  Бейдж  В наявності  Назва")
   for (const [sku, p] of Object.entries(prices))
     console.log(
-      `${sku.padEnd(12)} ${String(p.regular).padStart(5)}  ${String(p.sale).padStart(5)}  ${`${percentOf(p.regular, p.sale)}%`.padStart(6)}  ${String(p.available).padStart(11)}  ${p.name}`,
+      `${sku.padEnd(12)} ${String(p.regular).padStart(5)}  ${String(p.sale).padStart(5)}  ${`${percentOf(p.regular, p.sale)}%`.padStart(6)}  ${`−${p.percent}%`.padStart(5)}  ${String(p.available).padStart(11)}  ${p.name}`,
     )
   for (const w of warnings) console.log(`  увага: ${w}`)
   for (const e of errors) console.log(`  ПОМИЛКА: ${e}`)
@@ -248,7 +250,9 @@ for (const sheet of sheets) {
       per: unit ?? "100 г",
       source: `${path.basename(file)} / ${sheet.name}`,
       checkedAt: new Date().toISOString(),
-      prices: Object.fromEntries(Object.entries(prices).map(([sku, p]) => [sku, { regular: p.regular, sale: p.sale }])),
+      prices: Object.fromEntries(
+        Object.entries(prices).map(([sku, p]) => [sku, { regular: p.regular, sale: p.sale, percent: p.percent }]),
+      ),
     },
   })
 }
