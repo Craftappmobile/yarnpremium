@@ -9,7 +9,7 @@ import { Footer } from "./footer"
 import { CartBar } from "./cart-bar"
 import { TrustStrip } from "./promo-blocks"
 import { CampaignBanner, CampaignStrip } from "./campaign-blocks"
-import { type Product, promoDeadline } from "./data"
+import { type Product, bySaleOrder, promoDeadline } from "./data"
 import { announceOffer } from "./assistant"
 import { useCart } from "./cart-context"
 import { type PackedCatalog, unpackCatalog } from "./catalog-pack"
@@ -21,8 +21,8 @@ const PAGE_SIZE = 48
 type CampaignSort = "stock" | "discount" | "price"
 
 const SORTS: { value: CampaignSort; label: string }[] = [
-  { value: "stock", label: "Більше в наявності" },
   { value: "discount", label: "Найбільша знижка" },
+  { value: "stock", label: "Більше в наявності" },
   { value: "price", label: "Ціна: від дешевших" },
 ]
 
@@ -30,10 +30,10 @@ const SORTS: { value: CampaignSort; label: string }[] = [
 const shelfPrice = (p: Product) => (p.priceUnit === "г" ? p.price * 100 : p.price)
 
 function sortFor(sort: CampaignSort): (a: Product, b: Product) => number {
-  if (sort === "discount") return (a, b) => (b.promo?.percent ?? 0) - (a.promo?.percent ?? 0) || b.stock - a.stock
   if (sort === "price") return (a, b) => shelfPrice(a) - shelfPrice(b)
   // Colours there is plenty of come first: enough of them for a whole garment.
-  return (a, b) => b.stock - a.stock
+  if (sort === "stock") return (a, b) => b.stock - a.stock
+  return bySaleOrder
 }
 
 /**
@@ -47,7 +47,7 @@ export default function CampaignShop({ initial, campaign }: { initial: PackedCat
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [group, setGroup] = useState<string | null>(null)
-  const [sort, setSort] = useState<CampaignSort>("stock")
+  const [sort, setSort] = useState<CampaignSort>("discount")
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   usePreloadDialogs()
 
