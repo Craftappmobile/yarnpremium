@@ -240,6 +240,18 @@ export function trackAssistantContact(conversationId: string) {
 }
 
 /**
+ * A tap on the ad landing page's Telegram button (app/tg): Meta's Lead, so
+ * the ads can be optimised for people who go on to the channel, and GA4's
+ * generate_lead.
+ */
+export function trackTelegramLead(channel: string) {
+  if (!enabled()) return
+  boot()
+  window.gtag?.("event", "generate_lead", { method: "telegram", channel, transport_type: "beacon" })
+  window.fbq?.("track", "Lead", { content_name: `Telegram: ${channel}` }, { eventID: `tg-${randomId()}` })
+}
+
+/**
  * A product video started or watched to the end: GA4's video_start /
  * video_complete. Meta gets VideoComplete, so an audience of people who
  * watched the yarn or its sample to the end can be built for ads.
