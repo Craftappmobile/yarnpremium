@@ -34,7 +34,7 @@ function Countdown({ endsAt }: { endsAt?: string }) {
  * mock-up, in the shop's own words, with the countdown; no photos, and the
  * sale's terms are left to the channel.
  */
-export function TelegramLanding({ endsAt, subscribers }: { endsAt?: string; subscribers: string }) {
+export function TelegramLanding({ endsAt }: { endsAt?: string }) {
   const onOpen = (e: MouseEvent<HTMLAnchorElement>) => {
     trackTelegramLead(TELEGRAM_CHANNEL)
     // A moment for the pixel to send the Lead before the page gives way to Telegram.
@@ -70,8 +70,10 @@ export function TelegramLanding({ endsAt, subscribers }: { endsAt?: string; subs
           </svg>
           Відкрити канал у Telegram
         </a>
-        <p className="-mt-2 text-[17px] font-bold">Встигніть зайти 👆</p>
-        <p className="-mt-3 text-[13px] text-zinc-600">Вже {subscribers} підписниць · безкоштовно, без спаму</p>
+        <p className="-mt-1 flex items-center gap-2 text-[26px] font-extrabold leading-none tracking-tight">
+          Встигніть зайти
+          <span aria-hidden className="text-[44px] leading-none">👆</span>
+        </p>
       </div>
     </main>
   )

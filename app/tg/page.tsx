@@ -23,11 +23,5 @@ export const viewport: Viewport = { themeColor: "#eeeeee" }
 
 export default function TelegramLandingPage() {
   const { end } = campaignWindow(campaign)
-  return (
-    <TelegramLanding
-      endsAt={new Date(end).toISOString()}
-      // The channel had 1 203 subscribers when the page was made; round down, never up.
-      subscribers="1 200+"
-    />
-  )
+  return <TelegramLanding endsAt={new Date(end).toISOString()} />
 }
