@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import type { MouseEvent } from "react"
 import { useTimeLeft } from "./campaign-blocks"
@@ -10,12 +9,6 @@ import { pluralUk } from "@/lib/utils"
 /** The Black Friday channel the ads lead to. */
 export const TELEGRAM_CHANNEL = "sincerita_blackfriday"
 const CHANNEL_URL = `https://t.me/${TELEGRAM_CHANNEL}`
-
-const PHOTOS = [
-  { src: "/tg/shyshybryky-chervoni.jpg", alt: "Шишибрики, червоні з золотом" },
-  { src: "/tg/kashemir-temno-synii.jpg", alt: "Кашемір Loro Piana, темно-синій" },
-  { src: "/tg/shyshybryky-pomaranchevi.jpg", alt: "Шишибрики, помаранчеві з золотом" },
-]
 
 const pad = (n: number) => String(n).padStart(2, "0")
 
@@ -39,10 +32,10 @@ function Countdown({ endsAt }: { endsAt?: string }) {
 /**
  * The ad landing page (app/tg): Facebook and Instagram ads lead here, and its
  * one job is the tap on «Відкрити канал у Telegram». Light, as the approved
- * mock-up: the sale's name and dates, the hook, three real skeins, the
- * countdown; the sale's terms are left to the channel.
+ * mock-up, in the shop's own words, with the countdown; no photos, and the
+ * sale's terms are left to the channel.
  */
-export function TelegramLanding({ days, endsAt, subscribers }: { days: string; endsAt?: string; subscribers: string }) {
+export function TelegramLanding({ endsAt, subscribers }: { endsAt?: string; subscribers: string }) {
   const onOpen = (e: MouseEvent<HTMLAnchorElement>) => {
     trackTelegramLead(TELEGRAM_CHANNEL)
     // A moment for the pixel to send the Lead before the page gives way to Telegram.
@@ -58,31 +51,19 @@ export function TelegramLanding({ days, endsAt, subscribers }: { days: string; e
     >
       <p className="text-center text-[15px] font-extrabold tracking-[0.16em]">SINCERITA</p>
 
-      <div className="mx-auto my-auto flex w-full max-w-md flex-col items-center gap-3.5 py-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.1em] text-zinc-700">Чорна п&apos;ятниця · {days}</p>
-        <span className="rounded-xl bg-zinc-950 px-4 py-1.5 text-[30px] font-extrabold leading-tight tracking-tight text-white">
-          Тільки для своїх
+      <div className="mx-auto my-auto flex w-full max-w-md flex-col items-center gap-5 py-8 text-center">
+        <h1 className="text-[34px] font-extrabold leading-[1.1] tracking-tight text-balance">
+          <span aria-hidden>🖤 </span>Чорна п&apos;ятниця Sincerita — тільки для своїх.
+        </h1>
+        <span className="rounded-xl bg-zinc-950 px-4 py-1.5 text-[26px] font-extrabold leading-tight tracking-tight text-white">
+          Вже стартувала!
         </span>
-        <h1 className="text-[32px] font-extrabold leading-[1.1] tracking-tight text-balance">Таких знижок ви ще не бачили</h1>
-        <div className="grid w-full grid-cols-3 gap-2">
-          {PHOTOS.map((p, i) => (
-            <Image
-              key={p.src}
-              src={p.src}
-              alt={p.alt}
-              width={480}
-              height={600}
-              sizes="(min-width: 448px) 135px, 30vw"
-              priority={i === 0}
-              className="aspect-[4/5] w-full rounded-xl object-cover"
-            />
-          ))}
-        </div>
-        <p className="text-[17px] font-semibold leading-snug">Усі умови — у нашому Telegram-каналі</p>
+        <p className="text-[20px] font-semibold leading-snug text-balance">Лише 3 дні, і все — в&nbsp;закритому Telegram.</p>
         <Countdown endsAt={endsAt} />
       </div>
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-2">
+        <p className="text-center text-[17px] font-bold">Встигніть зайти 👉</p>
         <a
           href={CHANNEL_URL}
           onClick={onOpen}

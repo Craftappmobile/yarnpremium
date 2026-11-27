@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { TelegramLanding } from "@/components/shop/telegram-landing"
-import { CAMPAIGNS, campaignDays, campaignWindow } from "@/lib/campaigns"
+import { CAMPAIGNS, campaignWindow } from "@/lib/campaigns"
 import { openGraph } from "@/lib/og"
 
 // The landing page of the Facebook and Instagram ads that lead to the Black
@@ -8,8 +8,8 @@ import { openGraph } from "@/lib/og"
 // search (an ad's page, not the shop's), and static: it renders at build time.
 
 const campaign = CAMPAIGNS.find((c) => c.name === "Чорна п'ятниця")!
-const title = "Чорна п'ятниця: тільки для своїх"
-const description = "Таких знижок ви ще не бачили. Усі умови Чорної п'ятниці SINCERITA — у нашому Telegram-каналі."
+const title = "Чорна п'ятниця Sincerita — тільки для своїх"
+const description = "Вже стартувала! Лише 3 дні, і все — в закритому Telegram."
 
 export const metadata: Metadata = {
   title,
@@ -25,7 +25,6 @@ export default function TelegramLandingPage() {
   const { end } = campaignWindow(campaign)
   return (
     <TelegramLanding
-      days={campaignDays(campaign)}
       endsAt={new Date(end).toISOString()}
       // The channel had 1 203 subscribers when the page was made; round down, never up.
       subscribers="1 200+"
