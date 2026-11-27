@@ -16,7 +16,7 @@ import { categoryPath, categoryTitle } from "@/lib/category-url"
 import { BRAND, HOME_TITLE } from "@/lib/site"
 import { CategoryHeader, PromoStrip, TrustStrip } from "./promo-blocks"
 import { CampaignBanner, CampaignStrip } from "./campaign-blocks"
-import { type Product, type SortOption, promoDeadline, sortOptions, sortProducts } from "./data"
+import { type Product, type SortOption, bySaleOrder, promoDeadline, sortOptions, sortProducts } from "./data"
 import { announceOffer } from "./assistant"
 import { useCart } from "./cart-context"
 import { pluralUk } from "@/lib/utils"
@@ -222,7 +222,13 @@ export default function MinimalShop({
       ? (p: Product) => p.category === homePromo.category
       : null
   const sortedProducts =
-    featured && sort === "default" ? [...sorted.filter(featured), ...sorted.filter((p) => !featured(p))] : sorted
+    featured && sort === "default"
+      ? [
+          // A sale's products as on its page: the biggest discount first.
+          ...(homeCampaign ? sorted.filter(featured).sort(bySaleOrder) : sorted.filter(featured)),
+          ...sorted.filter((p) => !featured(p)),
+        ]
+      : sorted
   const shownProducts = sortedProducts.slice(0, visibleCount)
   // A category's page comes with its first screen, as the home page does with the catalog's.
   const onPageCategory =

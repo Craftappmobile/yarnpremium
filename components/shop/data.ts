@@ -268,6 +268,14 @@ export function priceAddOn(lines: { product: PricedProduct; quantity: number }[]
   })
 }
 
+/**
+ * A sale's products as its page and the home page list them: the biggest
+ * discount first, and among equal ones what there is most of, so the colours
+ * enough for a garment come before the last 50–100 г.
+ */
+export const bySaleOrder = (a: Pick<Product, "promo" | "stock">, b: Pick<Product, "promo" | "stock">) =>
+  (b.promo?.percent ?? 0) - (a.promo?.percent ?? 0) || b.stock - a.stock
+
 /** How long a promotion lasts, for people: "до 19 жовтня включно", or "встигніть, поки є" without an end date. */
 export function promoDeadline(promo: ProductPromo): string {
   if (!promo.endsAt) return "встигніть, поки є"

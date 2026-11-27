@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import MinimalShop from "@/components/shop/minimal-shop"
 import { packCatalog } from "@/components/shop/catalog-pack"
 import { FIRST_SCREEN } from "@/components/shop/catalog-summary"
+import { bySaleOrder } from "@/components/shop/data"
 import { catalogPageData } from "@/lib/catalog-page"
 import { openGraph } from "@/lib/og"
 
@@ -26,7 +27,12 @@ export default async function Home() {
     : promoCategory
       ? (p: (typeof products)[number]) => p.category === promoCategory
       : null
-  const firstScreen = featured ? [...products.filter(featured), ...products.filter((p) => !featured(p))] : products
+  const firstScreen = featured
+    ? [
+        ...(campaign ? products.filter(featured).sort(bySaleOrder) : products.filter(featured)),
+        ...products.filter((p) => !featured(p)),
+      ]
+    : products
   return (
     <main className="min-h-screen">
       <MinimalShop
