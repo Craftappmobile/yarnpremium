@@ -61,7 +61,7 @@ export function Assistant() {
     }
   }, [])
 
-  if (!ASSISTANT_ENABLED || pathname.startsWith("/checkout") || pathname.startsWith("/admin")) return null
+  if (!ASSISTANT_ENABLED || pathname.startsWith("/checkout") || pathname.startsWith("/admin") || pathname === "/tg") return null
   // Product pages have the consultant in the card and in the buy bar on phones;
   // the catalog has it in the cart bar once something is in the cart.
   const onProduct = pathname.startsWith("/product/")

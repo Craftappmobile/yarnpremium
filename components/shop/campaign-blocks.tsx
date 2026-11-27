@@ -48,7 +48,7 @@ export function CampaignStrip({ campaign }: { campaign: CampaignSummary }) {
 }
 
 /** Days, hours and minutes to the end; nothing until the page is in the browser, so the server's clock never shows. */
-function useTimeLeft(endsAt: string | undefined): { d: number; h: number; m: number } | null {
+export function useTimeLeft(endsAt: string | undefined): { d: number; h: number; m: number } | null {
   const [now, setNow] = useState<number | null>(null)
   useEffect(() => {
     setNow(Date.now())
