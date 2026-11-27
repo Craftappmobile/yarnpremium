@@ -148,3 +148,16 @@ html {
   outline: 2px solid #18181b;
   outline-offset: 4px;
 }
+
+/* Landing /tg (components/shop/telegram-landing.tsx): a soft ring spreading from the Telegram button, then a pause. */
+@keyframes tg-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  55%,
+  100% {
+    transform: scale(1.06, 1.45);
+    opacity: 0;
+  }
+}

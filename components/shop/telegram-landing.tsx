@@ -1,6 +1,6 @@
 "use client"
 
-import type { MouseEvent } from "react"
+import { type MouseEvent, useEffect, useState } from "react"
 import { useTimeLeft } from "./campaign-blocks"
 import { trackTelegramLead } from "./analytics"
 import { pluralUk } from "@/lib/utils"
@@ -35,11 +35,24 @@ function Countdown({ endsAt }: { endsAt?: string }) {
  * sale's terms are left to the channel.
  */
 export function TelegramLanding({ endsAt }: { endsAt?: string }) {
+  // Between the tap and Telegram opening the button says so, so nobody taps twice.
+  const [opening, setOpening] = useState(false)
+  // Back from Telegram (the browser restores the page as it was left): the button is ready again.
+  useEffect(() => {
+    const reset = () => setOpening(false)
+    window.addEventListener("pageshow", reset)
+    return () => window.removeEventListener("pageshow", reset)
+  }, [])
   const onOpen = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (opening) {
+      e.preventDefault()
+      return
+    }
     trackTelegramLead(TELEGRAM_CHANNEL)
     // A moment for the pixel to send the Lead before the page gives way to Telegram.
     if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault()
+      setOpening(true)
       setTimeout(() => window.location.assign(CHANNEL_URL), 250)
     }
   }
@@ -60,16 +73,28 @@ export function TelegramLanding({ endsAt }: { endsAt?: string }) {
         <p className="text-[20px] font-semibold leading-snug text-balance">Лише 3 дні, і все — в&nbsp;закритому Telegram.</p>
         <Countdown endsAt={endsAt} />
         {/* The button right under the countdown: the one thing to do here, nothing else to click away to. */}
-        <a
-          href={CHANNEL_URL}
-          onClick={onOpen}
-          className="mt-1 flex min-h-[58px] w-full items-center justify-center gap-2.5 rounded-full bg-[#229ed9] text-[17px] font-bold text-white hover:bg-[#1c8fc5]"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M21.9 4.3 18.6 19.8c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L5.9 13.3 1 11.8c-1.1-.3-1.1-1.1.2-1.6L20.5 2.8c.9-.3 1.7.2 1.4 1.5z" />
-          </svg>
-          Відкрити канал у Telegram
-        </a>
+        <div className="relative mt-1 w-full">
+          {/* A soft ring that spreads from the button every few seconds, so the eye finds it; none for reduced motion. */}
+          {!opening && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 animate-[tg-ring_2.8s_ease-out_infinite] rounded-full bg-[#229ed9] motion-reduce:hidden"
+            />
+          )}
+          <a
+            href={CHANNEL_URL}
+            onClick={onOpen}
+            aria-busy={opening || undefined}
+            className={`relative flex min-h-[58px] w-full items-center justify-center gap-2.5 rounded-full text-[17px] font-bold text-white transition-[transform,background-color] duration-100 active:scale-[0.97] active:bg-[#1a7fb0] motion-reduce:transition-none ${
+              opening ? "scale-[0.98] bg-[#1a7fb0]" : "bg-[#229ed9] hover:bg-[#1c8fc5]"
+            }`}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M21.9 4.3 18.6 19.8c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L5.9 13.3 1 11.8c-1.1-.3-1.1-1.1.2-1.6L20.5 2.8c.9-.3 1.7.2 1.4 1.5z" />
+            </svg>
+            <span aria-live="polite">{opening ? "Відкриваємо Telegram…" : "Відкрити канал у Telegram"}</span>
+          </a>
+        </div>
         <p className="-mt-1 flex items-center gap-2 text-[21px] font-bold leading-none tracking-tight">
           Встигніть зайти
           <span aria-hidden className="text-[40px] leading-none">👆</span>
