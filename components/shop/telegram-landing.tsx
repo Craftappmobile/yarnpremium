@@ -70,9 +70,9 @@ export function TelegramLanding({ endsAt }: { endsAt?: string }) {
           </svg>
           Відкрити канал у Telegram
         </a>
-        <p className="-mt-1 flex items-center gap-2 text-[26px] font-extrabold leading-none tracking-tight">
+        <p className="-mt-1 flex items-center gap-2 text-[21px] font-bold leading-none tracking-tight">
           Встигніть зайти
-          <span aria-hidden className="text-[44px] leading-none">👆</span>
+          <span aria-hidden className="text-[40px] leading-none">👆</span>
         </p>
       </div>
     </main>
